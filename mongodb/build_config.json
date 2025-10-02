@@ -1,0 +1,107 @@
+{
+  "admin_name": "admin",
+  "admin_password": "admin",
+  "configReplicaSet": "cfg",
+  "replicaSets": [
+    {
+      "_id": "cfg",
+      "writeConcernMajorityJournalDefault": true,
+      "members": [
+        {
+          "_id": 0,
+          "host": "localhost:29001",
+          "arbiterOnly": false,
+          "buildIndexes": true,
+          "hidden": false,
+          "priority": 10,
+          "tags": {},
+          "secondaryDelaySecs": 0,
+          "votes": 1
+        }
+      ],
+      "settings": {
+        "chainingAllowed": true,
+        "getLastErrorModes": {},
+        "getLastErrorDefaults": {
+          "w": 1,
+          "wtimeout": 0
+        }
+      }
+    },
+    {
+      "_id": "rs01",
+      "writeConcernMajorityJournalDefault": true,
+      "members": [
+        {
+          "_id": 0,
+          "host": "localhost:29101",
+          "arbiterOnly": false,
+          "buildIndexes": true,
+          "hidden": false,
+          "priority": 10,
+          "tags": {},
+          "secondaryDelaySecs": 0,
+          "votes": 1
+        }
+      ],
+      "settings": {
+        "chainingAllowed": true,
+        "getLastErrorModes": {},
+        "getLastErrorDefaults": {
+          "w": 1,
+          "wtimeout": 0
+        }
+      }
+    },
+    {
+      "_id": "rs02",
+      "writeConcernMajorityJournalDefault": true,
+      "members": [
+        {
+          "_id": 0,
+          "host": "localhost:29201",
+          "arbiterOnly": false,
+          "buildIndexes": true,
+          "hidden": false,
+          "priority": 10,
+          "tags": {},
+          "secondaryDelaySecs": 0,
+          "votes": 1
+        }
+      ],
+      "settings": {
+        "chainingAllowed": true,
+        "getLastErrorModes": {},
+        "getLastErrorDefaults": {
+          "w": 1,
+          "wtimeout": 0
+        }
+      }
+    },
+    {
+      "_id": "rs03",
+      "writeConcernMajorityJournalDefault": true,
+      "members": [
+        {
+          "_id": 0,
+          "host": "localhost:29301",
+          "arbiterOnly": false,
+          "buildIndexes": true,
+          "hidden": false,
+          "priority": 10,
+          "tags": {},
+          "secondaryDelaySecs": 0,
+          "votes": 1
+        }
+      ],
+      "settings": {
+        "chainingAllowed": true,
+        "getLastErrorModes": {},
+        "getLastErrorDefaults": {
+          "w": 1,
+          "wtimeout": 0
+        }
+      }
+    }
+  ]
+}

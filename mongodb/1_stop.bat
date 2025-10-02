@@ -13,4 +13,4 @@ taskkill.exe /F /FI "WINDOWTITLE eq rs03-1"
 taskkill.exe /F /FI "WINDOWTITLE eq cfg-1"
 taskkill.exe /F /FI "WINDOWTITLE eq mongos"
 
-pause
+rem pause
