@@ -1,0 +1,130 @@
+{
+    "_id": "torrow",
+    "user_name": "root",
+    "user_password": "12345",
+    "mongos": [ 
+        {
+            "host": "home4:27020"
+        },
+        {
+            "host": "home4:27021"
+        }
+    ],
+    "shards": [
+        { 
+            "_id": "cfg",
+            "configsvr": true,
+            "members" : [
+                {
+                    "_id" : 0,
+                    "host" : "home4:27901",
+                    "priority" : 10
+                },
+                {
+                    "_id" : 1,
+                    "host" : "home4:27902",
+                    "priority" : 5
+                },
+                {
+                    "_id" : 2,
+                    "host" : "home4:27903",
+                    "priority" : 1
+                }
+            ]
+        },
+        { 
+            "_id": "rs01",
+            "user_name": "rsadmin",
+            "user_password": "12345",
+            "members" : [
+                {
+                    "_id" : 0,
+                    "host" : "home4:29101",
+                    "priority" : 10
+                },
+                {
+                    "_id" : 1,
+                    "host" : "home4:29102",
+                    "priority" : 5
+                },
+                {
+                    "_id" : 2,
+                    "host" : "home4:29103",
+                    "priority" : 1
+                },
+                {
+                    "_id" : 3,
+                    "host" : "home4:29104",
+                    "hidden" : true,
+                    "priority" : 0,
+                    "votes" : 0
+                },
+                {
+                    "_id" : 4,
+                    "host" : "home4:29100",
+                    "arbiterOnly" : true,
+                    "priority" : 0,
+                    "votes" : 1
+                }
+            ]
+        },
+        { 
+            "_id": "rs02",
+            "user_name": "rsadmin",
+            "user_password": "12345",
+            "members" : [
+                {
+                    "_id" : 0,
+                    "host" : "home4:29201",
+                    "priority" : 10
+                },
+                {
+                    "_id" : 1,
+                    "host" : "home4:29202",
+                    "priority" : 5
+                },
+                {
+                    "_id" : 2,
+                    "host" : "home4:29203",
+                    "priority" : 1
+                },
+                {
+                    "_id" : 3,
+                    "host" : "home4:29200",
+                    "arbiterOnly" : true,
+                    "priority" : 0,
+                    "votes" : 1
+                }
+            ]
+        },
+        { 
+            "_id": "rs90",
+            "user_name": "rsadmin",
+            "user_password": "12345",
+            "members" : [
+                {
+                    "_id" : 0,
+                    "host" : "home4:29301",
+                    "priority" : 10
+                },
+                {
+                    "_id" : 1,
+                    "host" : "home4:29302",
+                    "priority" : 5
+                },
+                {
+                    "_id" : 2,
+                    "host" : "home4:29303",
+                    "priority" : 1
+                },
+                {
+                    "_id" : 3,
+                    "host" : "home4:29300",
+                    "arbiterOnly" : true,
+                    "priority" : 0,
+                    "votes" : 1
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,170 @@
+{
+    queryPlanner: {
+      winningPlan: {
+        stage: 'SINGLE_SHARD',
+        shards: [
+          {
+            explainVersion: '1',
+            shardName: 'rs01',
+            connectionString: 'rs01/localhost:29101',
+            serverInfo: {
+              host: 'DESKTOP-JM56VM1',
+              port: 29101,
+              version: '8.2.0',
+              gitVersion: '13e629eeccd63f00d17568fc4c12b7530fa34b54'
+            },
+            namespace: 'CounterTest.factIndex',
+            parsedQuery: {
+              '$and': [
+                {
+                  h: {
+                    '$eq': '1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758'
+                  }
+                },
+                {
+                  d: {
+                    '$gte': ISODate('2025-09-28T15:01:50.023Z')
+                  }
+                }
+              ]
+            },
+            indexFilterSet: false,
+            queryHash: '196AD772',
+            planCacheShapeHash: '196AD772',
+            planCacheKey: 'A291CC66',
+            optimizationTimeMillis: 5,
+            maxIndexedOrSolutionsReached: false,
+            maxIndexedAndSolutionsReached: false,
+            maxScansToExplodeReached: false,
+            prunedSimilarIndexes: false,
+            winningPlan: {
+              isCached: false,
+              stage: 'FETCH',
+              inputStage: {
+                stage: 'SHARDING_FILTER',
+                inputStage: {
+                  stage: 'IXSCAN',
+                  keyPattern: {
+                    h: 1,
+                    d: -1,
+                    i: 1
+                  },
+                  indexName: 'idx_h_d_i',
+                  isMultiKey: false,
+                  multiKeyPaths: {
+                    h: [],
+                    d: [],
+                    i: []
+                  },
+                  isUnique: false,
+                  isSparse: false,
+                  isPartial: false,
+                  indexVersion: 2,
+                  direction: 'forward',
+                  indexBounds: {
+                    h: [
+                      '["1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758", "1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758"]'
+                    ],
+                    d: [
+                      '[new Date(9223372036854775807), new Date(1759071710023)]'
+                    ],
+                    i: [
+                      '[MinKey, MaxKey]'
+                    ]
+                  }
+                }
+              }
+            },
+            rejectedPlans: [
+              {
+                isCached: false,
+                stage: 'SHARDING_FILTER',
+                inputStage: {
+                  stage: 'FETCH',
+                  filter: {
+                    d: {
+                      '$gte': ISODate('2025-09-28T15:01:50.023Z')
+                    }
+                  },
+                  inputStage: {
+                    stage: 'IXSCAN',
+                    keyPattern: {
+                      h: 1,
+                      i: 1
+                    },
+                    indexName: 'idx_h_i_unique',
+                    isMultiKey: false,
+                    multiKeyPaths: {
+                      h: [],
+                      i: []
+                    },
+                    isUnique: true,
+                    isSparse: false,
+                    isPartial: false,
+                    indexVersion: 2,
+                    direction: 'forward',
+                    indexBounds: {
+                      h: [
+                        '["1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758", "1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758"]'
+                      ],
+                      i: [
+                        '[MinKey, MaxKey]'
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    queryShapeHash: 'DDA93204906C1DAD82250B7B24E46552AB194C0C989A5ACFF75F78EC1B52DA5D',
+    serverInfo: {
+      host: 'DESKTOP-JM56VM1',
+      port: 27020,
+      version: '8.2.0',
+      gitVersion: '13e629eeccd63f00d17568fc4c12b7530fa34b54'
+    },
+    serverParameters: {
+      internalQueryFacetBufferSizeBytes: 104857600,
+      internalQueryFacetMaxOutputDocSizeBytes: 104857600,
+      internalLookupStageIntermediateDocumentMaxSizeBytes: 104857600,
+      internalDocumentSourceGroupMaxMemoryBytes: 104857600,
+      internalQueryMaxBlockingSortMemoryUsageBytes: 104857600,
+      internalQueryProhibitBlockingMergeOnMongoS: 0,
+      internalQueryMaxAddToSetBytes: 104857600,
+      internalDocumentSourceSetWindowFieldsMaxMemoryBytes: 104857600,
+      internalQueryFrameworkControl: 'trySbeRestricted',
+      internalQueryPlannerIgnoreIndexWithCollationForRegex: 1
+    },
+    command: {
+      find: 'factIndex',
+      filter: {
+        h: '1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758',
+        d: {
+          '$gte': ISODate('2025-09-28T15:01:50.023Z')
+        }
+      },
+      lsid: {
+        id: UUID('ad147bb6-3b1f-4b26-a6e2-b6aa35a9d2c7')
+      },
+      '$clusterTime': {
+        clusterTime: Timestamp({ t: 1759157714, i: 1096 }),
+        signature: {
+          hash: Binary.createFromBase64('AAAAAAAAAAAAAAAAAAAAAAAAAAA=', 0),
+          keyId: 0
+        }
+      },
+      '$db': 'CounterTest'
+    },
+    ok: 1,
+    '$clusterTime': {
+      clusterTime: Timestamp({ t: 1759158110, i: 883 }),
+      signature: {
+        hash: Binary.createFromBase64('AAAAAAAAAAAAAAAAAAAAAAAAAAA=', 0),
+        keyId: Long('0')
+      }
+    },
+    operationTime: Timestamp({ t: 1759158110, i: 883 })
+  }

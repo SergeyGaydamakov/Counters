@@ -1,0 +1,30 @@
+[
+	{
+		"dbName": "trw_data",
+		"fileName": "./Local/Conn/db_connection_data.json"
+	},
+	{
+		"dbName": "trw_stat",
+		"fileName": "./Local/Conn/db_connection_stat.json"
+	},
+	{
+		"dbName": "trw_uniq",
+		"fileName": "./Local/Conn/db_connection_uniq.json"
+	},
+	{
+		"dbName": "trw_url",
+		"fileName": "./Local/Conn/db_connection_url.json"
+	},
+	{
+		"dbName": "trw_vrf",
+		"fileName": "./Local/Conn/db_connection_vrf.json"
+	},
+	{
+		"dbName": "trw_que",
+		"fileName": "./Local/Conn/db_connection_que.json"
+	},
+	{
+		"dbName": "trw_imp",
+		"fileName": "./Local/Conn/db_connection_imp.json"
+	}
+]

@@ -1,0 +1,417 @@
+{
+  "serverInfo": {
+    "host": "DESKTOP-JM56VM1",
+    "port": 27020,
+    "version": "8.2.0",
+    "gitVersion": "13e629eeccd63f00d17568fc4c12b7530fa34b54"
+  },
+  "serverParameters": {
+    "internalQueryFacetBufferSizeBytes": 104857600,
+    "internalQueryFacetMaxOutputDocSizeBytes": 104857600,
+    "internalLookupStageIntermediateDocumentMaxSizeBytes": 104857600,
+    "internalDocumentSourceGroupMaxMemoryBytes": 104857600,
+    "internalQueryMaxBlockingSortMemoryUsageBytes": 104857600,
+    "internalQueryProhibitBlockingMergeOnMongoS": 0,
+    "internalQueryMaxAddToSetBytes": 104857600,
+    "internalDocumentSourceSetWindowFieldsMaxMemoryBytes": 104857600,
+    "internalQueryFrameworkControl": "trySbeRestricted",
+    "internalQueryPlannerIgnoreIndexWithCollationForRegex": 1
+  },
+  "mergeType": "router",
+  "splitPipeline": {
+    "shardsPart": [
+      {
+        "$match": {
+          "$and": [
+            {
+              "$or": [
+                {
+                  "$and": [
+                    {
+                      "h": {
+                        "$eq": "1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758"
+                      }
+                    },
+                    {
+                      "d": {
+                        "$gte": ISODate("2024-09-15T13:35:04.275Z")
+                      }
+                    }
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "h": {
+                        "$eq": "6c112d7c8244ddedf4f48fbf35c578b33a382793fe153726b91ce07bceb19cce"
+                      }
+                    },
+                    {
+                      "d": {
+                        "$gte": ISODate("2025-09-15T13:35:04.275Z")
+                      }
+                    }
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "h": {
+                        "$eq": "f970e3072069e8a3e501697f21b275c1bcdb0f6d7660fca2f71c707cd68b46b0"
+                      }
+                    },
+                    {
+                      "d": {
+                        "$gte": ISODate("2025-09-15T13:35:04.275Z")
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "i": {
+                "$not": {
+                  "$eq": "6ead1ede6d2b8ae568da8b0a"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "$sort": {
+          "sortKey": {
+            "d": -1
+          }
+        }
+      },
+      {
+        "$project": {
+          "i": true,
+          "_id": false
+        }
+      }
+    ],
+    "mergerPart": [
+      {
+        "$mergeCursors": {
+          "lsid": {
+            "id": UUID("87472147-65f9-4419-8a1a-be138e250ac9"),
+            "uid": Binary.createFromBase64("47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=", 0)
+          },
+          "sort": {
+            "d": -1
+          },
+          "compareWholeSortKey": false,
+          "tailableMode": "normal",
+          "nss": "CounterTest.factIndex",
+          "allowPartialResults": false,
+          "recordRemoteOpWaitTime": false,
+          "requestQueryStatsFromRemotes": false
+        }
+      },
+      {
+        "$group": {
+          "_id": "$i",
+          "$willBeMerged": false
+        }
+      },
+      {
+        "$limit": Long("1000")
+      },
+      {
+        "$lookup": {
+          "from": "facts",
+          "as": "fact",
+          "localField": "_id",
+          "foreignField": "i",
+          "unwinding": {
+            "preserveNullAndEmptyArrays": false
+          }
+        }
+      },
+      {
+        "$project": {
+          "fact": true,
+          "_id": false
+        }
+      }
+    ]
+  },
+  "shards": {
+    "rs03": {
+      "host": "localhost:29301",
+      "explainVersion": "1",
+      "queryPlanner": {
+        "namespace": "CounterTest.factIndex",
+        "parsedQuery": {
+          "$and": [
+            {
+              "$or": [
+                {
+                  "$and": [
+                    {
+                      "h": {
+                        "$eq": "1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758"
+                      }
+                    },
+                    {
+                      "d": {
+                        "$gte": ISODate("2024-09-15T13:35:04.275Z")
+                      }
+                    }
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "h": {
+                        "$eq": "6c112d7c8244ddedf4f48fbf35c578b33a382793fe153726b91ce07bceb19cce"
+                      }
+                    },
+                    {
+                      "d": {
+                        "$gte": ISODate("2025-09-15T13:35:04.275Z")
+                      }
+                    }
+                  ]
+                },
+                {
+                  "$and": [
+                    {
+                      "h": {
+                        "$eq": "f970e3072069e8a3e501697f21b275c1bcdb0f6d7660fca2f71c707cd68b46b0"
+                      }
+                    },
+                    {
+                      "d": {
+                        "$gte": ISODate("2025-09-15T13:35:04.275Z")
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "i": {
+                "$not": {
+                  "$eq": "6ead1ede6d2b8ae568da8b0a"
+                }
+              }
+            }
+          ]
+        },
+        "indexFilterSet": false,
+        "queryHash": "F5EB4FF9",
+        "planCacheShapeHash": "F5EB4FF9",
+        "planCacheKey": "D431BDC8",
+        "optimizationTimeMillis": 1,
+        "optimizedPipeline": true,
+        "maxIndexedOrSolutionsReached": false,
+        "maxIndexedAndSolutionsReached": false,
+        "maxScansToExplodeReached": false,
+        "prunedSimilarIndexes": false,
+        "winningPlan": {
+          "isCached": false,
+          "stage": "PROJECTION_DEFAULT",
+          "transformBy": {
+            "i": true,
+            "_id": false
+          },
+          "inputStage": {
+            "stage": "SORT_KEY_GENERATOR",
+            "inputStage": {
+              "stage": "SHARDING_FILTER",
+              "inputStage": {
+                "stage": "SORT_MERGE",
+                "sortPattern": {
+                  "d": -1
+                },
+                "inputStages": [
+                  {
+                    "stage": "IXSCAN",
+                    "keyPattern": {
+                      "h": 1,
+                      "d": -1,
+                      "i": 1
+                    },
+                    "indexName": "idx_h_d_i",
+                    "isMultiKey": false,
+                    "multiKeyPaths": {
+                      "h": [],
+                      "d": [],
+                      "i": []
+                    },
+                    "isUnique": false,
+                    "isSparse": false,
+                    "isPartial": false,
+                    "indexVersion": 2,
+                    "direction": "forward",
+                    "indexBounds": {
+                      "h": [
+                        "[\"1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758\", \"1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758\"]"
+                      ],
+                      "d": [
+                        "[new Date(9223372036854775807), new Date(1726407304275)]"
+                      ],
+                      "i": [
+                        "[MinKey, \"6ead1ede6d2b8ae568da8b0a\")",
+                        "(\"6ead1ede6d2b8ae568da8b0a\", MaxKey]"
+                      ]
+                    }
+                  },
+                  {
+                    "stage": "IXSCAN",
+                    "keyPattern": {
+                      "h": 1,
+                      "d": -1,
+                      "i": 1
+                    },
+                    "indexName": "idx_h_d_i",
+                    "isMultiKey": false,
+                    "multiKeyPaths": {
+                      "h": [],
+                      "d": [],
+                      "i": []
+                    },
+                    "isUnique": false,
+                    "isSparse": false,
+                    "isPartial": false,
+                    "indexVersion": 2,
+                    "direction": "forward",
+                    "indexBounds": {
+                      "h": [
+                        "[\"6c112d7c8244ddedf4f48fbf35c578b33a382793fe153726b91ce07bceb19cce\", \"6c112d7c8244ddedf4f48fbf35c578b33a382793fe153726b91ce07bceb19cce\"]"
+                      ],
+                      "d": [
+                        "[new Date(9223372036854775807), new Date(1757943304275)]"
+                      ],
+                      "i": [
+                        "[MinKey, \"6ead1ede6d2b8ae568da8b0a\")",
+                        "(\"6ead1ede6d2b8ae568da8b0a\", MaxKey]"
+                      ]
+                    }
+                  },
+                  {
+                    "stage": "IXSCAN",
+                    "keyPattern": {
+                      "h": 1,
+                      "d": -1,
+                      "i": 1
+                    },
+                    "indexName": "idx_h_d_i",
+                    "isMultiKey": false,
+                    "multiKeyPaths": {
+                      "h": [],
+                      "d": [],
+                      "i": []
+                    },
+                    "isUnique": false,
+                    "isSparse": false,
+                    "isPartial": false,
+                    "indexVersion": 2,
+                    "direction": "forward",
+                    "indexBounds": {
+                      "h": [
+                        "[\"f970e3072069e8a3e501697f21b275c1bcdb0f6d7660fca2f71c707cd68b46b0\", \"f970e3072069e8a3e501697f21b275c1bcdb0f6d7660fca2f71c707cd68b46b0\"]"
+                      ],
+                      "d": [
+                        "[new Date(9223372036854775807), new Date(1757943304275)]"
+                      ],
+                      "i": [
+                        "[MinKey, \"6ead1ede6d2b8ae568da8b0a\")",
+                        "(\"6ead1ede6d2b8ae568da8b0a\", MaxKey]"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "rejectedPlans": [
+          // ... (omitted for brevity, but all keys should be double quoted)
+        ]
+      }
+    }
+    // ... (other shards, all keys should be double quoted)
+  },
+  "queryShapeHash": "26FAAC982FDA4EAC8A3EB8F340C137D9240E7308A40B388E3E3002F0875E0724",
+  "command": {
+    "aggregate": "factIndex",
+    "pipeline": [
+      {
+        "$match": {
+          "$or": [
+            {
+              "h": "1e1bcae876a8c564faaa5dda18c33f91f2af284c6a9faed855e2a89641d25758",
+              "d": {
+                "$gte": ISODate("2024-09-15T13:35:04.275Z")
+              }
+            },
+            {
+              "h": "6c112d7c8244ddedf4f48fbf35c578b33a382793fe153726b91ce07bceb19cce",
+              "d": {
+                "$gte": ISODate("2025-09-15T13:35:04.275Z")
+              }
+            },
+            {
+              "h": "f970e3072069e8a3e501697f21b275c1bcdb0f6d7660fca2f71c707cd68b46b0",
+              "d": {
+                "$gte": ISODate("2025-09-15T13:35:04.275Z")
+              }
+            }
+          ]
+        }
+      },
+      {
+        "$sort": {
+          "d": -1
+        }
+      },
+      {
+        "$match": {
+          "i": {
+            "$ne": "6ead1ede6d2b8ae568da8b0a"
+          }
+        }
+      },
+      {
+        "$group": {
+          "_id": "$i"
+        }
+      },
+      {
+        "$limit": 1000
+      },
+      {
+        "$lookup": {
+          "from": "facts",
+          "localField": "_id",
+          "foreignField": "i",
+          "as": "fact"
+        }
+      },
+      {
+        "$unwind": "$fact"
+      },
+      {
+        "$project": {
+          "_id": 0,
+          "fact": 1
+        }
+      }
+    ],
+    "cursor": {}
+  },
+  "ok": 1,
+  "$clusterTime": {
+    "clusterTime": Timestamp({ t: 1759161731, i: 651 }),
+    "signature": {
+      "hash": Binary.createFromBase64("AAAAAAAAAAAAAAAAAAAAAAAAAAA=", 0),
+      "keyId": Long("0")
+    }
+  },
+  "operationTime": Timestamp({ t: 1759161731, i: 649 })
+}

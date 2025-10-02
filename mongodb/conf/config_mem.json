@@ -1,0 +1,17 @@
+{
+    "_id": "inmem",
+    "user_name": "rsadmin",
+    "user_password": "12345",
+    "members" : [
+        {
+            "_id" : 0,
+            "host" : "percona-mongo1.test.svc.cluster.local:27017",
+            "priority" : 111
+        },
+        {
+            "_id" : 1,
+            "host" : "percona-mongo2.test.svc.cluster.local:27017",
+            "priority" : 11
+        }
+    ]
+}

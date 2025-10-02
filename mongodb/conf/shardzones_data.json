@@ -1,0 +1,121 @@
+{
+    "shardzones": [
+        {
+            "id": 1,
+            "zoneName": "RU_DC1_SH1",
+            "shards": ["rs01"],
+            "communities": [
+                {
+                    "from": null,
+                    "to": 0
+                },
+                {
+                    "from": 7001,
+                    "to": 7005
+                },
+                {
+                    "from": 700001,
+                    "to": 700005
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "zoneName": "RU_DC1_SH2",
+            "shards": ["rs02"],
+            "communities": [
+                {
+                    "from": 7006,
+                    "to": 7010
+                },
+                {
+                    "from": 700006,
+                    "to": 700010
+                }
+            ]
+        },
+        {
+            "id": 90,
+            "zoneName": "RU_DC1_SH90",
+            "shards": ["rs90"],
+            "communities": [
+                {
+                    "from": 1,
+                    "to": 7000
+                },
+                {
+                    "from": 7011,
+                    "to": 700000
+                },
+                {
+                    "from": 700011,
+                    "to": null
+                }
+            ]
+        }
+    ],
+    "regions": [
+        {
+            "id": 1,
+            "zoneName": "RU_DC1_SH1",
+            "shards": ["rs01"],
+            "communities": [
+                {
+                    "from": null,
+                    "to": 79
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "zoneName": "RU_DC1_SH2",
+            "shards": ["rs02"],
+            "communities": [
+                {
+                    "from": 80,
+                    "to": null
+                }
+            ]
+        }
+    ],
+    "shardzones_que": [
+        {
+            "id": 1,
+            "zoneName": "RU_DC1_SH1",
+            "shards": ["rs01"],
+            "communities": [
+                {
+                    "from": 1,
+                    "to": 1
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "zoneName": "RU_DC1_SH2",
+            "shards": ["rs02"],
+            "communities": [
+                {
+                    "from": 2,
+                    "to": 2
+                }
+            ]
+        },
+        {
+            "id": 90,
+            "zoneName": "RU_DC1_SH90",
+            "shards": ["rs90"],
+            "communities": [
+                {
+                    "from": 3,
+                    "to": null
+                }
+            ]
+        }
+    ],
+    "shardzones_uniq": [
+	],
+    "version": "7",
+    "comment": "",
+    "documentation": "manual editing"
+}

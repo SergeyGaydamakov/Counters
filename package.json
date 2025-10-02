@@ -1,0 +1,29 @@
+{
+  "name": "counter-test",
+  "version": "1.0.0",
+  "description": "MongoDB performance testing with fact generation",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "set LOG_LEVEL=DEBUG && node src/tests/testEnvConfig.js && node src/tests/loggerTest.js && node src/tests/factTest.js && node src/tests/factIndexerTest.js && node src/tests/mongoProviderTest.js && node src/tests/factControllerTest.js && node src/tests/mongoFactIndexTest.js",
+    "test:env": "set LOG_LEVEL=DEBUG && node src/tests/testEnvConfig.js",
+    "test:logger": "set LOG_LEVEL=DEBUG && node src/tests/loggerTest.js",
+    "test:fact": "set LOG_LEVEL=DEBUG && node src/tests/factTest.js",
+    "test:mongo": "set LOG_LEVEL=DEBUG && node src/tests/mongoProviderTest.js",
+    "test:controller": "set LOG_LEVEL=DEBUG && node src/tests/factControllerTest.js",
+    "test:indexer": "set LOG_LEVEL=DEBUG && node src/tests/factIndexerTest.js",
+    "test:mongo-index": "set LOG_LEVEL=DEBUG && node src/tests/mongoFactIndexTest.js",
+    "start": "set LOG_LEVEL=INFO && node src/index.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "mongodb": "^6.0.0",
+    "uuid": "^9.0.0"
+  },
+  "keywords": [
+    "mongodb",
+    "performance",
+    "testing"
+  ],
+  "author": "",
+  "license": "MIT"
+}
