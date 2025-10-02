@@ -16,57 +16,6 @@ function getConfigJSON( filename = CONFIG_FILE_NAME ){
     return config;
 }
 
-// Функция для инициализации набора реплик
-function build(replicaName){
-	console.log("Start initiating replica set <"+replicaName+">");
-    const config = getConfigJSON();
-    if (!config) {
-        console.log("ERROR: Config is null");
-        return false;
-    }
-    const cfg = config.replicaSets.find(cfg => cfg._id === replicaName);
-    if (!cfg) {
-        console.log("ERROR: Replica set <"+replicaName+"> not found in config");
-        return false;
-    }
-    const admin_name = config.admin_name;
-    const admin_password = config.admin_password;
-	// console.log( JSON.stringify(cfg, null, 2) );
-
-	try {
-        // Проверка, является ли сервер репликой
-        const info = db.isMaster();
-        const isReplicaset = info.ismaster || info.secondary;
-        if (!isReplicaset ) {
-		    rs.initiate( cfg );
-        }
-        // Ожидание инициализации набора реплик
-        const timeoutTime = new Date(Date.now() + 20000);
-        let ismaster = false;
-        while (!ismaster && (timeoutTime.getTime() > new Date().getTime())) {
-            // Ожидаем 15 секунд
-            sleep(1000);
-            ismaster = db.isMaster().ismaster;
-        }
-        if (!ismaster){
-            console.log(`ERROR: Ошибка инициализации набора реплик ${cfg._id}`);
-            return false;
-        }
-
-        // Создание пользователя
-        if (!createAdminUserOfCluster( admin_name, admin_password, cfg._id )) {
-            console.log("");
-            return false;
-        }
-    } catch (e) {
-        console.log("***ERROR*** in rs.initiate: " + e.message);
-        return false;
-    };
-    console.log("***SUCCESS*** Replica set <"+cfg._id+"> was initiated successfully.");
-    console.log("");
-    return true;
-};
-
 // Функция для создания администратора набора реплик
 function createAdminUserOfCluster( user_name, user_password, hostname ) {
     if (!user_name) {
@@ -119,8 +68,59 @@ function createAdminUserOfCluster( user_name, user_password, hostname ) {
     return true;
 }
 
+// Функция для инициализации набора реплик
+function build(replicaName){
+	console.log("Start initiating replica set <"+replicaName+">");
+    const config = getConfigJSON();
+    if (!config) {
+        console.log("ERROR: Config is null");
+        return false;
+    }
+    const cfg = config.replicaSets.find(cfg => cfg._id === replicaName);
+    if (!cfg) {
+        console.log("ERROR: Replica set <"+replicaName+"> not found in config");
+        return false;
+    }
+    const admin_name = config.admin_name;
+    const admin_password = config.admin_password;
+	// console.log( JSON.stringify(cfg, null, 2) );
+
+	try {
+        // Проверка, является ли сервер репликой
+        const info = db.isMaster();
+        const isReplicaset = info.ismaster || info.secondary;
+        if (!isReplicaset ) {
+		    rs.initiate( cfg );
+        }
+        // Ожидание инициализации набора реплик
+        const timeoutTime = new Date(Date.now() + 20000);
+        let ismaster = false;
+        while (!ismaster && (timeoutTime.getTime() > new Date().getTime())) {
+            // Ожидаем 15 секунд
+            sleep(1000);
+            ismaster = db.isMaster().ismaster;
+        }
+        if (!ismaster){
+            console.log(`ERROR: Ошибка инициализации набора реплик ${cfg._id}`);
+            return false;
+        }
+
+        // Создание пользователя
+        if (!createAdminUserOfCluster( admin_name, admin_password, cfg._id )) {
+            console.log("");
+            return false;
+        }
+    } catch (e) {
+        console.log("***ERROR*** in rs.initiate: " + e.message);
+        return false;
+    };
+    console.log("***SUCCESS*** Replica set <"+cfg._id+"> was initiated successfully.");
+    console.log("");
+    return true;
+};
+
 // Создание кластера из готовых Replica Set
-function CreateCluster(){
+function createCluster(){
     console.log("Creating shard cluster:");
     const config = getConfigJSON();
     if (!config) {
@@ -170,7 +170,7 @@ function CreateCluster(){
     } else {
         console.log("Cluster has no shards");
     }
-    
+
     console.log("Add shards to cluster:");
     var success = true;
     shards.forEach( function( shard ){
@@ -191,8 +191,6 @@ function CreateCluster(){
 }
 
 module.exports = {
-    getConfig: getConfigJSON,
     build,
-    createAdminUserOfCluster,
     CreateCluster
 };
