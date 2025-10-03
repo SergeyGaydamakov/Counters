@@ -4,7 +4,8 @@ const Logger = require('../utils/logger');
 
 /**
  * Формат файла indexConfig.json
- * @property {string} fieldName - Имя поля факта
+ * @property {string} fieldName - Имя поля факта, включаемого в индекс
+ * @property {string} dateName - Имя поля с датой в факте, используемого для индексации
  * @property {string} indexTypeName - Имя типа индекса
  * @property {number} indexType - Тип индекса
  * @property {number} indexValue - Значение индекса (1 - хеш, 2 - само значение поля fieldName)
@@ -15,6 +16,7 @@ const Logger = require('../utils/logger');
  * Класс для создания индексных значений из фактов
  * 
  * Структура индексного значения (factIndex):
+ * @property {string} h - Хеш значение типа + поля факта
  * @property {number} it - Номер индексируемого поля (из названия поля fN)
  * @property {string} f - Значение индексируемого поля
  * @property {string} i - Идентификатор факта
@@ -93,7 +95,7 @@ class FactIndexer {
             }
 
             // Проверяем наличие обязательных полей
-            const requiredFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue'];
+            const requiredFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName'];
             for (const field of requiredFields) {
                 if (!(field in configItem)) {
                     throw new Error(`Элемент конфигурации ${index}: отсутствует обязательное поле '${field}'`);
@@ -136,8 +138,13 @@ class FactIndexer {
                 throw new Error(`Элемент конфигурации ${index}: поле 'indexValue' должно быть 1 или 2, получено: ${configItem.indexValue}`);
             }
 
+            // Проверяем тип поля dateName
+            if (typeof configItem.dateName !== 'string') {
+                throw new Error(`Элемент конфигурации ${index}: поле 'dateName' должно быть строкой`);
+            }
+
             // Проверяем на наличие лишних полей
-            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue'];
+            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName'];
             const extraFields = Object.keys(configItem).filter(key => !allowedFields.includes(key));
             if (extraFields.length > 0) {
                 throw new Error(`Элемент конфигурации ${index}: содержит недопустимые поля: ${extraFields.join(', ')}`);
@@ -178,6 +185,26 @@ class FactIndexer {
     }
 
     /**
+     * Преобразует значение в Date, если это возможно
+     * @param {any} value - значение для преобразования
+     * @returns {Date|null} объект Date или null, если преобразование невозможно
+     */
+    _convertToDate(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        // Если уже Date объект
+        if (value instanceof Date) {
+            return isNaN(value.getTime()) ? null : value;
+        }
+
+        // Пытаемся создать Date из строки или числа
+        const date = new Date(value);
+        return isNaN(date.getTime()) ? null : date;
+    }
+
+    /**
      * Создает массив индексных значений из JSON факта
      * @param {Object} fact - JSON объект факта
      * @returns {Array<Object>} массив объектов-индексных значений
@@ -205,6 +232,7 @@ class FactIndexer {
         // Проходим по конфигурации индексов
         this._indexConfig.forEach(configItem => {
             const fieldName = configItem.fieldName;
+            const dateName = configItem.dateName;
             
             // Проверяем, есть ли поле в факте
             if (fieldName in fact && fact[fieldName] !== null && fact[fieldName] !== undefined) {
@@ -221,12 +249,28 @@ class FactIndexer {
                     throw new Error(`Неподдерживаемое значение indexValue: ${configItem.indexValue}`);
                 }
 
+                // Получаем дату из поля, указанного в dateName
+                let indexDate = null; // значение по умолчанию
+                if (dateName in fact && fact[dateName] !== null && fact[dateName] !== undefined) {
+                    const convertedDate = this._convertToDate(fact[dateName]);
+                    if (convertedDate !== null) {
+                        indexDate = convertedDate;
+                    }
+                } else {
+                    this.logger.warn(`Поле ${dateName}, в котором должна быть дата, не найдено для факта ${fact.i}. Индексирование для ${configItem.indexTypeName} не будет производиться.`);
+                    return;
+                }
+                if (indexDate === null) {
+                    this.logger.warn(`Поле ${dateName}, в котором должна быть дата, содержит невалидную дату для факта ${fact.i}. Индексирование для ${configItem.indexTypeName} не будет производиться.`);
+                    return;
+                }
+
                 indexValues.push({
                     it: configItem.indexType,    // числовой тип индекса из конфигурации
                     f: fact[fieldName],          // значение поля из факта
                     h: indexValue,               // вычисленное значение индекса
                     i: fact.i,                   // идентификатор факта
-                    d: fact.d,                   // дата факта
+                    d: indexDate,                // дата из поля dateName или значение по умолчанию
                     c: fact.c                    // дата создания факта
                 });
             }

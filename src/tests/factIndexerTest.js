@@ -12,42 +12,49 @@ class FactIndexerTest {
         this.testConfig = [
             {
                 fieldName: "f1",
+                dateName: "d",
                 indexTypeName: "test_type_1",
                 indexType: 1,
                 indexValue: 1
             },
             {
                 fieldName: "f2",
+                dateName: "d",
                 indexTypeName: "test_type_2",
                 indexType: 2,
                 indexValue: 2
             },
             {
                 fieldName: "f3",
+                dateName: "d",
                 indexTypeName: "test_type_3",
                 indexType: 3,
                 indexValue: 1
             },
             {
                 fieldName: "f5",
+                dateName: "d",
                 indexTypeName: "test_type_5",
                 indexType: 5,
                 indexValue: 2
             },
             {
                 fieldName: "f10",
+                dateName: "d",
                 indexTypeName: "test_type_10",
                 indexType: 10,
                 indexValue: 1
             },
             {
                 fieldName: "f15",
+                dateName: "d",
                 indexTypeName: "test_type_15",
                 indexType: 15,
                 indexValue: 2
             },
             {
                 fieldName: "f23",
+                dateName: "d",
                 indexTypeName: "test_type_23",
                 indexType: 23,
                 indexValue: 1
@@ -78,6 +85,7 @@ class FactIndexerTest {
         this.testMultipleFacts('6. Тест с множественными фактами...');
         this.testStatistics('7. Тест структуры индексных значений...');
         this.testWithGeneratedFacts('8. Тест с сгенерированными фактами...');
+        this.testDateNameField('9. Тест с полем dateName...');
 
         this.printResults();
     }
@@ -462,6 +470,95 @@ class FactIndexerTest {
     }
 
     /**
+     * Тест с полем dateName
+     */
+    testDateNameField(title) {
+        this.logger.debug(title);
+        
+        try {
+            // Создаем конфигурацию с разными полями дат
+            const config = [
+                {
+                    fieldName: "f1",
+                    dateName: "customDate",
+                    indexTypeName: "test_type_1",
+                    indexType: 1,
+                    indexValue: 1
+                },
+                {
+                    fieldName: "f2", 
+                    dateName: "dt",
+                    indexTypeName: "test_type_2",
+                    indexType: 2,
+                    indexValue: 2
+                }
+            ];
+
+            const indexer = new FactIndexer(config);
+
+            // Тестовый факт с разными полями дат
+            const fact = {
+                t: 1,
+                i: "test_id_123",
+                d: new Date('2024-01-01'), // стандартное поле d
+                c: new Date('2024-01-02'),
+                f1: "test_value_1",
+                f2: "test_value_2",
+                customDate: new Date('2024-03-15'), // кастомное поле даты
+                dt: new Date('2024-04-20') // другое кастомное поле даты
+            };
+
+            const indexValues = indexer.index(fact);
+
+            // Проверяем, что созданы индексные значения
+            if (indexValues.length !== 2) {
+                throw new Error(`Ожидалось 2 индексных значения, получено: ${indexValues.length}`);
+            }
+
+            // Проверяем первое индексное значение (использует customDate)
+            const index1 = indexValues.find(iv => iv.it === 1);
+            if (!index1) {
+                throw new Error('Не найдено индексное значение для f1');
+            }
+            if (index1.d.getTime() !== fact.customDate.getTime()) {
+                throw new Error('Дата в первом индексном значении не соответствует customDate');
+            }
+
+            // Проверяем второе индексное значение (использует dt)
+            const index2 = indexValues.find(iv => iv.it === 2);
+            if (!index2) {
+                throw new Error('Не найдено индексное значение для f2');
+            }
+            if (index2.d.getTime() !== fact.dt.getTime()) {
+                throw new Error('Дата во втором индексном значении не соответствует dt');
+            }
+
+            // Тест с невалидной датой
+            const factWithInvalidDate = {
+                t: 1,
+                i: "test_id_456",
+                d: new Date('2024-01-01'),
+                c: new Date('2024-01-02'),
+                f1: "test_value_1",
+                customDate: "invalid_date_string" // невалидная дата
+            };
+
+            const indexValuesInvalid = indexer.index(factWithInvalidDate);
+            const indexInvalid = indexValuesInvalid.find(iv => iv.it === 1);
+            if (indexInvalid) {
+                throw new Error('Найдено индексное значение для факта с невалидной датой.');
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testDateNameField: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
      * Тест валидации конфигурации
      */
     testConfigValidation(title) {
@@ -486,6 +583,7 @@ class FactIndexerTest {
             {
                 config: [{
                     fieldName: 'f1',
+                    dateName: 'dt',
                     indexTypeName: 'test',
                     indexType: 1,
                     indexValue: 1
@@ -496,11 +594,13 @@ class FactIndexerTest {
             {
                 config: [{
                     fieldName: 'f1',
+                    dateName: 'dt',
                     indexTypeName: 'test',
                     indexType: 1,
                     indexValue: 1
                 }, {
                     fieldName: 'f1',
+                    dateName: 'dt',
                     indexTypeName: 'test',
                     indexType: 2,
                     indexValue: 2
@@ -511,11 +611,13 @@ class FactIndexerTest {
             {
                 config: [{
                     fieldName: 'f1',
+                    dateName: 'dt',
                     indexTypeName: 'test',
                     indexType: 1,
                     indexValue: 1
                 }, {
                     fieldName: 'f2',
+                    dateName: 'dt',
                     indexTypeName: 'test2',
                     indexType: 1,
                     indexValue: 2
@@ -536,6 +638,7 @@ class FactIndexerTest {
             {
                 config: [{
                     fieldName: 'f1',
+                    dateName: 'dt',
                     indexTypeName: 123,
                     indexType: 1,
                     indexValue: 1
@@ -546,6 +649,7 @@ class FactIndexerTest {
             {
                 config: [{
                     fieldName: 'f1',
+                    dateName: 'dt',
                     indexTypeName: 'test',
                     indexType: 'invalid',
                     indexValue: 1
@@ -556,6 +660,7 @@ class FactIndexerTest {
             {
                 config: [{
                     fieldName: 'f1',
+                    dateName: 'dt',
                     indexTypeName: 'test',
                     indexType: 1,
                     indexValue: 3
