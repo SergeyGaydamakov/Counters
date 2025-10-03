@@ -1041,7 +1041,7 @@ class MongoProvider {
     }
 
     /**
-     * Поиск фактов по заданному фильтру
+     * Поиск фактов по заданному фильтру (для тестов)
      * @param {Object} filter - фильтр для поиска
      * @param {Object} options - опции поиска
      * @returns {Promise<Array>} найденные факты
