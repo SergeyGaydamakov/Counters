@@ -16,7 +16,7 @@ const path = require('path');
  * 
  */
 class FactGenerator {
-    constructor(fieldConfigPathOrArray = null, fromDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), toDate = new Date(), targetSize = null) {
+    constructor(fieldConfigPathOrArray = null, targetSize = null) {
         // Загружаем конфигурацию полей
         this._fieldConfig = this._loadFieldConfig(fieldConfigPathOrArray);
         
@@ -27,8 +27,6 @@ class FactGenerator {
         this._fieldGeneratorsMap = this._buildFieldGeneratorsMap();
         
         // Сохраняем даты для генерации фактов
-        this._fromDate = fromDate;
-        this._toDate = toDate;
         this._targetSize = targetSize;
     }
 
@@ -380,8 +378,8 @@ class FactGenerator {
                 return this._generateRandomInteger(minInt, maxInt, defaultValue, defaultRandom);
 
             case 'date':
-                const minDate = generatorConfig.min !== undefined ? generatorConfig.min : this._fromDate;
-                const maxDate = generatorConfig.max !== undefined ? generatorConfig.max : this._toDate;
+                const minDate = generatorConfig.min !== undefined ? generatorConfig.min : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+                const maxDate = generatorConfig.max !== undefined ? generatorConfig.max : new Date();
                 return this._generateRandomDateFromRange(minDate, maxDate, defaultValue, defaultRandom);
 
             case 'enum':

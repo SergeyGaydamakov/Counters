@@ -280,7 +280,7 @@ class MongoFactIndexTest {
                 throw new Error('Схема пуста или не получена');
             }
 
-            const requiredFields = ['h', 'i', 'd', 'c'];
+            const requiredFields = ['h', 'i', 'v', 't', 'd', 'c'];
             const schemaFields = schema.fields.map(f => f.name);
             
             for (const field of requiredFields) {

@@ -217,7 +217,7 @@ try {
                     bsonType: "date",
                     description: "Дата и время создания индексного значения"
                 },
-                f: {
+                v: {
                     bsonType: "string",
                     description: "Индексное значение поля факта"
                 },

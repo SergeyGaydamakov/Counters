@@ -149,7 +149,7 @@ new FactIndexer()
 ```javascript
 {
     it: Number,    // тип индекса (номер из fN)
-    f: String,     // значение поля факта
+    v: String,     // значение поля факта
     i: String,     // идентификатор факта
     t: Number,     // тип факта
     d: Date,       // дата факта
@@ -274,7 +274,7 @@ new MongoProvider(connectionString, databaseName)
 ```javascript
 {
     it: Number,         // тип индекса (номер из fN, например: f1 -> 1, f5 -> 5)
-    f: String,          // значение поля факта (из fN)
+    v: String,          // значение поля факта (из fN)
     i: String,          // идентификатор факта
     t: Number,          // тип факта
     d: Date,            // дата факта
@@ -292,7 +292,7 @@ new MongoProvider(connectionString, databaseName)
 - `{a: 1}` - количество
 
 #### Коллекция factIndex
-- `{f: "hashed", it: 1, d: 1, i: 1}` - составной индекс для всех основных запросов
+- `{v: "hashed", it: 1, d: 1, i: 1}` - составной индекс для всех основных запросов
 
 ## Примеры использования
 

@@ -6,6 +6,92 @@ const EnvConfig = require('../utils/envConfig');
  * Тесты для всех методов FactController
  */
 class FactControllerTest {
+    // Тестовая конфигурация полей фактов
+    _testFieldConfig = [
+        {
+            "src": "dt",
+            "dst": "dt",
+            "fact_types": [1, 2, 3],
+            "generator": {
+                "type": "date",
+                "min": "2025-01-01",
+                "max": "2025-10-01"
+            }
+        },
+        {
+            "src": "a",
+            "dst": "a",
+            "fact_types": [1, 2, 3],
+            "generator": {
+                "type": "integer",
+                "min": 1,
+                "max": 10000000,
+                "default_value": 1000,
+                "default_random": 0.1
+            }
+        },
+        {
+            "src": "f1",
+            "dst": "f1",
+            "fact_types": [1, 2, 3],
+            "generator": {
+                "type": "string",
+                "min": 3,
+                "max": 20,
+                "default_value": "1234567890",
+                "default_random": 0.1
+            }
+        },
+        {
+            "src": "f2",
+            "dst": "f2",
+            "fact_types": [1, 3],
+            "generator": {
+                "type": "string",
+                "min": 3,
+                "max": 20,
+                "default_value": "1234567890",
+                "default_random": 0.1
+            }
+        },
+        {
+            "src": "f3",
+            "dst": "f3",
+            "fact_types": [2, 3],
+            "generator": {
+                "type": "string",
+                "min": 3,
+                "max": 20,
+                "default_value": "1234567890",
+                "default_random": 0.1
+            }
+        }
+    ];
+
+    // Локальная конфигурация индексных значений
+    _testIndexConfig = [
+        {
+            fieldName: "f1",
+            dateName: "dt",
+            indexTypeName: "test_type_1",
+            indexType: 1,
+            indexValue: 1
+        },
+        {
+            fieldName: "f2",
+            dateName: "dt",
+            indexTypeName: "test_type_2",
+            indexType: 2,
+            indexValue: 2
+        },
+        {
+            fieldName: "f3",
+            dateName: "dt",
+            indexTypeName: "test_type_3",
+            indexType: 3,
+            indexValue: 1
+        }
+    ];
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
         const mongoConfig = EnvConfig.getMongoConfig();
@@ -13,7 +99,9 @@ class FactControllerTest {
             mongoConfig.connectionString,
             'factControllerTestDB'
         );
-        this.controller = new FactController(this.provider);
+
+
+        this.controller = new FactController(this.provider, this._testFieldConfig, this._testIndexConfig, 500);
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -57,7 +145,7 @@ class FactControllerTest {
      */
     async testRunBasic(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем базу данных перед тестом
             await this.provider.clearFactsCollection();
@@ -85,7 +173,7 @@ class FactControllerTest {
 
             // Проверяем структуру сгенерированного факта
             const fact = result.fact;
-            const requiredFields = ['i', 't', 'a', 'c', 'd'];
+            const requiredFields = ['i', 't', 'c', 'd'];
             for (const field of requiredFields) {
                 if (!(field in fact)) {
                     throw new Error(`Сгенерированный факт должен содержать поле ${field}`);
@@ -117,27 +205,31 @@ class FactControllerTest {
      */
     async testRunWithExistingFacts(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем несколько тестовых фактов с общими значениями полей
             const testFacts = [
                 {
                     i: 'test-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(),
-                    d: new Date(),
-                    f1: 'shared-value',
-                    f2: 'unique1'
+                    d: {
+                        a: 100,
+                        dt: new Date(),
+                        f1: 'shared-value',
+                        f2: 'unique1'
+                    }
                 },
                 {
                     i: 'test-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(),
-                    d: new Date(),
-                    f1: 'shared-value',
-                    f2: 'unique2'
+                    d: {
+                        a: 200,
+                        dt: new Date(),
+                        f1: 'shared-value',
+                        f2: 'unique2'
+                    }
                 }
             ];
 
@@ -152,19 +244,21 @@ class FactControllerTest {
             const testFact = {
                 i: 'test-fact-query',
                 t: 1,
-                a: 300,
                 c: new Date(),
-                d: new Date(),
-                f1: 'shared-value', // То же значение, что и в тестовых фактах
-                f2: 'unique3'
+                d: {
+                    a: 300,
+                    dt: new Date(),
+                    f1: 'shared-value',
+                    f2: 'unique3'
+                }
             };
 
             // Тестируем getRelevantFacts напрямую
-            const testFactIndexValues = this.controller.factIndexer.index(testFact);    
+            const testFactIndexValues = this.controller.factIndexer.index(testFact);
             const testFactIndexHashValues = testFactIndexValues.map(index => index.h);
             const excludedFact = testFacts[1];
             const relevantFacts = await this.provider.getRelevantFacts(testFactIndexHashValues, excludedFact.i);
-            
+
             // Проверяем, что relevantFacts содержит существующие факты
             if (relevantFacts.length === 0) {
                 throw new Error('relevantFacts должен содержать существующие факты');
@@ -175,7 +269,7 @@ class FactControllerTest {
             const foundIds = relevantFacts.map(f => f.fact ? f.fact.i : f.i).filter(id => id); // Фильтруем пустые ID
             const expectedIds = testFacts.map(f => f.i);
             const hasExpectedFact = expectedIds.some(id => foundIds.includes(id));
-            
+
             if (!hasExpectedFact) {
                 this.logger.debug(`Найденные ID: ${foundIds.join(', ')}`);
                 this.logger.debug(`Ожидаемые ID: ${expectedIds.join(', ')}`);
@@ -207,7 +301,7 @@ class FactControllerTest {
      */
     async testRunMultipleTimes(title) {
         this.logger.debug(title);
-        
+
         try {
             const runCount = 3;
             const results = [];
@@ -255,7 +349,7 @@ class FactControllerTest {
      */
     async testRunWithEmptyDatabase(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем базу данных
             await this.provider.clearFactsCollection();
@@ -293,7 +387,7 @@ class FactControllerTest {
      */
     async testRunErrorHandling(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем контроллер с невалидным провайдером
             const invalidProvider = {
@@ -302,7 +396,7 @@ class FactControllerTest {
                 saveFactIndexList: () => { throw new Error('Тестовая ошибка saveFactIndexList'); }
             };
 
-            const testController = new FactController(invalidProvider);
+            const testController = new FactController(invalidProvider, this._testFieldConfig, this._testIndexConfig, 500);
 
             // Пытаемся выполнить метод run
             try {
@@ -331,14 +425,14 @@ class FactControllerTest {
         this.logger.debug('\n=== Результаты тестирования FactController ===');
         this.logger.debug(`Пройдено: ${this.testResults.passed}`);
         this.logger.debug(`Провалено: ${this.testResults.failed}`);
-        
+
         if (this.testResults.errors.length > 0) {
             this.logger.debug('\nОшибки:');
             for (const error of this.testResults.errors) {
                 this.logger.debug(`  - ${error.test}: ${error.error}`);
             }
         }
-        
+
         const totalTests = this.testResults.passed + this.testResults.failed;
         const successRate = totalTests > 0 ? (this.testResults.passed / totalTests * 100).toFixed(1) : 0;
         this.logger.debug(`\nПроцент успеха: ${successRate}%`);

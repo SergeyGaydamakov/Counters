@@ -157,7 +157,7 @@ db.facts.createIndex({ "a": 1 });  // количество
 ```javascript
 // Создается автоматически через MongoProvider.createIndexValuesIndexes()
 db.factIndex.createIndex({ 
-    "f": "hashed", 
+    "v": "hashed", 
     "it": 1, 
     "d": 1, 
     "i": 1 
@@ -196,7 +196,7 @@ await provider.createIndexValuesIndexes();
 
 ### Структура индексных значений
 - `it` - тип индекса (номер из fN)
-- `f` - значение поля факта
+- `v` - значение поля факта
 - `i` - идентификатор факта
 - `t` - тип факта
 - `d` - дата факта

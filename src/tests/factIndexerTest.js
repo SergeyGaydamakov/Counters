@@ -32,18 +32,18 @@ class FactIndexerTest {
                 indexValue: 1
             },
             {
-                fieldName: "f5",
-                dateName: "dt",
-                indexTypeName: "test_type_5",
-                indexType: 5,
-                indexValue: 2
-            },
-            {
                 fieldName: "f4",
                 dateName: "dt",
                 indexTypeName: "test_type_4",
                 indexType: 4,
                 indexValue: 1
+            },
+            {
+                fieldName: "f5",
+                dateName: "dt",
+                indexTypeName: "test_type_5",
+                indexType: 5,
+                indexValue: 2
             },
             {
                 fieldName: "f6",
@@ -157,7 +157,7 @@ class FactIndexerTest {
             }
 
             // Проверяем структуру индексного значения
-            const requiredFields = ['it', 'f', 'h', 'i', 'd', 'c'];
+            const requiredFields = ['it', 'v', 'h', 'i', 't', 'd', 'c'];
             for (const field of requiredFields) {
                 if (!(field in indexValues[0])) {
                     throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -171,17 +171,17 @@ class FactIndexerTest {
                 throw new Error(`Неправильные типы индексов: ожидалось [1,2,5], получено [${indexTypes.join(',')}]`);
             }
 
-            // Проверяем, что f содержит правильные значения полей
-            const fieldValues = indexValues.map(iv => iv.f).sort();
+            // Проверяем, что v содержит правильные значения полей
+            const fieldValues = indexValues.map(iv => iv.v).sort();
             const expectedValues = ['value1', 'value2', 'value5'].sort();
             if (JSON.stringify(fieldValues) !== JSON.stringify(expectedValues)) {
                 throw new Error(`Неправильные значения полей: ожидалось [value1,value2,value5], получено [${fieldValues.join(',')}]`);
             }
 
             // Проверяем, что h содержит правильные значения (хеш для f1 и f5, само значение для f2)
-            const f1Index = indexValues.find(iv => iv.f === 'value1');
-            const f2Index = indexValues.find(iv => iv.f === 'value2');
-            const f5Index = indexValues.find(iv => iv.f === 'value5');
+            const f1Index = indexValues.find(iv => iv.v === 'value1');
+            const f2Index = indexValues.find(iv => iv.v === 'value2');
+            const f5Index = indexValues.find(iv => iv.v === 'value5');
 
             // f1 должен иметь хеш (indexValue = 1), f5 должен иметь само значение (indexValue = 2)
             if (f1Index.h.length !== 64) {
@@ -242,7 +242,7 @@ class FactIndexerTest {
                 }
 
                 // Проверяем структуру
-                const requiredFields = ['it', 'f', 'h', 'i', 't', 'd', 'c'];
+                const requiredFields = ['it', 'v', 'h', 'i', 't', 'd', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -258,7 +258,7 @@ class FactIndexerTest {
             }
 
             // Проверяем значения полей
-            const fieldValues = indexValues.map(iv => iv.f).sort();
+            const fieldValues = indexValues.map(iv => iv.v).sort();
             const expectedValues = ['val1', 'val2', 'val3', 'val4', 'val6', 'val7'].sort();
             if (JSON.stringify(fieldValues) !== JSON.stringify(expectedValues)) {
                 throw new Error(`Неправильные значения полей: ожидалось [val1,val2,val3,val4,val6,val7], получено [${fieldValues.join(',')}]`);
@@ -269,14 +269,14 @@ class FactIndexerTest {
             const valueFields = ['val2', 'val6'];
 
             hashFields.forEach(val => {
-                const indexValue = indexValues.find(iv => iv.f === val);
+                const indexValue = indexValues.find(iv => iv.v === val);
                 if (indexValue.h.length !== 64) {
                     throw new Error(`Поле ${val} должно иметь хеш длиной 64 символа, получено ${indexValue.h.length}`);
                 }
             });
 
             valueFields.forEach(val => {
-                const indexValue = indexValues.find(iv => iv.f === val);
+                const indexValue = indexValues.find(iv => iv.v === val);
                 if (indexValue.h !== val) {
                     throw new Error(`Поле ${val} должно иметь само значение, получено ${indexValue.h}`);
                 }
@@ -438,7 +438,7 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильную структуру
             indexValues.forEach((indexValue, i) => {
-                const requiredFields = ['it', 'f', 'h', 'i', 't', 'd', 'c'];
+                const requiredFields = ['it', 'v', 'h', 'i', 't', 'd', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении ${i}`);
@@ -451,8 +451,8 @@ class FactIndexerTest {
                 if (typeof indexValue.it !== 'number') {
                     throw new Error(`Поле it должно быть числом в индексном значении ${i}`);
                 }
-                if (typeof indexValue.f !== 'string') {
-                    throw new Error(`Поле f должно быть строкой в индексном значении ${i}`);
+                if (typeof indexValue.v !== 'string') {
+                    throw new Error(`Поле v должно быть строкой в индексном значении ${i}`);
                 }
                 if (typeof indexValue.h !== 'string') {
                     throw new Error(`Поле h должно быть строкой в индексном значении ${i}`);

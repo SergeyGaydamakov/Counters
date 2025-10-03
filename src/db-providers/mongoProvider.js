@@ -329,9 +329,9 @@ class MongoProvider {
                             description: "Дата и время создания индексного значения"
                         },
                         // @deprecated нужно удалить после отладки
-                        f: {
+                        v: {
                             bsonType: "string",
-                            description: "Поле факта (f1, f2, f3, ...)"
+                            description: "Индексное значение поля факта"
                         },
                         it: {
                             bsonType: "int",

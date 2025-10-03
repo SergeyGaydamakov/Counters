@@ -8,7 +8,7 @@ const Logger = require('../utils/logger');
  * Работает с абстрактным dbProvider, который должен реализовывать интерфейс для работы с данными
  */
 class FactController {
-    constructor(dbProvider, _fieldCount = 23, _typeCount = 5, _fieldsPerType = 10, _typeFieldsConfig = null, _fromDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), _toDate = new Date(), _targetSize = null) {
+    constructor(dbProvider, fieldConfigPathOrMapArray, indexConfigPathOrMapArray, targetSize) {
         if (!dbProvider) {
             throw new Error('dbProvider обязателен для инициализации FactController');
         }
@@ -25,10 +25,8 @@ class FactController {
         }
         
         this.dbProvider = dbProvider;
-        this.factIndexer = new FactIndexer();
-        this.factGenerator = new FactGenerator('fieldConfig.json', _fromDate, _toDate, _targetSize);
-
-        this.hash10 = this.factIndexer.hash("f10", "1234567890");
+        this.factGenerator = new FactGenerator(fieldConfigPathOrMapArray, targetSize);
+        this.factIndexer = new FactIndexer(indexConfigPathOrMapArray);
     }
 
 
@@ -43,7 +41,7 @@ class FactController {
         }
 
         // Валидация обязательных полей факта
-        const requiredFields = ['i', 't', 'a', 'c', 'd'];
+        const requiredFields = ['i', 't', 'c', 'd'];
         for (const field of requiredFields) {
             if (!(field in fact)) {
                 throw new Error(`Отсутствует обязательное поле факта: ${field}`);

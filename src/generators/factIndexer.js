@@ -18,7 +18,7 @@ const Logger = require('../utils/logger');
  * Структура индексного значения (factIndex):
  * @property {string} h - Хеш значение типа + поля факта
  * @property {number} it - Номер индексируемого поля (из названия поля fN)
- * @property {string} f - Значение индексируемого поля
+ * @property {string} v - Значение индексируемого поля
  * @property {string} i - Идентификатор факта
  * @property {number} t - Тип факта
  * @property {Date} d - Дата факта
@@ -277,7 +277,7 @@ class FactIndexer {
 
                 indexValues.push({
                     it: configItem.indexType,    // числовой тип индекса из конфигурации
-                    f: fact.d[fieldName],          // значение поля из факта
+                    v: fact.d[fieldName],          // значение поля из факта
                     h: indexValue,               // вычисленное значение индекса
                     i: fact.i,                   // идентификатор факта
                     t: fact.t,                   // тип факта
