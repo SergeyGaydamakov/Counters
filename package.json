@@ -4,7 +4,7 @@
   "description": "MongoDB performance testing with fact generation",
   "main": "src/index.js",
   "scripts": {
-    "test": "set LOG_LEVEL=DEBUG && node src/tests/testEnvConfig.js && node src/tests/loggerTest.js && node src/tests/factTest.js && node src/tests/factIndexerTest.js && node src/tests/mongoProviderTest.js && node src/tests/factControllerTest.js && node src/tests/mongoFactIndexTest.js && node src/tests/factMapperTest.js",
+    "test": "set LOG_LEVEL=DEBUG && node src/tests/testEnvConfig.js && node src/tests/loggerTest.js && node src/tests/factTest.js && node src/tests/factIndexerTest.js && node src/tests/mongoProviderTest.js && node src/tests/factControllerTest.js && node src/tests/mongoFactIndexTest.js && node src/tests/factMapperTest.js && node src/tests/factGeneratorTest.js",
     "test:env": "set LOG_LEVEL=DEBUG && node src/tests/testEnvConfig.js",
     "test:logger": "set LOG_LEVEL=DEBUG && node src/tests/loggerTest.js",
     "test:fact": "set LOG_LEVEL=DEBUG && node src/tests/factTest.js",
@@ -13,6 +13,7 @@
     "test:indexer": "set LOG_LEVEL=DEBUG && node src/tests/factIndexerTest.js",
     "test:mongo-index": "set LOG_LEVEL=DEBUG && node src/tests/mongoFactIndexTest.js",
     "test:mapper": "set LOG_LEVEL=DEBUG && node src/tests/factMapperTest.js",
+    "test:generator": "set LOG_LEVEL=DEBUG && node src/tests/factGeneratorTest.js",
     "start": "set LOG_LEVEL=INFO && node src/start.js"
   },
   "dependencies": {

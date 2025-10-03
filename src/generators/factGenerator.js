@@ -1,12 +1,14 @@
 const { v4: uuidv4 } = require('uuid');
 const { ObjectId } = require('mongodb');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Класс для генерации случайных тестовых данных
  * 
  * Структура факта (fact):
  * @property {string} i - Идентификатор факта uuidv4
- * @property {number} t - Тип факта
+ * @property {string} t - Тип факта (строка)
  * @property {number} a - Количество
  * @property {Date} c - Дата и время создания факта в базе данных
  * @property {Date} d - Дата и время факта
@@ -17,46 +19,126 @@ const { ObjectId } = require('mongodb');
  * 
  */
 class FactGenerator {
-    constructor(_fieldCount = 23, _typeCount = 5, _fieldsPerType = 10, _typeFieldsConfig = null, fromDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), toDate = new Date(), targetSize = null) {
-        // Массив доступных полей
-        this.availableFields = [];
-        if (_typeFieldsConfig) {
-            // Передана заданная конфигурация полей для типов
-            this.typeFieldsConfig = _typeFieldsConfig;
-            this.typeCount = Object.keys(this.typeFieldsConfig).length;
-            this.fieldsPerType = this.typeFieldsConfig[1].length;
-            // Вычисляем количество уникальных полей в конфигурации
-            this.fieldCount = new Set(Object.values(this.typeFieldsConfig).flat()).size;
-            // Массив доступных полей от 1 до this.fieldCount
-            for (let i = 1; i <= this.fieldCount; i++) {
-                this.availableFields.push(`f${i}`);
-            }
-        } else {
-            this.typeCount = _typeCount;
-            this.fieldsPerType = _fieldsPerType;
-            this.fieldCount = _fieldCount;
-            for (let i = 1; i <= this.fieldCount; i++) {
-                this.availableFields.push(`f${i}`);
-            }
-            // Генерация заданного количества наборов случайных полей
-            this.typeFieldsConfig = this._generateTypeFieldsConfig();
-        }
+    constructor(fieldConfigPathOrArray = null, fromDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000), toDate = new Date(), targetSize = null) {
+        // Загружаем конфигурацию полей
+        this._fieldConfig = this._loadFieldConfig(fieldConfigPathOrArray);
+        
+        // Извлекаем информацию из конфигурации
+        this._availableFields = this._fieldConfig.map(field => field.src);
+        this._availableTypes = this._extractAvailableTypes();
+        this._typeFieldsMap = this._buildTypeFieldsMap();
         
         // Сохраняем даты для генерации фактов
-        this.fromDate = fromDate;
-        this.toDate = toDate;
-        this.targetSize = targetSize;
+        this._fromDate = fromDate;
+        this._toDate = toDate;
+        this._targetSize = targetSize;
     }
 
-    // Генерация случайной конфигурации полей для типов
-    _generateTypeFieldsConfig() {
-        const config = {};
-        for (let type = 1; type <= this.typeCount; type++) {
-            // Перемешиваем доступные поля и берем первые fieldsPerType элементов
-            const shuffled = [...this.availableFields].sort(() => 0.5 - Math.random());
-            config[type] = shuffled.slice(0, this.fieldsPerType).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
+    /**
+     * Загружает конфигурацию полей из файла или использует переданную структуру
+     * @param {string|Array|null} fieldConfigPathOrArray - путь к файлу конфигурации, массив конфигурации или null для использования fieldConfig.json
+     * @returns {Array} массив конфигурации полей
+     */
+    _loadFieldConfig(fieldConfigPathOrArray) {
+        if (!fieldConfigPathOrArray) {
+            throw new Error('Не указана конфигурация полей (имя файла или структура)');
         }
-        return config;
+        
+        // Определяем способ инициализации
+        if (Array.isArray(fieldConfigPathOrArray)) {
+            // Инициализация через массив конфигурации
+            this._validateFieldConfig(fieldConfigPathOrArray);
+            return fieldConfigPathOrArray;
+        } else {
+            // Инициализация через путь к файлу
+            const configPath = fieldConfigPathOrArray || path.join(process.cwd(), 'fieldConfig.json');
+            return this._loadConfigFromFile(configPath);
+        }
+    }
+
+    /**
+     * Загружает конфигурацию из файла
+     * @param {string} configPath - путь к файлу конфигурации
+     * @returns {Array} массив конфигурации полей
+     */
+    _loadConfigFromFile(configPath) {
+        try {
+            if (!fs.existsSync(configPath)) {
+                throw new Error(`Файл конфигурации не найден: ${configPath}`);
+            }
+
+            const configData = fs.readFileSync(configPath, 'utf8');
+            const fieldConfig = JSON.parse(configData);
+
+            // Валидация структуры конфигурации
+            this._validateFieldConfig(fieldConfig);
+            return fieldConfig;
+        } catch (error) {
+            throw new Error(`Ошибка загрузки конфигурации: ${error.message}`);
+        }
+    }
+
+    /**
+     * Валидирует структуру конфигурации полей
+     * @param {Array} fieldConfig - конфигурация полей для валидации
+     * @throws {Error} если конфигурация имеет неверный формат
+     */
+    _validateFieldConfig(fieldConfig) {
+        if (!Array.isArray(fieldConfig)) {
+            throw new Error('Конфигурация полей должна быть массивом объектов');
+        }
+
+        for (let i = 0; i < fieldConfig.length; i++) {
+            const field = fieldConfig[i];
+            
+            if (!field || typeof field !== 'object') {
+                throw new Error(`Поле конфигурации ${i} должно быть объектом`);
+            }
+
+            if (!field.src || typeof field.src !== 'string') {
+                throw new Error(`Поле конфигурации ${i} должно содержать поле 'src' типа string`);
+            }
+
+            if (!field.dst || typeof field.dst !== 'string') {
+                throw new Error(`Поле конфигурации ${i} должно содержать поле 'dst' типа string`);
+            }
+
+            if (!Array.isArray(field.types) || field.types.length === 0) {
+                throw new Error(`Поле конфигурации ${i} должно содержать непустой массив 'types'`);
+            }
+
+            for (let j = 0; j < field.types.length; j++) {
+                if (typeof field.types[j] !== 'string') {
+                    throw new Error(`Поле конфигурации ${i}, тип ${j} должен быть строкой`);
+                }
+            }
+        }
+    }
+
+    /**
+     * Извлекает все доступные типы из конфигурации полей
+     * @returns {Array} массив уникальных типов
+     */
+    _extractAvailableTypes() {
+        const types = new Set();
+        this._fieldConfig.forEach(field => {
+            field.types.forEach(type => types.add(type));
+        });
+        return Array.from(types);
+    }
+
+    /**
+     * Строит карту полей для каждого типа
+     * @returns {Object} объект где ключ - тип, значение - массив полей
+     */
+    _buildTypeFieldsMap() {
+        const typeFieldsMap = {};
+        this._availableTypes.forEach(type => {
+            typeFieldsMap[type] = this._fieldConfig
+                .filter(field => field.types.includes(type))
+                .map(field => field.src);
+        });
+        return typeFieldsMap;
     }
 
     /**
@@ -127,25 +209,25 @@ class FactGenerator {
 
     /**
      * Генерирует один факт с заданными параметрами
-     * @param {number} type - тип факта (t)
+     * @param {string} type - тип факта (t) - строка
      * @returns {Object} объект с данными факта
      */
     generateFact(type) {
-        if (type < 1 || type > this.typeCount) {
-            throw new Error(`Тип факта должен быть в диапазоне от 1 до ${this.typeCount}`);
+        if (!this._availableTypes.includes(type)) {
+            throw new Error(`Тип факта "${type}" не найден в конфигурации. Доступные типы: ${this._availableTypes.join(', ')}`);
         }
         const fact = {
             i: this._generateGuid(),
             t: type,
             a: Math.floor(Math.random() * 1000000) + 1, // от 1 до 1000000
             c: new Date(), // дата и время создания объекта
-            d: this._generateRandomDate(this.fromDate, this.toDate)
+            d: this._generateRandomDate(this._fromDate, this._toDate)
         };
 
-        // Добавляем 10 случайных полей для данного типа
-        const randomFields = this.typeFieldsConfig[type];
+        // Добавляем поля для данного типа на основе конфигурации
+        const fieldsForType = this._typeFieldsMap[type];
         
-        randomFields.forEach(fieldName => {
+        fieldsForType.forEach(fieldName => {
             fact[fieldName] = this._generateRandomString(2, 20);
             // Иногда генерируем постоянный идентификатор
             if (Math.random() < 0.1) {
@@ -154,25 +236,25 @@ class FactGenerator {
         });
 
         // Если задан целевой размер, добавляем поле z для достижения нужного размера
-        if (this.targetSize && this.targetSize > 0) {
+        if (this._targetSize && this._targetSize > 0) {
             fact.z = ''; // Временное значение для расчета
             
             const currentSize = this._calculateJsonSize(fact);
             
-            if (currentSize < this.targetSize) {
+            if (currentSize < this._targetSize) {
                 // Вычисляем нужную длину строки для поля z
                 // Учитываем что поле z уже добавлено как пустая строка: ,"z":""
                 // Нужно добавить символы только в значение строки z
-                const additionalCharsNeeded = this.targetSize - currentSize;
+                const additionalCharsNeeded = this._targetSize - currentSize;
                 
                 if (additionalCharsNeeded > 0) {
                     fact.z = this._generatePaddingString(additionalCharsNeeded);
                     
                     // Проверяем финальный размер и корректируем если нужно
                     const finalSize = this._calculateJsonSize(fact);
-                    if (finalSize > this.targetSize) {
+                    if (finalSize > this._targetSize) {
                         // Если превысили, уменьшаем длину строки z
-                        const excess = finalSize - this.targetSize;
+                        const excess = finalSize - this._targetSize;
                         const newLength = Math.max(0, fact.z.length - excess);
                         fact.z = fact.z.substring(0, newLength);
                     }
@@ -191,7 +273,7 @@ class FactGenerator {
      * @returns {Object} объект с данными факта
      */
     generateRandomTypeFact() {
-        const randomType = Math.floor(Math.random() * this.typeCount) + 1;
+        const randomType = this._availableTypes[Math.floor(Math.random() * this._availableTypes.length)];
         return this.generateFact(randomType);
     }
 

@@ -30,7 +30,7 @@ class FactIndexer {
             this._validateConfig(configPathOrMapArray);
             this._indexConfig = configPathOrMapArray;
         } else if (typeof configPathOrMapArray === 'string') {
-            this._loadConfig(configPathOrMapArray);
+            this._indexConfig = this._loadConfig(configPathOrMapArray);
         } else {
             this.logger.info('Конфигурация не задана. Индексирование не будет производиться.');
             return;
@@ -59,10 +59,10 @@ class FactIndexer {
 
             // Валидация структуры конфигурации
             this._validateConfig(indexConfig);
-            this._indexConfig = indexConfig;
 
             this.logger.info(`Загружена конфигурация маппинга из ${configPath}`);
             this.logger.info(`Количество индексов: ${this._indexConfig.length}`);
+            return indexConfig;
         } catch (error) {
             this.logger.error(`Ошибка загрузки конфигурации: ${error.message}`);
             throw error;

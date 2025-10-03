@@ -35,10 +35,13 @@ class FactMapper {
             this._validateConfig(configPathOrMapArray);
             this._mappingConfig = configPathOrMapArray;
             this.logger.info(`Инициализирован с массивом конфигурации. Количество правил: ${this._mappingConfig.length}`);
-        } else {
+        } else if (typeof configPathOrMapArray === 'string') {
             // Инициализация через путь к файлу (по умолчанию)
-            const configPath = configPathOrMapArray || path.join(process.cwd(), 'factConfigs.json');
-            this._loadConfig(configPath);
+            const configPath = configPathOrMapArray;
+            this._mappingConfig = this._loadConfig(configPath);
+        } else {
+            this.logger.info('Конфигурация не задана. Маппинг не будет производиться.');
+            return;
         }
     }
 
@@ -57,10 +60,10 @@ class FactMapper {
 
             // Валидация структуры конфигурации
             this._validateConfig(mappingConfig);
-            this._mappingConfig = mappingConfig;
 
             this.logger.info(`Загружена конфигурация маппинга из ${configPath}`);
             this.logger.info(`Количество правил маппинга: ${this._mappingConfig.length}`);
+            return mappingConfig;
         } catch (error) {
             this.logger.error(`Ошибка загрузки конфигурации: ${error.message}`);
             throw error;
