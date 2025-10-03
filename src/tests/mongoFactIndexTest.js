@@ -30,12 +30,12 @@ class MongoFactIndexTest {
         this.logger.debug('=== Тестирование работы с индексными значениями фактов в MongoDB ===\n');
 
         try {
-            await this.testConnection();
-            await this.testIndexValuesInsertion();
-            await this.testIndexValuesIndexes();
-            await this.testIndexValuesStats();
-            await this.testIndexValuesSchema();
-            await this.testClearIndexValues();
+            await this.testConnection('1. Тест подключения к MongoDB...');
+            await this.testIndexValuesInsertion('2. Тест вставки индексных значений...');
+            await this.testIndexValuesIndexes('3. Тест создания индексов...');
+            await this.testIndexValuesStats('4. Тест статистики индексных значений...');
+            await this.testIndexValuesSchema('5. Тест схемы индексных значений...');
+            await this.testClearIndexValues('6. Тест очистки индексных значений...');
         } catch (error) {
             console.error('Критическая ошибка:', error.message);
         } finally {
@@ -47,8 +47,8 @@ class MongoFactIndexTest {
     /**
      * Тест подключения к MongoDB
      */
-    async testConnection() {
-        this.logger.debug('1. Тест подключения к MongoDB...');
+    async testConnection(title) {
+        this.logger.debug(title);
         
         try {
             const connected = await this.provider.connect();
@@ -69,8 +69,8 @@ class MongoFactIndexTest {
     /**
      * Тест вставки индексных значений
      */
-    async testIndexValuesInsertion() {
-        this.logger.debug('2. Тест вставки индексных значений...');
+    async testIndexValuesInsertion(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекцию перед тестом
@@ -132,8 +132,8 @@ class MongoFactIndexTest {
     /**
      * Тест создания индексов для индексных значений
      */
-    async testIndexValuesIndexes() {
-        this.logger.debug('3. Тест создания индексов для индексных значений...');
+    async testIndexValuesIndexes(title) {
+        this.logger.debug(title);
         
         try {
             const success = await this.provider.createFactIndexIndexes();
@@ -154,8 +154,8 @@ class MongoFactIndexTest {
     /**
      * Тест получения статистики индексных значений
      */
-    async testIndexValuesStats() {
-        this.logger.debug('4. Тест получения статистики индексных значений...');
+    async testIndexValuesStats(title) {
+        this.logger.debug(title);
         
         try {
             const stats = await this.provider.getFactIndexStats();
@@ -180,8 +180,8 @@ class MongoFactIndexTest {
     /**
      * Тест получения схемы индексных значений
      */
-    async testIndexValuesSchema() {
-        this.logger.debug('5. Тест получения схемы индексных значений...');
+    async testIndexValuesSchema(title) {
+        this.logger.debug(title);
         
         try {
             const schema = await this.provider.getFactIndexCollectionSchema();
@@ -212,8 +212,8 @@ class MongoFactIndexTest {
     /**
      * Тест очистки индексных значений
      */
-    async testClearIndexValues() {
-        this.logger.debug('6. Тест очистки индексных значений...');
+    async testClearIndexValues(title) {
+        this.logger.debug(title);
         
         try {
             const result = await this.provider.clearFactIndexCollection();

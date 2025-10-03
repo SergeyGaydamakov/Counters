@@ -7,7 +7,54 @@ const Logger = require('../utils/logger');
 class FactIndexerTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
-        this.indexer = new FactIndexer();
+        
+        // Локальная конфигурация для тестирования
+        this.testConfig = [
+            {
+                fieldName: "f1",
+                indexTypeName: "test_type_1",
+                indexType: 1,
+                indexValue: 1
+            },
+            {
+                fieldName: "f2",
+                indexTypeName: "test_type_2",
+                indexType: 2,
+                indexValue: 2
+            },
+            {
+                fieldName: "f3",
+                indexTypeName: "test_type_3",
+                indexType: 3,
+                indexValue: 1
+            },
+            {
+                fieldName: "f5",
+                indexTypeName: "test_type_5",
+                indexType: 5,
+                indexValue: 2
+            },
+            {
+                fieldName: "f10",
+                indexTypeName: "test_type_10",
+                indexType: 10,
+                indexValue: 1
+            },
+            {
+                fieldName: "f15",
+                indexTypeName: "test_type_15",
+                indexType: 15,
+                indexValue: 2
+            },
+            {
+                fieldName: "f23",
+                indexTypeName: "test_type_23",
+                indexType: 23,
+                indexValue: 1
+            }
+        ];
+        
+        this.indexer = new FactIndexer(this.testConfig);
         this.generator = new FactGenerator();
         this.testResults = {
             passed: 0,
@@ -23,13 +70,14 @@ class FactIndexerTest {
         this.logger.info('Starting FactIndexer tests...');
         this.logger.debug('=== Тестирование FactIndexer ===\n');
 
-        this.testBasicIndexing();
-        this.testMultipleFields();
-        this.testNoFields();
-        this.testInvalidInput();
-        this.testMultipleFacts();
-        this.testStatistics();
-        this.testWithGeneratedFacts();
+        this.testConfigValidation('1. Тест валидации конфигурации...');
+        this.testBasicIndexing('2. Тест базового создания индексных значений...');
+        this.testMultipleFields('3. Тест с множественными полями...');
+        this.testNoFields('4. Тест без полей fN...');
+        this.testInvalidInput('5. Тест с неверными входными данными...');
+        this.testMultipleFacts('6. Тест с множественными фактами...');
+        this.testStatistics('7. Тест структуры индексных значений...');
+        this.testWithGeneratedFacts('8. Тест с сгенерированными фактами...');
 
         this.printResults();
     }
@@ -37,8 +85,8 @@ class FactIndexerTest {
     /**
      * Тест базового создания индексных значений
      */
-    testBasicIndexing() {
-        this.logger.debug('1. Тест базового создания индексных значений...');
+    testBasicIndexing(title) {
+        this.logger.debug(title);
         
         const fact = {
             i: 'test-id-123',
@@ -59,26 +107,44 @@ class FactIndexerTest {
                 throw new Error(`Ожидалось 3 индексных значения, получено ${indexValues.length}`);
             }
 
-            // Проверяем структуру первого индексного значения
-            const firstIndexValue = indexValues[0];
-            const requiredFields = ['h', 'i', 'd', 'c'];
+            // Проверяем структуру индексного значения
+            const requiredFields = ['it', 'f', 'h', 'i', 'd', 'c'];
             for (const field of requiredFields) {
-                if (!(field in firstIndexValue)) {
+                if (!(field in indexValues[0])) {
                     throw new Error(`Отсутствует поле ${field} в индексном значении`);
                 }
             }
 
-            // Проверяем обязательные поля
-            if (!firstIndexValue.h || typeof firstIndexValue.h !== 'string') {
-                throw new Error(`Отсутствует или неправильный тип поля h: ${firstIndexValue.h}`);
+            // Проверяем, что it содержит правильные типы индексов
+            const indexTypes = indexValues.map(iv => iv.it).sort();
+            const expectedTypes = [1, 2, 5].sort();
+            if (JSON.stringify(indexTypes) !== JSON.stringify(expectedTypes)) {
+                throw new Error(`Неправильные типы индексов: ожидалось [1,2,5], получено [${indexTypes.join(',')}]`);
             }
 
-            if (firstIndexValue.h.length !== 64) {
-                throw new Error(`Неправильная длина SHA-256 хеша: ожидалось 64 символа, получено ${firstIndexValue.h.length}`);
+            // Проверяем, что f содержит правильные значения полей
+            const fieldValues = indexValues.map(iv => iv.f).sort();
+            const expectedValues = ['value1', 'value2', 'value5'].sort();
+            if (JSON.stringify(fieldValues) !== JSON.stringify(expectedValues)) {
+                throw new Error(`Неправильные значения полей: ожидалось [value1,value2,value5], получено [${fieldValues.join(',')}]`);
             }
 
-            if (firstIndexValue.i !== 'test-id-123') {
-                throw new Error(`Неправильный ID: ${firstIndexValue.i}`);
+            // Проверяем, что h содержит правильные значения (хеш для f1 и f5, само значение для f2)
+            const f1Index = indexValues.find(iv => iv.f === 'value1');
+            const f2Index = indexValues.find(iv => iv.f === 'value2');
+            const f5Index = indexValues.find(iv => iv.f === 'value5');
+
+            // f1 должен иметь хеш (indexValue = 1), f5 должен иметь само значение (indexValue = 2)
+            if (f1Index.h.length !== 64) {
+                throw new Error(`f1 должен иметь хеш длиной 64 символа, получено ${f1Index.h.length}`);
+            }
+            if (f5Index.h !== 'value5') {
+                throw new Error(`f5 должен иметь само значение поля, получено ${f5Index.h}`);
+            }
+
+            // f2 должен иметь само значение поля (indexValue = 2)
+            if (f2Index.h !== 'value2') {
+                throw new Error(`f2 должен иметь само значение поля, получено ${f2Index.h}`);
             }
 
             this.testResults.passed++;
@@ -93,8 +159,8 @@ class FactIndexerTest {
     /**
      * Тест с множественными полями для создания индексных значений
      */
-    testMultipleFields() {
-        this.logger.debug('2. Тест с множественными полями...');
+    testMultipleFields(title) {
+        this.logger.debug(title);
         
         const fact = {
             i: 'multi-field-test',
@@ -125,9 +191,44 @@ class FactIndexerTest {
                     throw new Error('Неправильный ID факта в индексном значении');
                 }
                 
-                // Проверяем, что хеш является валидным SHA-256
-                if (!indexValue.h || typeof indexValue.h !== 'string' || indexValue.h.length !== 64) {
-                    throw new Error(`Неправильный хеш: ${indexValue.h}`);
+                // Проверяем структуру
+                const requiredFields = ['it', 'f', 'h', 'i', 'd', 'c'];
+                for (const field of requiredFields) {
+                    if (!(field in indexValue)) {
+                        throw new Error(`Отсутствует поле ${field} в индексном значении`);
+                    }
+                }
+            });
+
+            // Проверяем типы индексов
+            const indexTypes = indexValues.map(iv => iv.it).sort();
+            const expectedTypes = [1, 2, 3, 10, 15, 23].sort();
+            if (JSON.stringify(indexTypes) !== JSON.stringify(expectedTypes)) {
+                throw new Error(`Неправильные типы индексов: ожидалось [1,2,3,10,15,23], получено [${indexTypes.join(',')}]`);
+            }
+
+            // Проверяем значения полей
+            const fieldValues = indexValues.map(iv => iv.f).sort();
+            const expectedValues = ['val1', 'val2', 'val3', 'val10', 'val15', 'val23'].sort();
+            if (JSON.stringify(fieldValues) !== JSON.stringify(expectedValues)) {
+                throw new Error(`Неправильные значения полей: ожидалось [val1,val2,val3,val10,val15,val23], получено [${fieldValues.join(',')}]`);
+            }
+
+            // Проверяем правильность вычисления h (хеш для f1, f3, f10, f23; само значение для f2, f15)
+            const hashFields = ['val1', 'val3', 'val10', 'val23'];
+            const valueFields = ['val2', 'val15'];
+
+            hashFields.forEach(val => {
+                const indexValue = indexValues.find(iv => iv.f === val);
+                if (indexValue.h.length !== 64) {
+                    throw new Error(`Поле ${val} должно иметь хеш длиной 64 символа, получено ${indexValue.h.length}`);
+                }
+            });
+
+            valueFields.forEach(val => {
+                const indexValue = indexValues.find(iv => iv.f === val);
+                if (indexValue.h !== val) {
+                    throw new Error(`Поле ${val} должно иметь само значение, получено ${indexValue.h}`);
                 }
             });
 
@@ -143,8 +244,8 @@ class FactIndexerTest {
     /**
      * Тест без полей fN (не создаются индексные значения)
      */
-    testNoFields() {
-        this.logger.debug('3. Тест без полей fN...');
+    testNoFields(title) {
+        this.logger.debug(title);
         
         const fact = {
             i: 'no-fields-test',
@@ -175,8 +276,8 @@ class FactIndexerTest {
     /**
      * Тест с неверными входными данными
      */
-    testInvalidInput() {
-        this.logger.debug('4. Тест с неверными входными данными...');
+    testInvalidInput(title) {
+        this.logger.debug(title);
         
         const testCases = [
             { input: null, description: 'null' },
@@ -211,8 +312,8 @@ class FactIndexerTest {
     /**
      * Тест создания индексных значений для множественных фактов
      */
-    testMultipleFacts() {
-        this.logger.debug('5. Тест с множественными фактами...');
+    testMultipleFacts(title) {
+        this.logger.debug(title);
         
         const facts = [
             {
@@ -231,7 +332,7 @@ class FactIndexerTest {
                 c: new Date('2024-02-01'),
                 d: new Date('2024-02-15'),
                 f3: 'val3',
-                f4: 'val4'
+                f5: 'val5'
             }
         ];
 
@@ -260,25 +361,30 @@ class FactIndexerTest {
     /**
      * Тест структуры индексных значений
      */
-    testStatistics() {
-        this.logger.debug('6. Тест структуры индексных значений...');
+    testStatistics(title) {
+        this.logger.debug(title);
         
-        const indexValues = [
-            { h: '1'.repeat(63)+"1", i: 'id1', d: new Date('2024-01-01'), c: new Date('2024-01-01') },
-            { h: '1'.repeat(63)+'1', i: 'id1', d: new Date('2024-01-02'), c: new Date('2024-01-01') },
-            { h: '1'.repeat(63)+'2', i: 'id2', d: new Date('2024-01-03'), c: new Date('2024-01-02') },
-            { h: '1'.repeat(63)+'3', i: 'id2', d: new Date('2024-01-04'), c: new Date('2024-01-02') }
-        ];
+        const fact = {
+            i: 'statistics-test',
+            t: 1,
+            a: 100,
+            c: new Date('2024-01-01'),
+            d: new Date('2024-01-15'),
+            f1: 'test_value_1',
+            f2: 'test_value_2'
+        };
 
         try {
+            const indexValues = this.indexer.index(fact);
+            
             // Проверяем базовую структуру индексных значений
-            if (indexValues.length !== 4) {
+            if (indexValues.length !== 2) {
                 throw new Error(`Неправильное количество индексных значений: ${indexValues.length}`);
             }
 
             // Проверяем, что все индексные значения имеют правильную структуру
             indexValues.forEach((indexValue, i) => {
-                const requiredFields = ['h', 'i', 'd', 'c'];
+                const requiredFields = ['it', 'f', 'h', 'i', 'd', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении ${i}`);
@@ -286,10 +392,22 @@ class FactIndexerTest {
                 }
             });
 
-            // Проверяем, что все индексные значения имеют валидные хеши
-            indexValues.forEach(indexValue => {
-                if (!indexValue.h || typeof indexValue.h !== 'string' || indexValue.h.length !== 64) {
-                    throw new Error(`Неправильный хеш в индексном значении: ${indexValue.h}`);
+            // Проверяем типы данных
+            indexValues.forEach((indexValue, i) => {
+                if (typeof indexValue.it !== 'number') {
+                    throw new Error(`Поле it должно быть числом в индексном значении ${i}`);
+                }
+                if (typeof indexValue.f !== 'string') {
+                    throw new Error(`Поле f должно быть строкой в индексном значении ${i}`);
+                }
+                if (typeof indexValue.h !== 'string') {
+                    throw new Error(`Поле h должно быть строкой в индексном значении ${i}`);
+                }
+                if (!(indexValue.d instanceof Date)) {
+                    throw new Error(`Поле d должно быть датой в индексном значении ${i}`);
+                }
+                if (!(indexValue.c instanceof Date)) {
+                    throw new Error(`Поле c должно быть датой в индексном значении ${i}`);
                 }
             });
 
@@ -305,8 +423,8 @@ class FactIndexerTest {
     /**
      * Тест создания индексных значений для сгенерированных фактов
      */
-    testWithGeneratedFacts() {
-        this.logger.debug('7. Тест с сгенерированными фактами...');
+    testWithGeneratedFacts(title) {
+        this.logger.debug(title);
         
         try {
             const fromDate = new Date('2024-01-01');
@@ -340,6 +458,136 @@ class FactIndexerTest {
             this.testResults.failed++;
             this.testResults.errors.push(`testWithGeneratedFacts: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест валидации конфигурации
+     */
+    testConfigValidation(title) {
+        this.logger.debug(title);
+        
+        const testCases = [
+            {
+                config: 'string',
+                description: 'строка вместо массива',
+                shouldThrow: true
+            },
+            {
+                config: [],
+                description: 'пустой массив',
+                shouldThrow: true
+            },
+            {
+                config: [{}],
+                description: 'объект без обязательных полей',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1
+                }],
+                description: 'валидная конфигурация',
+                shouldThrow: false
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1
+                }, {
+                    fieldName: 'f1',
+                    indexTypeName: 'test',
+                    indexType: 2,
+                    indexValue: 2
+                }],
+                description: 'дублирующаяся комбинация fieldName + indexTypeName',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1
+                }, {
+                    fieldName: 'f2',
+                    indexTypeName: 'test2',
+                    indexType: 1,
+                    indexValue: 2
+                }],
+                description: 'дублирующийся indexType',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'invalid_field',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1
+                }],
+                description: 'неправильное название поля',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    indexTypeName: 123,
+                    indexType: 1,
+                    indexValue: 1
+                }],
+                description: 'indexTypeName не строка',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    indexTypeName: 'test',
+                    indexType: 'invalid',
+                    indexValue: 1
+                }],
+                description: 'indexType не число',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 3
+                }],
+                description: 'неправильное значение indexValue',
+                shouldThrow: true
+            }
+        ];
+
+        let errorCount = 0;
+        testCases.forEach((testCase, index) => {
+            try {
+                new FactIndexer(testCase.config);
+                if (testCase.shouldThrow) {
+                    errorCount++;
+                    this.logger.error(`   ✗ Тест ${index + 1} (${testCase.description}): должен был выбросить ошибку`);
+                }
+            } catch (error) {
+                if (!testCase.shouldThrow) {
+                    errorCount++;
+                    this.logger.error(`   ✗ Тест ${index + 1} (${testCase.description}): не должен был выбросить ошибку: ${error.message}`);
+                }
+            }
+        });
+
+        if (errorCount === 0) {
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } else {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testConfigValidation: ${errorCount} тестов не прошли валидацию`);
+            this.logger.error(`   ✗ ${errorCount} тестов не прошли валидацию`);
         }
     }
 

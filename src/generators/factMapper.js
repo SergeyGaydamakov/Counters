@@ -3,6 +3,13 @@ const path = require('path');
 const Logger = require('../utils/logger');
 
 /**
+ * Формат файла factConfigs.json
+ * @property {string} src - Имя исходного атрибута
+ * @property {string} dst - Имя целевого поля
+ * @property {Array<string>} types - Массив типов фактов, для которых применяется маппинг
+ */
+
+/**
  * Класс для преобразования входных фактов во внутреннюю сохраняемую структуру
  * 
  * Использует конфигурацию маппинга из файла factConfigs.json для преобразования

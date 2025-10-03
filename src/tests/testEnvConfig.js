@@ -21,11 +21,11 @@ class EnvConfigTest {
         this.logger.debug('=== Тестирование конфигурации переменных окружения ===\n');
 
         try {
-            await this.testMongoConnectionString();
-            await this.testTestDatabaseName();
-            await this.testLogLevel();
-            await this.testMongoConfig();
-            await this.testEnvLoaded();
+            await this.testMongoConnectionString('1. Тест получения строки подключения к MongoDB...');
+            await this.testTestDatabaseName('2. Тест получения имени тестовой базы данных...');
+            await this.testLogLevel('3. Тест получения уровня логирования...');
+            await this.testMongoConfig('4. Тест получения конфигурации MongoDB...');
+            await this.testEnvLoaded('5. Тест загрузки переменных окружения...');
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         }
@@ -36,8 +36,8 @@ class EnvConfigTest {
     /**
      * Тест получения строки подключения к MongoDB
      */
-    async testMongoConnectionString() {
-        this.logger.debug('1. Тест получения строки подключения к MongoDB...');
+    async testMongoConnectionString(title) {
+        this.logger.debug(title);
         
         try {
             const connectionString = EnvConfig.getMongoConnectionString();
@@ -62,8 +62,8 @@ class EnvConfigTest {
     /**
      * Тест получения имени тестовой базы данных
      */
-    async testTestDatabaseName() {
-        this.logger.debug('2. Тест получения имени тестовой базы данных...');
+    async testTestDatabaseName(title) {
+        this.logger.debug(title);
         
         try {
             const databaseName = EnvConfig.getTestDatabaseName();
@@ -84,8 +84,8 @@ class EnvConfigTest {
     /**
      * Тест получения уровня логирования
      */
-    async testLogLevel() {
-        this.logger.debug('3. Тест получения уровня логирования...');
+    async testLogLevel(title) {
+        this.logger.debug(title);
         
         try {
             const logLevel = EnvConfig.getLogLevel();
@@ -113,8 +113,8 @@ class EnvConfigTest {
     /**
      * Тест получения полной конфигурации MongoDB
      */
-    async testMongoConfig() {
-        this.logger.debug('4. Тест получения полной конфигурации MongoDB...');
+    async testMongoConfig(title) {
+        this.logger.debug(title);
         
         try {
             const config = EnvConfig.getMongoConfig();
@@ -142,8 +142,8 @@ class EnvConfigTest {
     /**
      * Тест проверки загрузки переменных окружения
      */
-    async testEnvLoaded() {
-        this.logger.debug('5. Тест проверки загрузки переменных окружения...');
+    async testEnvLoaded(title) {
+        this.logger.debug(title);
         
         try {
             const isLoaded = EnvConfig.isEnvLoaded();

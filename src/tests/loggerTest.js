@@ -21,25 +21,25 @@ class LoggerTest {
 
         try {
             // Тесты создания логгера
-            await this.testLoggerCreation();
-            await this.testLoggerFromEnv();
+            await this.testLoggerCreation('1. Тест создания логгера...');
+            await this.testLoggerFromEnv('2. Тест создания логгера из переменных окружения...');
             
             // Тесты уровней логирования
-            await this.testLogLevels();
-            await this.testLogLevelFiltering();
+            await this.testLogLevels('3. Тест уровней логирования...');
+            await this.testLogLevelFiltering('4. Тест фильтрации по уровням логирования...');
             
             // Тесты методов логирования
-            await this.testLogMethods();
-            await this.testLogFormatting();
+            await this.testLogMethods('5. Тест методов логирования...');
+            await this.testLogFormatting('6. Тест форматирования логов...');
             
             // Тесты статических методов
-            await this.testStaticMethods();
+            await this.testStaticMethods('7. Тест статических методов...');
             
             // Тесты с различными типами данных
-            await this.testDataTypes();
+            await this.testDataTypes('8. Тест различных типов данных...');
             
             // Тесты производительности
-            await this.testPerformance();
+            await this.testPerformance('9. Тест производительности...');
 
         } catch (error) {
             this.logger.error('Критическая ошибка в тестах:', error.message);
@@ -53,8 +53,8 @@ class LoggerTest {
     /**
      * Тест 1: Создание логгера с различными уровнями
      */
-    async testLoggerCreation() {
-        this.logger.debug('1. Тест создания логгера с различными уровнями...');
+    async testLoggerCreation(title) {
+        this.logger.debug(title);
         
         try {
             // Тест создания с валидными уровнями
@@ -90,8 +90,8 @@ class LoggerTest {
     /**
      * Тест 2: Создание логгера из переменной окружения
      */
-    async testLoggerFromEnv() {
-        this.logger.debug('2. Тест создания логгера из переменной окружения...');
+    async testLoggerFromEnv(title) {
+        this.logger.debug(title);
         
         try {
             // Сохраняем оригинальное значение
@@ -132,8 +132,8 @@ class LoggerTest {
     /**
      * Тест 3: Проверка уровней логирования
      */
-    async testLogLevels() {
-        this.logger.debug('3. Тест уровней логирования...');
+    async testLogLevels(title) {
+        this.logger.debug(title);
         
         try {
             const logger = new Logger('DEBUG');
@@ -162,8 +162,8 @@ class LoggerTest {
     /**
      * Тест 4: Фильтрация по уровням логирования
      */
-    async testLogLevelFiltering() {
-        this.logger.debug('4. Тест фильтрации по уровням логирования...');
+    async testLogLevelFiltering(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем логгер с уровнем INFO
@@ -219,8 +219,8 @@ class LoggerTest {
     /**
      * Тест 5: Методы логирования
      */
-    async testLogMethods() {
-        this.logger.debug('5. Тест методов логирования...');
+    async testLogMethods(title) {
+        this.logger.debug(title);
         
         try {
             const logger = new Logger('DEBUG');
@@ -266,8 +266,8 @@ class LoggerTest {
     /**
      * Тест 6: Форматирование сообщений
      */
-    async testLogFormatting() {
-        this.logger.debug('6. Тест форматирования сообщений...');
+    async testLogFormatting(title) {
+        this.logger.debug(title);
         
         try {
             const logger = new Logger('DEBUG');
@@ -318,8 +318,8 @@ class LoggerTest {
     /**
      * Тест 7: Статические методы
      */
-    async testStaticMethods() {
-        this.logger.debug('7. Тест статических методов...');
+    async testStaticMethods(title) {
+        this.logger.debug(title);
         
         try {
             // Тест Logger.create()
@@ -358,8 +358,8 @@ class LoggerTest {
     /**
      * Тест 8: Различные типы данных
      */
-    async testDataTypes() {
-        this.logger.debug('8. Тест различных типов данных...');
+    async testDataTypes(title) {
+        this.logger.debug(title);
         
         try {
             const logger = new Logger('DEBUG');
@@ -413,8 +413,8 @@ class LoggerTest {
     /**
      * Тест 9: Производительность
      */
-    async testPerformance() {
-        this.logger.debug('9. Тест производительности...');
+    async testPerformance(title) {
+        this.logger.debug(title);
         
         try {
             const logger = new Logger('DEBUG');

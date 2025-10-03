@@ -33,11 +33,11 @@ class FactControllerTest {
             this.logger.debug('✓ Подключен к базе данных для тестирования FactController\n');
 
             // Запуск тестов
-            await this.testRunBasic();
-            await this.testRunWithExistingFacts();
-            await this.testRunMultipleTimes();
-            await this.testRunWithEmptyDatabase();
-            await this.testRunErrorHandling();
+            await this.testRunBasic('1. Тест базового выполнения метода run...');
+            await this.testRunWithExistingFacts('2. Тест выполнения с существующими фактами...');
+            await this.testRunMultipleTimes('3. Тест многократного выполнения...');
+            await this.testRunWithEmptyDatabase('4. Тест выполнения с пустой базой данных...');
+            await this.testRunErrorHandling('5. Тест обработки ошибок...');
 
             // Отключение от базы данных
             await this.provider.disconnect();
@@ -55,8 +55,8 @@ class FactControllerTest {
     /**
      * Тест базового выполнения метода run
      */
-    async testRunBasic() {
-        this.logger.debug('1. Тест базового выполнения метода run...');
+    async testRunBasic(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем базу данных перед тестом
@@ -115,8 +115,8 @@ class FactControllerTest {
     /**
      * Тест выполнения метода run с существующими фактами
      */
-    async testRunWithExistingFacts() {
-        this.logger.debug('2. Тест выполнения метода run с существующими фактами...');
+    async testRunWithExistingFacts(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем несколько тестовых фактов с общими значениями полей
@@ -205,8 +205,8 @@ class FactControllerTest {
     /**
      * Тест многократного выполнения метода run
      */
-    async testRunMultipleTimes() {
-        this.logger.debug('3. Тест многократного выполнения метода run...');
+    async testRunMultipleTimes(title) {
+        this.logger.debug(title);
         
         try {
             const runCount = 3;
@@ -253,8 +253,8 @@ class FactControllerTest {
     /**
      * Тест выполнения метода run с пустой базой данных
      */
-    async testRunWithEmptyDatabase() {
-        this.logger.debug('4. Тест выполнения метода run с пустой базой данных...');
+    async testRunWithEmptyDatabase(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем базу данных
@@ -291,8 +291,8 @@ class FactControllerTest {
     /**
      * Тест обработки ошибок в методе run
      */
-    async testRunErrorHandling() {
-        this.logger.debug('5. Тест обработки ошибок в методе run...');
+    async testRunErrorHandling(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем контроллер с невалидным провайдером

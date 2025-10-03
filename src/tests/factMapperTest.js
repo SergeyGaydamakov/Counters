@@ -22,18 +22,18 @@ class FactMapperTest {
     runAllTests() {
         this.logger.info('=== Запуск тестов FactMapper ===');
         
-        this.testConstructor();
-        this.testConstructorWithArray();
-        this.testConstructorWithoutConfig();
-        this.testMapFact();
-        this.testMapFactKeepUnmappedFieldsFalse();
-        this.testMapFactKeepUnmappedFieldsTrue();
-        this.testMapFactWithoutConfig();
-        this.testMapFacts();
-        this.testMapFactWithMultipleFields();
-        this.testMapFactsWithMultipleFields();
-        this.testGetMappingRulesForType();
-        this.testErrorHandling();
+        this.testConstructor('1. Тест конструктора с файлом конфигурации...');
+        this.testConstructorWithArray('2. Тест конструктора с массивом конфигурации...');
+        this.testConstructorWithoutConfig('3. Тест конструктора без конфигурации...');
+        this.testMapFact('4. Тест маппинга одного факта...');
+        this.testMapFactKeepUnmappedFieldsFalse('5. Тест маппинга с keepUnmappedFields=false...');
+        this.testMapFactKeepUnmappedFieldsTrue('6. Тест маппинга с keepUnmappedFields=true...');
+        this.testMapFactWithoutConfig('7. Тест маппинга без конфигурации...');
+        this.testMapFacts('8. Тест маппинга массива фактов...');
+        this.testMapFactWithMultipleFields('9. Тест маппинга факта с множественными полями...');
+        this.testMapFactsWithMultipleFields('10. Тест маппинга массива фактов с множественными полями...');
+        this.testGetMappingRulesForType('11. Тест получения правил маппинга для типа...');
+        this.testErrorHandling('12. Тест обработки ошибок...');
         
         this.printResults();
     }
@@ -55,7 +55,8 @@ class FactMapperTest {
     /**
      * Тест конструктора
      */
-    testConstructor() {
+    testConstructor(title) {
+        this.logger.info(title);
         try {
             // Тест инициализации через массив конфигурации
             const testConfig = [
@@ -78,7 +79,8 @@ class FactMapperTest {
     /**
      * Тест инициализации через массив конфигурации
      */
-    testConstructorWithArray() {
+    testConstructorWithArray(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -107,7 +109,8 @@ class FactMapperTest {
     /**
      * Тест инициализации без конфигурации
      */
-    testConstructorWithoutConfig() {
+    testConstructorWithoutConfig(title) {
+        this.logger.info(title);
         try {
             const mapper = new FactMapper();
             this.assert(mapper instanceof FactMapper, 'Конструктор без конфигурации создает экземпляр FactMapper');
@@ -122,7 +125,8 @@ class FactMapperTest {
     /**
      * Тест маппинга одного факта
      */
-    testMapFact() {
+    testMapFact(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -154,7 +158,8 @@ class FactMapperTest {
     /**
      * Тест маппинга с параметром keepUnmappedFields = false
      */
-    testMapFactKeepUnmappedFieldsFalse() {
+    testMapFactKeepUnmappedFieldsFalse(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -192,7 +197,8 @@ class FactMapperTest {
     /**
      * Тест маппинга с параметром keepUnmappedFields = true (по умолчанию)
      */
-    testMapFactKeepUnmappedFieldsTrue() {
+    testMapFactKeepUnmappedFieldsTrue(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -232,7 +238,8 @@ class FactMapperTest {
     /**
      * Тест маппинга без конфигурации
      */
-    testMapFactWithoutConfig() {
+    testMapFactWithoutConfig(title) {
+        this.logger.info(title);
         try {
             const mapper = new FactMapper(); // Без конфигурации
             const inputFact = {
@@ -257,7 +264,8 @@ class FactMapperTest {
     /**
      * Тест маппинга массива фактов
      */
-    testMapFacts() {
+    testMapFacts(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -289,7 +297,8 @@ class FactMapperTest {
     /**
      * Тест маппинга одного факта с несколькими полями
      */
-    testMapFactWithMultipleFields() {
+    testMapFactWithMultipleFields(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -345,7 +354,8 @@ class FactMapperTest {
     /**
      * Тест маппинга массива фактов с несколькими полями
      */
-    testMapFactsWithMultipleFields() {
+    testMapFactsWithMultipleFields(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -417,7 +427,8 @@ class FactMapperTest {
     /**
      * Тест получения правил маппинга для типа
      */
-    testGetMappingRulesForType() {
+    testGetMappingRulesForType(title) {
+        this.logger.info(title);
         try {
             const testConfig = [
                 {
@@ -458,7 +469,8 @@ class FactMapperTest {
     /**
      * Тест обработки ошибок
      */
-    testErrorHandling() {
+    testErrorHandling(title) {
+        this.logger.info(title);
         try {
             const testConfig = [{ src: 'field1', dst: 'mapped_field1', types: ['type1'] }];
             const mapper = new FactMapper(testConfig);

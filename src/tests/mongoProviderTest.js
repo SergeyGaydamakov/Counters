@@ -14,7 +14,54 @@ class MongoProviderTest {
             'mongoProviderTestDB'
         );
         this.generator = new FactGenerator();
-        this.indexer = new FactIndexer();
+        
+        // Конфигурация для FactIndexer
+        this.indexConfig = [
+            {
+                fieldName: "f1",
+                indexTypeName: "test_type_1",
+                indexType: 1,
+                indexValue: 1
+            },
+            {
+                fieldName: "f2",
+                indexTypeName: "test_type_2",
+                indexType: 2,
+                indexValue: 2
+            },
+            {
+                fieldName: "f3",
+                indexTypeName: "test_type_3",
+                indexType: 3,
+                indexValue: 1
+            },
+            {
+                fieldName: "f5",
+                indexTypeName: "test_type_5",
+                indexType: 5,
+                indexValue: 2
+            },
+            {
+                fieldName: "f10",
+                indexTypeName: "test_type_10",
+                indexType: 10,
+                indexValue: 1
+            },
+            {
+                fieldName: "f15",
+                indexTypeName: "test_type_15",
+                indexType: 15,
+                indexValue: 2
+            },
+            {
+                fieldName: "f23",
+                indexTypeName: "test_type_23",
+                indexType: 23,
+                indexValue: 1
+            }
+        ];
+        
+        this.indexer = new FactIndexer(this.indexConfig);
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -30,57 +77,57 @@ class MongoProviderTest {
 
         try {
             // Тесты подключения
-            await this.testConnection();
-            await this.testDisconnection();
-            await this.testReconnection();
+            await this.testConnection('1. Тест подключения к MongoDB...');
+            await this.testDisconnection('2. Тест отключения от MongoDB...');
+            await this.testReconnection('3. Тест переподключения к MongoDB...');
             
             // Тесты схемы коллекции facts
-            await this.testCreateFactsCollectionSchema();
-            await this.testGetFactsCollectionSchema();
+            await this.testCreateFactsCollectionSchema('4. Тест создания схемы коллекции facts...');
+            await this.testGetFactsCollectionSchema('5. Тест получения схемы коллекции facts...');
             
             // Тесты работы с фактами
-            await this.testInsertFact();
-            await this.testBulkInsert();
+            await this.testInsertFact('6. Тест вставки одного факта...');
+            await this.testBulkInsert('7. Тест массовой вставки фактов...');
             
             // Тесты статистики
-            await this.testGetFactsCollectionStats();
+            await this.testGetFactsCollectionStats('8. Тест получения статистики коллекции facts...');
             
             // Тесты индексных значений
-            await this.testInsertFactIndexList();
-            await this.testCreateFactIndexIndexes();
-            await this.testCreateFactIndexes();
-            await this.testGetFactIndexStats();
-            await this.testGetFactIndexSchema();
-            await this.testCreateFactIndexCollectionSchema();
-            await this.testCreateDatabase();
-            await this.testClearFactIndexCollection();
+            await this.testInsertFactIndexList('9. Тест вставки списка индексных значений...');
+            await this.testCreateFactIndexIndexes('10. Тест создания индексов для индексных значений...');
+            await this.testCreateFactIndexes('11. Тест создания индексов фактов...');
+            await this.testGetFactIndexStats('12. Тест получения статистики индексных значений...');
+            await this.testGetFactIndexSchema('13. Тест получения схемы индексных значений...');
+            await this.testCreateFactIndexCollectionSchema('14. Тест создания схемы коллекции индексных значений...');
+            await this.testCreateDatabase('15. Тест создания базы данных...');
+            await this.testClearFactIndexCollection('16. Тест очистки коллекции индексных значений...');
             
             // Тесты проверки подключения
-            await this.testCheckConnection();
+            await this.testCheckConnection('17. Тест проверки подключения...');
             
             // Тесты повторных вызовов с теми же данными
-            await this.testDuplicateInsertFact();
-            await this.testDuplicateInsertFactIndexList();
-            await this.testDuplicateBulkInsert();
+            await this.testDuplicateInsertFact('18. Тест повторной вставки того же факта...');
+            await this.testDuplicateInsertFactIndexList('19. Тест повторной вставки тех же индексных значений...');
+            await this.testDuplicateBulkInsert('20. Тест повторной массовой вставки...');
             
             // Тесты очистки коллекций
-            await this.testClearFactsCollection();
+            await this.testClearFactsCollection('21. Тест очистки коллекции фактов...');
             
             // Тесты получения релевантных фактов
-            await this.testGetRelevantFacts();
-            await this.testGetRelevantFactsWithMultipleFields();
-            await this.testGetRelevantFactsWithNoMatches();
-            await this.testGetRelevantFactsWithDepthLimit();
-            await this.testGetRelevantFactsWithDepthFromDate();
-            await this.testGetRelevantFactsWithBothParameters();
+            await this.testGetRelevantFacts('22. Тест получения релевантных фактов...');
+            await this.testGetRelevantFactsWithMultipleFields('23. Тест получения релевантных фактов с множественными полями...');
+            await this.testGetRelevantFactsWithNoMatches('24. Тест получения релевантных фактов без совпадений...');
+            await this.testGetRelevantFactsWithDepthLimit('25. Тест получения релевантных фактов с ограничением глубины...');
+            await this.testGetRelevantFactsWithDepthFromDate('26. Тест получения релевантных фактов с глубиной от даты...');
+            await this.testGetRelevantFactsWithBothParameters('27. Тест получения релевантных фактов с обоими параметрами...');
             
             // Тесты получения релевантных счетчиков фактов
-            await this.testGetRelevantFactCounters();
-            await this.testGetRelevantFactCountersWithMultipleFields();
-            await this.testGetRelevantFactCountersWithNoMatches();
-            await this.testGetRelevantFactCountersWithDepthLimit();
-            await this.testGetRelevantFactCountersWithDepthFromDate();
-            await this.testGetRelevantFactCountersWithBothParameters();
+            await this.testGetRelevantFactCounters('28. Тест получения релевантных счетчиков фактов...');
+            await this.testGetRelevantFactCountersWithMultipleFields('29. Тест получения релевантных счетчиков с множественными полями...');
+            await this.testGetRelevantFactCountersWithNoMatches('30. Тест получения релевантных счетчиков без совпадений...');
+            await this.testGetRelevantFactCountersWithDepthLimit('31. Тест получения релевантных счетчиков с ограничением глубины...');
+            await this.testGetRelevantFactCountersWithDepthFromDate('32. Тест получения релевантных счетчиков с глубиной от даты...');
+            await this.testGetRelevantFactCountersWithBothParameters('33. Тест получения релевантных счетчиков с обоими параметрами...');
             
         } catch (error) {
             console.error('Критическая ошибка:', error.message);
@@ -93,8 +140,8 @@ class MongoProviderTest {
     /**
      * Тест подключения к MongoDB
      */
-    async testConnection() {
-        this.logger.debug('1. Тест подключения к MongoDB...');
+    async testConnection(title) {
+        this.logger.debug(title);
         
         try {
             const connected = await this.provider.connect();
@@ -119,8 +166,8 @@ class MongoProviderTest {
     /**
      * Тест отключения от MongoDB
      */
-    async testDisconnection() {
-        this.logger.debug('2. Тест отключения от MongoDB...');
+    async testDisconnection(title) {
+        this.logger.debug(title);
         
         try {
             await this.provider.disconnect();
@@ -141,8 +188,8 @@ class MongoProviderTest {
     /**
      * Тест повторного подключения
      */
-    async testReconnection() {
-        this.logger.debug('3. Тест повторного подключения...');
+    async testReconnection(title) {
+        this.logger.debug(title);
         
         try {
             const connected = await this.provider.connect();
@@ -163,8 +210,8 @@ class MongoProviderTest {
     /**
      * Тест создания схемы коллекции facts
      */
-    async testCreateFactsCollectionSchema() {
-        this.logger.debug('4. Тест создания схемы коллекции facts...');
+    async testCreateFactsCollectionSchema(title) {
+        this.logger.debug(title);
         
         try {
             const success = await this.provider.createFactsCollectionSchema(10);
@@ -185,8 +232,8 @@ class MongoProviderTest {
     /**
      * Тест получения схемы коллекции facts
      */
-    async testGetFactsCollectionSchema() {
-        this.logger.debug('5. Тест получения схемы коллекции facts...');
+    async testGetFactsCollectionSchema(title) {
+        this.logger.debug(title);
         
         try {
             const schema = await this.provider.getFactsCollectionSchema();
@@ -220,8 +267,8 @@ class MongoProviderTest {
     /**
      * Тест вставки одного факта
      */
-    async testInsertFact() {
-        this.logger.debug('6. Тест вставки одного факта...');
+    async testInsertFact(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекцию
@@ -280,8 +327,8 @@ class MongoProviderTest {
     /**
      * Тест bulk вставки факта и индексных значений
      */
-    async testBulkInsert() {
-        this.logger.debug('7. Тест bulk вставки факта и индексных значений...');
+    async testBulkInsert(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекции
@@ -333,8 +380,8 @@ class MongoProviderTest {
     /**
      * Тест получения статистики коллекции facts
      */
-    async testGetFactsCollectionStats() {
-        this.logger.debug('8. Тест получения статистики коллекции facts...');
+    async testGetFactsCollectionStats(title) {
+        this.logger.debug(title);
         
         try {
             const stats = await this.provider.getFactsCollectionStats();
@@ -360,7 +407,8 @@ class MongoProviderTest {
     /**
      * Тест вставки индексных значений
      */
-    async testInsertFactIndexList() {
+    async testInsertFactIndexList(title) {
+        this.logger.debug(title);
         this.logger.debug('9. Тест вставки индексных значений...');
         
         try {
@@ -401,8 +449,8 @@ class MongoProviderTest {
     /**
      * Тест создания индексов для индексных значений
      */
-    async testCreateFactIndexIndexes() {
-        this.logger.debug('10. Тест создания индексов для индексных значений...');
+    async testCreateFactIndexIndexes(title) {
+        this.logger.debug(title);
         
         try {
             const success = await this.provider.createFactIndexIndexes();
@@ -423,8 +471,8 @@ class MongoProviderTest {
     /**
      * Тест создания индексов для коллекции facts
      */
-    async testCreateFactIndexes() {
-        this.logger.debug('11. Тест создания индексов для коллекции facts...');
+    async testCreateFactIndexes(title) {
+        this.logger.debug(title);
         
         try {
             const success = await this.provider.createFactIndexes();
@@ -445,8 +493,8 @@ class MongoProviderTest {
     /**
      * Тест получения статистики индексных значений
      */
-    async testGetFactIndexStats() {
-        this.logger.debug('12. Тест получения статистики индексных значений...');
+    async testGetFactIndexStats(title) {
+        this.logger.debug(title);
         
         try {
             const stats = await this.provider.getFactIndexStats();
@@ -471,8 +519,8 @@ class MongoProviderTest {
     /**
      * Тест получения схемы индексных значений
      */
-    async testGetFactIndexSchema() {
-        this.logger.debug('13. Тест получения схемы индексных значений...');
+    async testGetFactIndexSchema(title) {
+        this.logger.debug(title);
         
         try {
             const schema = await this.provider.getFactIndexCollectionSchema();
@@ -502,8 +550,8 @@ class MongoProviderTest {
     /**
      * Тест создания схемы коллекции индексных значений
      */
-    async testCreateFactIndexCollectionSchema() {
-        this.logger.debug('13.5. Тест создания схемы коллекции индексных значений...');
+    async testCreateFactIndexCollectionSchema(title) {
+        this.logger.debug(title);
         
         try {
             const result = await this.provider.createFactIndexCollectionSchema();
@@ -528,8 +576,8 @@ class MongoProviderTest {
     /**
      * Тест создания базы данных
      */
-    async testCreateDatabase() {
-        this.logger.debug('14. Тест создания базы данных...');
+    async testCreateDatabase(title) {
+        this.logger.debug(title);
         
         try {
             const result = await this.provider.createDatabase();
@@ -579,8 +627,8 @@ class MongoProviderTest {
     /**
      * Тест очистки индексных значений
      */
-    async testClearFactIndexCollection() {
-        this.logger.debug('15. Тест очистки индексных значений...');
+    async testClearFactIndexCollection(title) {
+        this.logger.debug(title);
         
         try {
             const result = await this.provider.clearFactIndexCollection();
@@ -601,8 +649,8 @@ class MongoProviderTest {
     /**
      * Тест проверки подключения
      */
-    async testCheckConnection() {
-        this.logger.debug('16. Тест проверки подключения...');
+    async testCheckConnection(title) {
+        this.logger.debug(title);
         
         try {
             // Тест с подключением
@@ -638,8 +686,8 @@ class MongoProviderTest {
     /**
      * Тест повторной вставки факта с теми же данными
      */
-    async testDuplicateInsertFact() {
-        this.logger.debug('17. Тест повторной вставки факта с теми же данными...');
+    async testDuplicateInsertFact(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекцию
@@ -692,8 +740,8 @@ class MongoProviderTest {
     /**
      * Тест повторной вставки индексных значений с теми же данными
      */
-    async testDuplicateInsertFactIndexList() {
-        this.logger.debug('18. Тест повторной вставки индексных значений с теми же данными...');
+    async testDuplicateInsertFactIndexList(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекцию
@@ -745,8 +793,8 @@ class MongoProviderTest {
     /**
      * Тест повторной bulk вставки с теми же данными
      */
-    async testDuplicateBulkInsert() {
-        this.logger.debug('19. Тест повторной bulk вставки с теми же данными...');
+    async testDuplicateBulkInsert(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекции
@@ -823,8 +871,8 @@ class MongoProviderTest {
     /**
      * Тест очистки коллекции фактов
      */
-    async testClearFactsCollection() {
-        this.logger.debug('20. Тест очистки коллекции фактов...');
+    async testClearFactsCollection(title) {
+        this.logger.debug(title);
         
         try {
             // Сначала добавляем тестовые данные
@@ -872,8 +920,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных фактов - базовый тест
      */
-    async testGetRelevantFacts() {
-        this.logger.debug('22. Тест получения релевантных фактов...');
+    async testGetRelevantFacts(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем тестовые факты с известными значениями полей
@@ -973,8 +1021,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных фактов с множественными полями
      */
-    async testGetRelevantFactsWithMultipleFields() {
-        this.logger.debug('23. Тест получения релевантных фактов с множественными полями...');
+    async testGetRelevantFactsWithMultipleFields(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем факты с множественными совпадающими полями
@@ -1074,8 +1122,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных фактов без совпадений
      */
-    async testGetRelevantFactsWithNoMatches() {
-        this.logger.debug('24. Тест получения релевантных фактов без совпадений...');
+    async testGetRelevantFactsWithNoMatches(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем факты с уникальными значениями полей
@@ -1152,8 +1200,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных фактов с ограничением по количеству
      */
-    async testGetRelevantFactsWithDepthLimit() {
-        this.logger.debug('25. Тест получения релевантных фактов с ограничением по количеству...');
+    async testGetRelevantFactsWithDepthLimit(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем тестовые факты с разными датами
@@ -1239,8 +1287,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных фактов с ограничением по дате
      */
-    async testGetRelevantFactsWithDepthFromDate() {
-        this.logger.debug('26. Тест получения релевантных фактов с ограничением по дате...');
+    async testGetRelevantFactsWithDepthFromDate(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекции перед тестом
@@ -1340,8 +1388,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных фактов с обоими параметрами
      */
-    async testGetRelevantFactsWithBothParameters() {
-        this.logger.debug('27. Тест получения релевантных фактов с обоими параметрами...');
+    async testGetRelevantFactsWithBothParameters(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекции перед тестом
@@ -1441,8 +1489,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных счетчиков фактов - базовый тест
      */
-    async testGetRelevantFactCounters() {
-        this.logger.debug('28. Тест получения релевантных счетчиков фактов...');
+    async testGetRelevantFactCounters(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем тестовые факты с известными значениями полей
@@ -1561,8 +1609,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных счетчиков фактов с множественными полями
      */
-    async testGetRelevantFactCountersWithMultipleFields() {
-        this.logger.debug('29. Тест получения релевантных счетчиков фактов с множественными полями...');
+    async testGetRelevantFactCountersWithMultipleFields(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем факты с множественными совпадающими полями
@@ -1679,8 +1727,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных счетчиков фактов без совпадений
      */
-    async testGetRelevantFactCountersWithNoMatches() {
-        this.logger.debug('30. Тест получения релевантных счетчиков фактов без совпадений...');
+    async testGetRelevantFactCountersWithNoMatches(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем факты с уникальными значениями полей
@@ -1780,8 +1828,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных счетчиков фактов с ограничением по количеству
      */
-    async testGetRelevantFactCountersWithDepthLimit() {
-        this.logger.debug('31. Тест получения релевантных счетчиков фактов с ограничением по количеству...');
+    async testGetRelevantFactCountersWithDepthLimit(title) {
+        this.logger.debug(title);
         
         try {
             // Создаем тестовые факты с разными датами
@@ -1891,8 +1939,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных счетчиков фактов с ограничением по дате
      */
-    async testGetRelevantFactCountersWithDepthFromDate() {
-        this.logger.debug('32. Тест получения релевантных счетчиков фактов с ограничением по дате...');
+    async testGetRelevantFactCountersWithDepthFromDate(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекции перед тестом
@@ -2004,8 +2052,8 @@ class MongoProviderTest {
     /**
      * Тест получения релевантных счетчиков фактов с обоими параметрами
      */
-    async testGetRelevantFactCountersWithBothParameters() {
-        this.logger.debug('33. Тест получения релевантных счетчиков фактов с обоими параметрами...');
+    async testGetRelevantFactCountersWithBothParameters(title) {
+        this.logger.debug(title);
         
         try {
             // Очищаем коллекции перед тестом

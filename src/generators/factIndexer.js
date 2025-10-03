@@ -1,5 +1,15 @@
 const crypto = require('crypto');
+const fs = require('fs');
 const Logger = require('../utils/logger');
+
+/**
+ * Формат файла indexConfig.json
+ * @property {string} fieldName - Имя поля факта
+ * @property {string} indexTypeName - Имя типа индекса
+ * @property {number} indexType - Тип индекса
+ * @property {number} indexValue - Значение индекса (1 - хеш, 2 - само значение поля fieldName)
+ * 
+ */
 
 /**
  * Класс для создания индексных значений из фактов
@@ -14,16 +24,146 @@ const Logger = require('../utils/logger');
  * 
  */
 class FactIndexer {
-    constructor() {
+    constructor(configPathOrMapArray = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
-        // Регулярное выражение для поиска полей, начинающихся с 'f' и содержащих число
-        this.fieldPattern = /^f(\d+)$/;
-        // Выводим хеши по умолчанию для всех полей f1-f23
-        for (let i = 1; i <= 23; i++) {
-            const hash = this.hash(`f${i}`, "1234567890");
-            this.logger.info(`*** Хеш f${i}: <${hash}>`);
+        if (Array.isArray(configPathOrMapArray)) {
+            this._validateConfig(configPathOrMapArray);
+            this._indexConfig = configPathOrMapArray;
+        } else if (typeof configPathOrMapArray === 'string') {
+            this._loadConfig(configPathOrMapArray);
+        } else {
+            this.logger.info('Конфигурация не задана. Индексирование не будет производиться.');
+            return;
         }
-        this.logger.info("");
+        // Выводим информацию о загруженной конфигурации
+        if (this._indexConfig && this._indexConfig.length > 0) {
+            this.logger.info(`Загружена конфигурация индексов: ${this._indexConfig.length} элементов`);
+            this._indexConfig.forEach((config, index) => {
+                this.logger.info(`  ${index + 1}. ${config.fieldName} -> ${config.indexTypeName} (тип: ${config.indexType}, значение: ${config.indexValue})`);
+            });
+        }
+    }
+
+    /**
+     * Загружает конфигурацию маппинга из файла
+     * @throws {Error} если файл конфигурации не найден или содержит неверный формат
+     */
+    _loadConfig(configPath) {
+        try {
+            if (!fs.existsSync(configPath)) {
+                throw new Error(`Файл конфигурации не найден: ${configPath}`);
+            }
+
+            const configData = fs.readFileSync(configPath, 'utf8');
+            const indexConfig = JSON.parse(configData);
+
+            // Валидация структуры конфигурации
+            this._validateConfig(indexConfig);
+            this._indexConfig = indexConfig;
+
+            this.logger.info(`Загружена конфигурация маппинга из ${configPath}`);
+            this.logger.info(`Количество индексов: ${this._indexConfig.length}`);
+        } catch (error) {
+            this.logger.error(`Ошибка загрузки конфигурации: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Валидирует структуру загруженной конфигурации
+     * @throws {Error} если конфигурация имеет неверный формат
+     */
+    _validateConfig(indexConfig) {
+        if (!Array.isArray(indexConfig)) {
+            throw new Error('Конфигурация должна быть массивом объектов');
+        }
+
+        if (indexConfig.length === 0) {
+            throw new Error('Конфигурация не может быть пустым массивом');
+        }
+
+
+        // Регулярное выражение для проверки названий полей f1-f23
+        const fieldNamePattern = /^f([1-9]|1[0-9]|2[0-3])$/;
+
+        indexConfig.forEach((configItem, index) => {
+            // Проверяем, что элемент конфигурации является объектом
+            if (!configItem || typeof configItem !== 'object') {
+                throw new Error(`Элемент конфигурации ${index} должен быть объектом`);
+            }
+
+            // Проверяем наличие обязательных полей
+            const requiredFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue'];
+            for (const field of requiredFields) {
+                if (!(field in configItem)) {
+                    throw new Error(`Элемент конфигурации ${index}: отсутствует обязательное поле '${field}'`);
+                }
+            }
+
+            // Проверяем тип поля fieldName
+            if (typeof configItem.fieldName !== 'string') {
+                throw new Error(`Элемент конфигурации ${index}: поле 'fieldName' должно быть строкой`);
+            }
+
+            // Проверяем формат названия поля (f1-f23)
+            if (!fieldNamePattern.test(configItem.fieldName)) {
+                throw new Error(`Элемент конфигурации ${index}: поле 'fieldName' должно быть в формате f1-f23, получено: '${configItem.fieldName}'`);
+            }
+
+            // Проверяем тип поля indexTypeName
+            if (typeof configItem.indexTypeName !== 'string') {
+                throw new Error(`Элемент конфигурации ${index}: поле 'indexTypeName' должно быть строкой`);
+            }
+
+
+            // Проверяем тип поля indexType
+            if (typeof configItem.indexType !== 'number') {
+                throw new Error(`Элемент конфигурации ${index}: поле 'indexType' должно быть числом`);
+            }
+
+            // Проверяем, что indexType является положительным целым числом
+            if (!Number.isInteger(configItem.indexType) || configItem.indexType <= 0) {
+                throw new Error(`Элемент конфигурации ${index}: поле 'indexType' должно быть положительным целым числом, получено: ${configItem.indexType}`);
+            }
+
+            // Проверяем тип поля indexValue
+            if (typeof configItem.indexValue !== 'number') {
+                throw new Error(`Элемент конфигурации ${index}: поле 'indexValue' должно быть числом`);
+            }
+
+            // Проверяем, что indexValue равен 1 или 2
+            if (configItem.indexValue !== 1 && configItem.indexValue !== 2) {
+                throw new Error(`Элемент конфигурации ${index}: поле 'indexValue' должно быть 1 или 2, получено: ${configItem.indexValue}`);
+            }
+
+            // Проверяем на наличие лишних полей
+            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue'];
+            const extraFields = Object.keys(configItem).filter(key => !allowedFields.includes(key));
+            if (extraFields.length > 0) {
+                throw new Error(`Элемент конфигурации ${index}: содержит недопустимые поля: ${extraFields.join(', ')}`);
+            }
+        });
+
+        // Проверяем уникальность комбинаций fieldName + indexTypeName
+        const usedCombinations = new Set();
+        indexConfig.forEach((configItem, index) => {
+            const combination = `${configItem.fieldName}:${configItem.indexTypeName}`;
+            if (usedCombinations.has(combination)) {
+                throw new Error(`Элемент конфигурации ${index}: дублирующаяся комбинация fieldName и indexTypeName: '${combination}'`);
+            }
+            usedCombinations.add(combination);
+        });
+
+        // Проверяем уникальность indexType
+        const usedIndexTypes = new Set();
+        indexConfig.forEach((configItem, index) => {
+            if (usedIndexTypes.has(configItem.indexType)) {
+                throw new Error(`Элемент конфигурации ${index}: дублирующийся indexType: ${configItem.indexType}`);
+            }
+            usedIndexTypes.add(configItem.indexType);
+        });
+
+        this.logger.info(`Конфигурация валидна. Количество элементов: ${indexConfig.length}`);
     }
 
     /**
@@ -57,25 +197,37 @@ class FactIndexer {
 
         const indexValues = [];
         
-        // Находим все поля, которые начинаются с 'f' и содержат число
-        const factFields = Object.keys(fact).filter(key => this.fieldPattern.test(key));
-        
-        // Если нет полей fN, возвращаем пустой массив
-        if (factFields.length === 0) {
+        // Если нет конфигурации индексов, возвращаем пустой массив
+        if (!this._indexConfig || this._indexConfig.length === 0) {
             return indexValues;
-        } 
-        // Создаем индексное значение для каждого поля fN
-        factFields.forEach(fieldName => {
-            const match = fieldName.match(this.fieldPattern);
-            if (match) {
-                const fieldNumber = parseInt(match[1], 10); // извлекаем номер из fN
+        }
+
+        // Проходим по конфигурации индексов
+        this._indexConfig.forEach(configItem => {
+            const fieldName = configItem.fieldName;
+            
+            // Проверяем, есть ли поле в факте
+            if (fieldName in fact && fact[fieldName] !== null && fact[fieldName] !== undefined) {
+                let indexValue;
+                
+                // Вычисляем значение индекса в зависимости от indexValue
+                if (configItem.indexValue === 1) {
+                    // Хеш от типа индекса и значения поля
+                    indexValue = this.hash(configItem.indexTypeName, fact[fieldName]);
+                } else if (configItem.indexValue === 2) {
+                    // Само значение поля
+                    indexValue = fact[fieldName];
+                } else {
+                    throw new Error(`Неподдерживаемое значение indexValue: ${configItem.indexValue}`);
+                }
+
                 indexValues.push({
-                    it: fieldNumber,    // номер из названия поля (1, 2, 5, 10, etc.)
-                    f: fact[fieldName], // сохраняем значение поля (f1, f2, etc.)
-                    h: this.hash(fieldName, fact[fieldName]), // SHA-256 хеш для уникального индекса
-                    i: fact.i,
-                    d: fact.d,
-                    c: fact.c
+                    it: configItem.indexType,    // числовой тип индекса из конфигурации
+                    f: fact[fieldName],          // значение поля из факта
+                    h: indexValue,               // вычисленное значение индекса
+                    i: fact.i,                   // идентификатор факта
+                    d: fact.d,                   // дата факта
+                    c: fact.c                    // дата создания факта
                 });
             }
         });
