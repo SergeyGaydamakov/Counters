@@ -122,19 +122,13 @@ try {
             maximum: 100,
             description: "Тип факта - целое число от 1 до 100"
         },
-        a: {
-            bsonType: "int",
-            minimum: 1,
-            maximum: 1000000,
-            description: "Количество - целое число от 1 до 1000000"
-        },
         c: {
             bsonType: "date",
             description: "Дата и время создания объекта"
         },
         d: {
-            bsonType: "date", 
-            description: "Дата факта"
+            bsonType: "object",
+            description: "JSON объект с данными факта"
         },
         z: {
             bsonType: "string",
@@ -196,7 +190,7 @@ try {
             bsonType: "object",
             title: "FactIndex Collection Schema",
             description: "Схема для коллекции индексных значений фактов",
-            required: ["h", "i", "d", "c"],
+            required: ["h", "i", "t", "d", "c"],
             properties: {
                 _id: {
                     bsonType: "objectId",
@@ -206,19 +200,14 @@ try {
                     bsonType: "string",
                     description: "Хеш значение типа + поля факта"
                 },
-                f: {
-                    bsonType: "string",
-                    description: "Поле факта (f1, f2, f3, ...)"
+                i: {
+                    bsonType: "objectId",
+                    description: "Уникальный идентификатор факта (GUID)"
                 },
-                it: {
+                t: {
                     bsonType: "int",
                     minimum: 1,
-                    maximum: 100,
-                    description: "Тип индекса - целое число от 1 до 100"
-                },
-                i: {
-                    bsonType: "string",
-                    description: "Уникальный идентификатор факта (GUID)"
+                    description: "Тип факта - целое число >= 1"
                 },
                 d: {
                     bsonType: "date",
@@ -226,7 +215,16 @@ try {
                 },
                 c: {
                     bsonType: "date",
-                    description: "Дата и время создания объекта"
+                    description: "Дата и время создания индексного значения"
+                },
+                f: {
+                    bsonType: "string",
+                    description: "Индексное значение поля факта"
+                },
+                it: {
+                    bsonType: "int",
+                    minimum: 1,
+                    description: "Тип индекса - целое число >= 1"
                 }
             },
             additionalProperties: false

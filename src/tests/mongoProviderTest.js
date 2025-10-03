@@ -299,7 +299,7 @@ class MongoProviderTest {
                 throw new Error('Схема не содержит $jsonSchema');
             }
 
-            const requiredFields = ['i', 't', 'amount', 'c', 'dt'];
+            const requiredFields = ['i', 't', 'c', 'd'];
             const schemaFields = Object.keys(schema.$jsonSchema.properties);
             
             for (const field of requiredFields) {

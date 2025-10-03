@@ -280,6 +280,7 @@ class FactIndexer {
                     f: fact.d[fieldName],          // значение поля из факта
                     h: indexValue,               // вычисленное значение индекса
                     i: fact.i,                   // идентификатор факта
+                    t: fact.t,                   // тип факта
                     d: indexDate,                // дата из поля dateName или значение по умолчанию
                     c: fact.c                    // дата создания факта
                 });

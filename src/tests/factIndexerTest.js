@@ -242,7 +242,7 @@ class FactIndexerTest {
                 }
 
                 // Проверяем структуру
-                const requiredFields = ['it', 'f', 'h', 'i', 'd', 'c'];
+                const requiredFields = ['it', 'f', 'h', 'i', 't', 'd', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -438,7 +438,7 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильную структуру
             indexValues.forEach((indexValue, i) => {
-                const requiredFields = ['it', 'f', 'h', 'i', 'd', 'c'];
+                const requiredFields = ['it', 'f', 'h', 'i', 't', 'd', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении ${i}`);
@@ -456,6 +456,9 @@ class FactIndexerTest {
                 }
                 if (typeof indexValue.h !== 'string') {
                     throw new Error(`Поле h должно быть строкой в индексном значении ${i}`);
+                }
+                if (typeof indexValue.t !== 'number') {
+                    throw new Error(`Поле t должно быть числом в индексном значении ${i}`);
                 }
                 if (!(indexValue.d instanceof Date)) {
                     throw new Error(`Поле d должно быть датой в индексном значении ${i}`);

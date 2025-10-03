@@ -140,7 +140,7 @@ class MongoProvider {
                     bsonType: "object",
                     title: "Facts Collection Schema",
                     description: "Схема для коллекции фактов с автоматически генерируемой структурой",
-                    required: ["i", "t", "amount", "c", "dt"],
+                    required: ["i", "t", "c", "d"],
                     properties: {
                         _id: {
                             bsonType: "objectId",
@@ -153,28 +153,20 @@ class MongoProvider {
                         t: {
                             bsonType: "int",
                             minimum: 1,
-                            maximum: 100,
-                            description: "Тип факта - целое число от 1 до 100"
-                        },
-                        amount: {
-                            bsonType: "int",
-                            minimum: 1,
-                            maximum: 1000000,
-                            description: "Количество - целое число от 1 до 1000000"
+                            description: "Тип факта - целое число >= 1 "
                         },
                         c: {
                             bsonType: "date",
                             description: "Дата и время создания объекта"
                         },
-                        dt: {
-                            bsonType: "date",
-                            description: "Дата факта"
+                        d: {
+                            bsonType: "object",
+                            description: "JSON объект с данными факта"
                         },
                         z: {
                             bsonType: "string",
                             description: "Поле заполнения для достижения целевого размера JSON (необязательное)"
-                        },
-                        ...dynamicFieldsProperties
+                        }
                     },
                     additionalProperties: false
                 }
@@ -208,6 +200,177 @@ class MongoProvider {
             return true;
         } catch (error) {
             console.error('✗ Ошибка при создании схемы коллекции:', error.message);
+            return false;
+        }
+    }
+
+        /**
+     * Создает схему валидации для коллекции индексных значений
+     * @returns {Promise<boolean>} результат создания схемы
+     */
+    async createFactIndexCollectionSchema() {
+        this.checkConnection();
+
+        try {
+            // Определяем схему валидации JSON для коллекции factIndex
+            const schema = {
+                $jsonSchema: {
+                    bsonType: "object",
+                    title: "FactIndex Collection Schema",
+                    description: "Схема для коллекции индексных значений фактов",
+                    required: ["h", "i", "d", "c"],
+                    properties: {
+                        _id: {
+                            bsonType: "objectId",
+                            description: "MongoDB ObjectId (автоматически генерируется)"
+                        },
+                        h: {
+                            bsonType: "string",
+                            description: "Хеш значение типа + поля факта"
+                        },
+                        // @deprecated нужно удалить после отладки
+                        f: {
+                            bsonType: "string",
+                            description: "Поле факта (f1, f2, f3, ...)"
+                        },
+                        it: {
+                            bsonType: "int",
+                            minimum: 1,
+                            maximum: 100,
+                            description: "Тип индекса - целое число от 1 до 100"
+                        },
+                        i: {
+                            bsonType: "string",
+                            description: "Уникальный идентификатор факта (GUID)"
+                        },
+                        d: {
+                            bsonType: "date",
+                            description: "Дата факта"
+                        },
+                        c: {
+                            bsonType: "date",
+                            description: "Дата и время создания объекта"
+                        }
+                    },
+                    additionalProperties: false
+                }
+            };
+
+            // Проверяем, существует ли коллекция
+            const collections = await this.factIndexDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
+
+            if (collections.length > 0) {
+                // Коллекция существует, обновляем схему валидации
+                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
+                await this.factIndexDb.command({
+                    collMod: this.FACT_INDEX_COLLECTION_NAME,
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            } else {
+                // Коллекция не существует, создаем с валидацией
+                this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
+                await this.factIndexDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            }
+
+            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_INDEX_COLLECTION_NAME} успешно создана/обновлена`);
+
+            return true;
+        } catch (error) {
+            console.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Создает схему валидации для коллекции индексных значений
+     * @returns {Promise<boolean>} результат создания схемы
+     */
+    async createFactIndexCollectionSchema() {
+        this.checkConnection();
+
+        try {
+            // Определяем схему валидации JSON для коллекции factIndex
+            const schema = {
+                $jsonSchema: {
+                    bsonType: "object",
+                    title: "FactIndex Collection Schema",
+                    description: "Схема для коллекции индексных значений фактов",
+                    required: ["h", "i", "t", "d", "c"],
+                    properties: {
+                        _id: {
+                            bsonType: "objectId",
+                            description: "MongoDB ObjectId (автоматически генерируется)"
+                        },
+                        h: {
+                            bsonType: "string",
+                            description: "Хеш значение типа + поля факта"
+                        },
+                        i: {
+                            bsonType: "string",
+                            description: "Уникальный идентификатор факта (GUID)"
+                        },
+                        t: {
+                            bsonType: "int",
+                            minimum: 1,
+                            description: "Тип факта - целое число >= 1"
+                        },
+                        d: {
+                            bsonType: "date",
+                            description: "Дата факта"
+                        },
+                        c: {
+                            bsonType: "date",
+                            description: "Дата и время создания индексного значения"
+                        },
+                        // @deprecated нужно удалить после отладки
+                        f: {
+                            bsonType: "string",
+                            description: "Поле факта (f1, f2, f3, ...)"
+                        },
+                        it: {
+                            bsonType: "int",
+                            minimum: 1,
+                            maximum: 100,
+                            description: "Тип индекса - целое число от 1 до 100"
+                        }
+                    },
+                    additionalProperties: false
+                }
+            };
+
+            // Проверяем, существует ли коллекция
+            const collections = await this.factIndexDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
+
+            if (collections.length > 0) {
+                // Коллекция существует, обновляем схему валидации
+                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
+                await this.factIndexDb.command({
+                    collMod: this.FACT_INDEX_COLLECTION_NAME,
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            } else {
+                // Коллекция не существует, создаем с валидацией
+                this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
+                await this.factIndexDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            }
+
+            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_INDEX_COLLECTION_NAME} успешно создана/обновлена`);
+
+            return true;
+        } catch (error) {
+            console.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
             return false;
         }
     }
@@ -294,89 +457,6 @@ class MongoProvider {
         } catch (error) {
             console.error('✗ Ошибка при получении схемы коллекции индексных значений:', error.message);
             throw error;
-        }
-    }
-
-    /**
-     * Создает схему валидации для коллекции индексных значений
-     * @returns {Promise<boolean>} результат создания схемы
-     */
-    async createFactIndexCollectionSchema() {
-        this.checkConnection();
-
-        try {
-            // Определяем схему валидации JSON для коллекции factIndex
-            const schema = {
-                $jsonSchema: {
-                    bsonType: "object",
-                    title: "FactIndex Collection Schema",
-                    description: "Схема для коллекции индексных значений фактов",
-                    required: ["h", "i", "d", "c"],
-                    properties: {
-                        _id: {
-                            bsonType: "objectId",
-                            description: "MongoDB ObjectId (автоматически генерируется)"
-                        },
-                        h: {
-                            bsonType: "string",
-                            description: "Хеш значение типа + поля факта"
-                        },
-                        // @deprecated нужно удалить после отладки
-                        f: {
-                            bsonType: "string",
-                            description: "Поле факта (f1, f2, f3, ...)"
-                        },
-                        it: {
-                            bsonType: "int",
-                            minimum: 1,
-                            maximum: 100,
-                            description: "Тип индекса - целое число от 1 до 100"
-                        },
-                        i: {
-                            bsonType: "string",
-                            description: "Уникальный идентификатор факта (GUID)"
-                        },
-                        d: {
-                            bsonType: "date",
-                            description: "Дата факта"
-                        },
-                        c: {
-                            bsonType: "date",
-                            description: "Дата и время создания объекта"
-                        }
-                    },
-                    additionalProperties: false
-                }
-            };
-
-            // Проверяем, существует ли коллекция
-            const collections = await this.factIndexDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
-
-            if (collections.length > 0) {
-                // Коллекция существует, обновляем схему валидации
-                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
-                await this.factIndexDb.command({
-                    collMod: this.FACT_INDEX_COLLECTION_NAME,
-                    validator: schema,
-                    validationLevel: "moderate",
-                    validationAction: "warn"
-                });
-            } else {
-                // Коллекция не существует, создаем с валидацией
-                this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
-                await this.factIndexDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
-                    validator: schema,
-                    validationLevel: "moderate",
-                    validationAction: "warn"
-                });
-            }
-
-            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_INDEX_COLLECTION_NAME} успешно создана/обновлена`);
-
-            return true;
-        } catch (error) {
-            console.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
-            return false;
         }
     }
 
