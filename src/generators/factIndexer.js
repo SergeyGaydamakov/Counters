@@ -234,30 +234,35 @@ class FactIndexer {
             return indexValues;
         }
 
+        // Если нет поля d, возвращаем пустой массив
+        if (!fact.d || typeof fact.d !== 'object') {
+            return indexValues;
+        }
+
         // Проходим по конфигурации индексов
         this._indexConfig.forEach(configItem => {
             const fieldName = configItem.fieldName;
             const dateName = configItem.dateName;
             
             // Проверяем, есть ли поле в факте
-            if (fieldName in fact && fact[fieldName] !== null && fact[fieldName] !== undefined) {
+            if (fieldName in fact.d && fact.d[fieldName] !== null && fact.d[fieldName] !== undefined) {
                 let indexValue;
                 
                 // Вычисляем значение индекса в зависимости от indexValue
                 if (configItem.indexValue === 1) {
                     // Хеш от типа индекса и значения поля
-                    indexValue = this.hash(configItem.indexTypeName, fact[fieldName]);
+                    indexValue = this.hash(configItem.indexTypeName, fact.d[fieldName]);
                 } else if (configItem.indexValue === 2) {
                     // Само значение поля
-                    indexValue = fact[fieldName];
+                    indexValue = fact.d[fieldName];
                 } else {
                     throw new Error(`Неподдерживаемое значение indexValue: ${configItem.indexValue}`);
                 }
 
                 // Получаем дату из поля, указанного в dateName
                 let indexDate = null; // значение по умолчанию
-                if (dateName in fact && fact[dateName] !== null && fact[dateName] !== undefined) {
-                    const convertedDate = this._convertToDate(fact[dateName]);
+                if (dateName in fact.d && fact.d[dateName] !== null && fact.d[dateName] !== undefined) {
+                    const convertedDate = this._convertToDate(fact.d[dateName]);
                     if (convertedDate !== null) {
                         indexDate = convertedDate;
                     }
@@ -272,7 +277,7 @@ class FactIndexer {
 
                 indexValues.push({
                     it: configItem.indexType,    // числовой тип индекса из конфигурации
-                    f: fact[fieldName],          // значение поля из факта
+                    f: fact.d[fieldName],          // значение поля из факта
                     h: indexValue,               // вычисленное значение индекса
                     i: fact.i,                   // идентификатор факта
                     d: indexDate,                // дата из поля dateName или значение по умолчанию

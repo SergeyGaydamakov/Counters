@@ -8,8 +8,8 @@ const FactGenerator = require('../generators/factGenerator');
 // Тестовая конфигурация полей
 const testFieldConfig = [
     {
-        "src": "d",
-        "dst": "d",
+        "src": "dt",
+        "dst": "dt",
         "fact_types": [1, 2, 3], // user_action, system_event, payment
         "generator": {
             "type": "date",
@@ -338,16 +338,34 @@ function testGenerateFact(testName) {
         console.log(`   Дата создания: ${fact.c.toISOString()}`);
 
         // Проверяем поля факта
-        const expectedFields = ['d', 'f1', 'f2', 'f4']; // Поля для user_action (тип 1)
+        const expectedTopLevelFields = ['i', 't', 'c', 'd']; // Основные поля факта
         const actualFields = Object.keys(fact);
         console.log(`   Поля: [${actualFields.join(', ')}]`);
 
-        // Проверяем, что все ожидаемые поля присутствуют
-        const hasAllFields = expectedFields.every(field => actualFields.includes(field));
-        if (hasAllFields) {
-            console.log('✅ Все ожидаемые поля присутствуют');
+        // Проверяем, что все основные поля присутствуют
+        const hasAllTopLevelFields = expectedTopLevelFields.every(field => actualFields.includes(field));
+        if (hasAllTopLevelFields) {
+            console.log('✅ Все основные поля присутствуют');
         } else {
-            console.log('❌ Не все ожидаемые поля присутствуют');
+            console.log('❌ Не все основные поля присутствуют');
+            return false;
+        }
+
+        // Проверяем, что объект d содержит поля типа
+        if (fact.d && typeof fact.d === 'object') {
+            const expectedDataFields = ['dt','f1', 'f2', 'f4']; // Поля для user_action (тип 1) в объекте d
+            const actualDataFields = Object.keys(fact.d);
+            console.log(`   Поля в d: [${actualDataFields.join(', ')}]`);
+            
+            const hasAllDataFields = expectedDataFields.every(field => actualDataFields.includes(field));
+            if (hasAllDataFields) {
+                console.log('✅ Все поля типа присутствуют в объекте d');
+            } else {
+                console.log('❌ Не все поля типа присутствуют в объекте d');
+                return false;
+            }
+        } else {
+            console.log('❌ Объект d отсутствует или не является объектом');
             return false;
         }
 
@@ -436,7 +454,7 @@ function testGenerateFactWithCustomDates(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const dateFieldConfig = testFieldConfig.find(field => field.src === 'd');
+        const dateFieldConfig = testFieldConfig.find(field => field.src === 'dt');
         const fromDate = new Date(dateFieldConfig.generator.min);
         const toDate = new Date(dateFieldConfig.generator.max);
         const generator = new FactGenerator(testFieldConfig, fromDate, toDate);
@@ -448,7 +466,7 @@ function testGenerateFactWithCustomDates(testName) {
         console.log(`   Дата создания: ${fact.c.toISOString()}`);
 
         // Проверяем, что дата факта в заданном диапазоне
-        if (fact.d >= fromDate && fact.d <= toDate) {
+        if (fact.d.dt >= fromDate && fact.d.dt <= toDate) {
             console.log('✅ Дата факта находится в заданном диапазоне');
         } else {
             console.log('❌ Дата факта выходит за заданный диапазон');
@@ -474,8 +492,8 @@ function testGenerateFactForAllTypes(testName) {
         console.log('✅ Генерация фактов для всех типов:');
         generator._availableTypes.forEach(type => {
             const fact = generator.generateFact(type);
-            const fields = Object.keys(fact).filter(key => key.startsWith('f'));
-            console.log(`   Тип ${type}: ${fields.length} полей [${fields.join(', ')}]`);
+            const dataFields = fact.d ? Object.keys(fact.d) : [];
+            console.log(`   Тип ${type}: ${dataFields.length} полей [${dataFields.join(', ')}]`);
         });
 
         return true;
@@ -542,56 +560,64 @@ function testGeneratorTypes(testName) {
         const fact = generator.generateFact(1);
 
         console.log('✅ Факт сгенерирован с различными типами генераторов');
-        console.log(`   stringField: "${fact.stringField}" (тип: ${typeof fact.stringField})`);
-        console.log(`   integerField: ${fact.integerField} (тип: ${typeof fact.integerField})`);
-        console.log(`   dateField: ${fact.dateField} (тип: ${typeof fact.dateField})`);
-        console.log(`   enumField: "${fact.enumField}" (тип: ${typeof fact.enumField})`);
-        console.log(`   defaultField: "${fact.defaultField}" (тип: ${typeof fact.defaultField})`);
+        
+        // Проверяем, что объект d существует
+        if (!fact.d || typeof fact.d !== 'object') {
+            console.log('❌ Объект d отсутствует или не является объектом');
+            return false;
+        }
+        
+        const data = fact.d;
+        console.log(`   stringField: "${data.stringField}" (тип: ${typeof data.stringField})`);
+        console.log(`   integerField: ${data.integerField} (тип: ${typeof data.integerField})`);
+        console.log(`   dateField: ${data.dateField} (тип: ${typeof data.dateField})`);
+        console.log(`   enumField: "${data.enumField}" (тип: ${typeof data.enumField})`);
+        console.log(`   defaultField: "${data.defaultField}" (тип: ${typeof data.defaultField})`);
 
         // Проверяем типы данных
-        if (typeof fact.stringField !== 'string') {
+        if (typeof data.stringField !== 'string') {
             console.log('❌ stringField должен быть строкой');
             return false;
         }
 
-        if (typeof fact.integerField !== 'number' || !Number.isInteger(fact.integerField)) {
+        if (typeof data.integerField !== 'number' || !Number.isInteger(data.integerField)) {
             console.log('❌ integerField должен быть целым числом');
             return false;
         }
 
-        if (!(fact.dateField instanceof Date)) {
+        if (!(data.dateField instanceof Date)) {
             console.log('❌ dateField должен быть объектом Date');
             return false;
         }
 
-        if (typeof fact.enumField !== 'string') {
+        if (typeof data.enumField !== 'string') {
             console.log('❌ enumField должен быть строкой');
             return false;
         }
 
-        if (typeof fact.defaultField !== 'string') {
+        if (typeof data.defaultField !== 'string') {
             console.log('❌ defaultField должен быть строкой (значение по умолчанию)');
             return false;
         }
 
         // Проверяем диапазоны значений
-        if (fact.stringField.length < 5 || fact.stringField.length > 15) {
+        if (data.stringField.length < 5 || data.stringField.length > 15) {
             console.log('❌ stringField должен быть длиной от 5 до 15 символов');
             return false;
         }
 
-        if (fact.integerField < 100 || fact.integerField > 1000) {
+        if (data.integerField < 100 || data.integerField > 1000) {
             console.log('❌ integerField должен быть в диапазоне от 100 до 1000');
             return false;
         }
 
         const validEnumValues = ["option1", "option2", "option3", "option4"];
-        if (!validEnumValues.includes(fact.enumField)) {
+        if (!validEnumValues.includes(data.enumField)) {
             console.log('❌ enumField должен быть одним из допустимых значений');
             return false;
         }
 
-        if (fact.defaultField.length < 6 || fact.defaultField.length > 20) {
+        if (data.defaultField.length < 6 || data.defaultField.length > 20) {
             console.log('❌ defaultField должен быть длиной от 6 до 20 символов (значение по умолчанию)');
             return false;
         }
@@ -617,7 +643,9 @@ function testEnumRandomness(testName) {
         // Генерируем 50 фактов и собираем все enum значения
         for (let i = 0; i < 50; i++) {
             const fact = generator.generateFact(1);
-            enumValues.add(fact.enumField);
+            if (fact.d && fact.d.enumField) {
+                enumValues.add(fact.d.enumField);
+            }
         }
 
         console.log(`✅ Сгенерировано 50 фактов, получено ${enumValues.size} уникальных enum значений`);
@@ -680,28 +708,36 @@ function testDefaultValueGeneration(testName) {
         const fact = generator.generateFact(1);
 
         console.log('✅ Факт сгенерирован с default_value и default_random');
-        console.log(`   stringField: "${fact.stringField}" (тип: ${typeof fact.stringField})`);
-        console.log(`   integerField: ${fact.integerField} (тип: ${typeof fact.integerField})`);
-        console.log(`   dateField: ${fact.dateField} (тип: ${typeof fact.dateField})`);
-        console.log(`   enumField: "${fact.enumField}" (тип: ${typeof fact.enumField})`);
+        
+        // Проверяем, что объект d существует
+        if (!fact.d || typeof fact.d !== 'object') {
+            console.log('❌ Объект d отсутствует или не является объектом');
+            return false;
+        }
+        
+        const data = fact.d;
+        console.log(`   stringField: "${data.stringField}" (тип: ${typeof data.stringField})`);
+        console.log(`   integerField: ${data.integerField} (тип: ${typeof data.integerField})`);
+        console.log(`   dateField: ${data.dateField} (тип: ${typeof data.dateField})`);
+        console.log(`   enumField: "${data.enumField}" (тип: ${typeof data.enumField})`);
 
         // Проверяем типы данных
-        if (typeof fact.stringField !== 'string') {
+        if (typeof data.stringField !== 'string') {
             console.log('❌ stringField должен быть строкой');
             return false;
         }
 
-        if (typeof fact.integerField !== 'number' || !Number.isInteger(fact.integerField)) {
+        if (typeof data.integerField !== 'number' || !Number.isInteger(data.integerField)) {
             console.log('❌ integerField должен быть целым числом');
             return false;
         }
 
-        if (!(fact.dateField instanceof Date)) {
+        if (!(data.dateField instanceof Date)) {
             console.log('❌ dateField должен быть объектом Date');
             return false;
         }
 
-        if (typeof fact.enumField !== 'string') {
+        if (typeof data.enumField !== 'string') {
             console.log('❌ enumField должен быть строкой');
             return false;
         }
@@ -732,11 +768,13 @@ function testDefaultValueFrequency(testName) {
         // Генерируем много фактов для статистики
         for (let i = 0; i < iterations; i++) {
             const fact = generator.generateFact(1);
-
-            if (fact.stringField === "DEFAULT_STRING") defaultStringCount++;
-            if (fact.integerField === 999) defaultIntegerCount++;
-            if (fact.dateField.toISOString().startsWith("2024-03-15")) defaultDateCount++;
-            if (fact.enumField === "option2") defaultEnumCount++;
+            
+            if (fact.d) {
+                if (fact.d.stringField === "DEFAULT_STRING") defaultStringCount++;
+                if (fact.d.integerField === 999) defaultIntegerCount++;
+                if (fact.d.dateField && fact.d.dateField.toISOString().startsWith("2024-03-15")) defaultDateCount++;
+                if (fact.d.enumField === "option2") defaultEnumCount++;
+            }
         }
 
         const stringFrequency = defaultStringCount / iterations;

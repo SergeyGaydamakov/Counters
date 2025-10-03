@@ -456,6 +456,9 @@ class FactGenerator {
             c: new Date() // дата и время создания объекта
         };
 
+        // Создаем объект "d" для группировки полей типа
+        const dataFields = {};
+        
         // Добавляем поля для данного типа на основе конфигурации
         const fieldsForType = this._typeFieldsMap[type];
         
@@ -464,13 +467,11 @@ class FactGenerator {
             const generatorConfig = this._fieldGeneratorsMap[fieldName];
             
             // Генерируем значение на основе конфигурации
-            fact[fieldName] = this._generateFieldValue(generatorConfig);
-            
-            // Иногда генерируем постоянный идентификатор (только для строковых полей)
-            if (Math.random() < 0.1 && typeof fact[fieldName] === 'string') {
-                fact[fieldName] = "1234567890";
-            }
+            dataFields[fieldName] = this._generateFieldValue(generatorConfig);
         });
+        
+        // Добавляем объект "d" с полями типа в факт
+        fact.d = dataFields;
 
         // Если задан целевой размер, добавляем поле z для достижения нужного размера
         if (this._targetSize && this._targetSize > 0) {

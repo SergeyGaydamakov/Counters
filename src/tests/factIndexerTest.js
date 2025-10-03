@@ -12,49 +12,49 @@ class FactIndexerTest {
         this.testIndexConfig = [
             {
                 fieldName: "f1",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_1",
                 indexType: 1,
                 indexValue: 1
             },
             {
                 fieldName: "f2",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_2",
                 indexType: 2,
                 indexValue: 2
             },
             {
                 fieldName: "f3",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_3",
                 indexType: 3,
                 indexValue: 1
             },
             {
                 fieldName: "f5",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_5",
                 indexType: 5,
                 indexValue: 2
             },
             {
                 fieldName: "f4",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_4",
                 indexType: 4,
                 indexValue: 1
             },
             {
                 fieldName: "f6",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_6",
                 indexType: 6,
                 indexValue: 2
             },
             {
                 fieldName: "f7",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_7",
                 indexType: 7,
                 indexValue: 1
@@ -66,8 +66,8 @@ class FactIndexerTest {
         // Тестовая конфигурация полей
         const testFieldConfig = [
             {
-                "src": "d",
-                "dst": "d",
+                "src": "dt",
+                "dst": "dt",
                 "fact_types": [1, 2, 3], // user_action, system_event, payment
                 "generator": {
                     "type": "date",
@@ -139,12 +139,13 @@ class FactIndexerTest {
         const fact = {
             i: 'test-id-123',
             t: 1,
-            a: 100,
             c: new Date('2024-01-01'),
-            d: new Date('2024-01-15'),
-            f1: 'value1',
-            f2: 'value2',
-            f5: 'value5'
+            d: {
+                dt: new Date('2024-01-15'),
+                f1: 'value1',
+                f2: 'value2',
+                f5: 'value5'
+            }
         };
 
         try {
@@ -213,17 +214,18 @@ class FactIndexerTest {
         const fact = {
             i: 'multi-field-test',
             t: 2,
-            a: 200,
             c: new Date('2024-02-01'),
-            d: new Date('2024-02-15'),
-            f1: 'val1',
-            f2: 'val2',
-            f3: 'val3',
-            f4: 'val4',
-            f6: 'val6',
-            f7: 'val7',
-            otherField: 'should be ignored',
-            notF: 'should be ignored'
+            d: {
+                dt: new Date('2024-02-15'),
+                f1: 'val1',
+                f2: 'val2',
+                f3: 'val3',
+                f4: 'val4',
+                f6: 'val6',
+                f7: 'val7',
+                otherField: 'should be ignored',
+                notF: 'should be ignored'
+            }
         };
 
         try {
@@ -298,11 +300,12 @@ class FactIndexerTest {
         const fact = {
             i: 'no-fields-test',
             t: 3,
-            a: 300,
             c: new Date('2024-03-01'),
-            d: new Date('2024-03-15'),
-            otherField: 'value',
-            anotherField: 'another value'
+            d: {
+                dt: new Date('2024-03-15'),
+                otherField: 'value',
+                anotherField: 'another value'
+            }
         };
 
         try {
@@ -367,20 +370,22 @@ class FactIndexerTest {
             {
                 i: 'fact1',
                 t: 1,
-                a: 100,
                 c: new Date('2024-01-01'),
-                d: new Date('2024-01-15'),
-                f1: 'val1',
-                f2: 'val2'
+                d: {
+                    dt: new Date('2024-01-15'),
+                    f1: 'val1',
+                    f2: 'val2'
+                }
             },
             {
                 i: 'fact2',
                 t: 2,
-                a: 200,
                 c: new Date('2024-02-01'),
-                d: new Date('2024-02-15'),
-                f3: 'val3',
-                f5: 'val5'
+                d: {
+                    dt: new Date('2024-02-15'),
+                    f3: 'val3',
+                    f5: 'val5'
+                }
             }
         ];
 
@@ -415,11 +420,12 @@ class FactIndexerTest {
         const fact = {
             i: 'statistics-test',
             t: 1,
-            a: 100,
             c: new Date('2024-01-01'),
-            d: new Date('2024-01-15'),
-            f1: 'test_value_1',
-            f2: 'test_value_2'
+            d: {
+                dt: new Date('2024-01-15'),
+                f1: 'test_value_1',
+                f2: 'test_value_2'
+            }
         };
 
         try {
@@ -514,7 +520,7 @@ class FactIndexerTest {
 
         try {
             // Создаем конфигурацию с разными полями дат
-            const config = [
+            const indexConfig = [
                 {
                     fieldName: "f1",
                     dateName: "customDate",
@@ -531,18 +537,19 @@ class FactIndexerTest {
                 }
             ];
 
-            const indexer = new FactIndexer(config);
+            const indexer = new FactIndexer(indexConfig);
 
             // Тестовый факт с разными полями дат
             const fact = {
                 t: 1,
                 i: "test_id_123",
-                d: new Date('2024-01-01'), // стандартное поле d
                 c: new Date('2024-01-02'),
-                f1: "test_value_1",
-                f2: "test_value_2",
-                customDate: new Date('2024-03-15'), // кастомное поле даты
-                dt: new Date('2024-04-20') // другое кастомное поле даты
+                d: {
+                    f1: "test_value_1",
+                    f2: "test_value_2",
+                    customDate: new Date('2024-03-15'),
+                    dt: new Date('2024-04-20')
+                }
             };
 
             const indexValues = indexer.index(fact);
@@ -557,7 +564,7 @@ class FactIndexerTest {
             if (!index1) {
                 throw new Error('Не найдено индексное значение для f1');
             }
-            if (index1.d.getTime() !== fact.customDate.getTime()) {
+            if (index1.d.getTime() !== fact.d.customDate.getTime()) {
                 throw new Error('Дата в первом индексном значении не соответствует customDate');
             }
 
@@ -566,7 +573,7 @@ class FactIndexerTest {
             if (!index2) {
                 throw new Error('Не найдено индексное значение для f2');
             }
-            if (index2.d.getTime() !== fact.dt.getTime()) {
+            if (index2.d.getTime() !== fact.d.dt.getTime()) {
                 throw new Error('Дата во втором индексном значении не соответствует dt');
             }
 
@@ -574,10 +581,12 @@ class FactIndexerTest {
             const factWithInvalidDate = {
                 t: 1,
                 i: "test_id_456",
-                d: new Date('2024-01-01'),
                 c: new Date('2024-01-02'),
-                f1: "test_value_1",
-                customDate: "invalid_date_string" // невалидная дата
+                d: {
+                    dt: new Date('2024-01-01'),
+                    f1: "test_value_1",
+                    customDate: "invalid_date_string" // невалидная дата
+                }
             };
 
             const indexValuesInvalid = indexer.index(factWithInvalidDate);

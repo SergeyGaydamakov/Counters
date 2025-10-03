@@ -156,23 +156,23 @@ class MongoProviderTest {
             await this.testClearFactIndexCollection('16. Тест очистки коллекции индексных значений...');
             
             // Тесты проверки подключения
-            await this.testCheckConnection('18. Тест проверки подключения...');
+            await this.testCheckConnection('17. Тест проверки подключения...');
             
             // Тесты повторных вызовов с теми же данными
-            await this.testDuplicateInsertFact('19. Тест повторной вставки того же факта...');
-            await this.testDuplicateInsertFactIndexList('20. Тест повторной вставки тех же индексных значений...');
-            await this.testDuplicateBulkInsert('21. Тест повторной массовой вставки...');
+            await this.testDuplicateInsertFact('18. Тест повторной вставки того же факта...');
+            await this.testDuplicateInsertFactIndexList('19. Тест повторной вставки тех же индексных значений...');
+            await this.testDuplicateBulkInsert('20. Тест повторной массовой вставки...');
             
             // Тесты очистки коллекций
-            await this.testClearFactsCollection('22. Тест очистки коллекции фактов...');
+            await this.testClearFactsCollection('21. Тест очистки коллекции фактов...');
             
             // Тесты получения релевантных фактов
-            await this.testGetRelevantFacts('23. Тест получения релевантных фактов...');
-            await this.testGetRelevantFactsWithMultipleFields('24. Тест получения релевантных фактов с множественными полями...');
-            await this.testGetRelevantFactsWithNoMatches('25. Тест получения релевантных фактов без совпадений...');
-            await this.testGetRelevantFactsWithDepthLimit('26. Тест получения релевантных фактов с ограничением глубины...');
-            await this.testGetRelevantFactsWithDepthFromDate('27. Тест получения релевантных фактов с глубиной от даты...');
-            await this.testGetRelevantFactsWithBothParameters('28. Тест получения релевантных фактов с обоими параметрами...');
+            await this.testGetRelevantFacts('22. Тест получения релевантных фактов...');
+            await this.testGetRelevantFactsWithMultipleFields('23. Тест получения релевантных фактов с множественными полями...');
+            await this.testGetRelevantFactsWithNoMatches('24. Тест получения релевантных фактов без совпадений...');
+            await this.testGetRelevantFactsWithDepthLimit('25. Тест получения релевантных фактов с ограничением глубины...');
+            await this.testGetRelevantFactsWithDepthFromDate('26. Тест получения релевантных фактов с глубиной от даты...');
+            await this.testGetRelevantFactsWithBothParameters('27. Тест получения релевантных фактов с обоими параметрами...');
             
             // Тесты получения релевантных счетчиков фактов
             await this.testGetRelevantFactCounters('28. Тест получения релевантных счетчиков фактов...');
@@ -342,7 +342,7 @@ class MongoProviderTest {
             }
 
             // Тест повторной вставки с измененными данными (должна обновить существующий по умолчанию)
-            const modifiedFact = { ...testFact, amount: testFact.amount + 100 }; // Изменяем значение поля amount
+            const modifiedFact = { ...testFact, d: { amount: testFact.d.amount + 100 } }; // Изменяем значение поля amount
             const upsertResult = await this.provider.saveFact(modifiedFact);
             
             if (!upsertResult.success) {
@@ -392,7 +392,7 @@ class MongoProviderTest {
             const testFact = this.generator.generateFact(1);
             
             // Создаем индексные значения
-            const indexValues = this.indexer.indexFacts([testFact]);
+            const indexValues = this.indexer.index(testFact);
 
             // Вставляем факт
             const factResult = await this.provider.saveFact(testFact);
@@ -467,7 +467,7 @@ class MongoProviderTest {
             
             // Генерируем тестовые данные
             const facts = [this.generator.generateRandomTypeFact(), this.generator.generateRandomTypeFact(), this.generator.generateRandomTypeFact()];
-            const indexValues = this.indexer.indexFacts(facts);
+            const indexValues = this.indexer.index(facts[0]);
 
             const result = await this.provider.saveFactIndexList(indexValues);
             
@@ -799,7 +799,7 @@ class MongoProviderTest {
             const fromDate = new Date('2024-01-01');
             const toDate = new Date('2024-12-31');
             const facts = [this.generator.generateRandomTypeFact(), this.generator.generateRandomTypeFact()];
-            const indexValues = this.indexer.indexFacts(facts);
+            const indexValues = this.indexer.index(facts[0]);
 
             // Первая вставка
             const firstResult = await this.provider.saveFactIndexList(indexValues);
@@ -853,7 +853,7 @@ class MongoProviderTest {
             const fromDate = new Date('2024-01-01');
             const toDate = new Date('2024-12-31');
             const testFact = this.generator.generateFact(1);
-            const indexValues = this.indexer.indexFacts([testFact]);
+            const indexValues = this.indexer.index(testFact);
 
             // Первая вставка
             const firstFactResult = await this.provider.saveFact(testFact);
@@ -978,41 +978,49 @@ class MongoProviderTest {
                     i: 'test-fact-001',
                     t: 1,
                     c: new Date(),
-                    amount: 100,
-                    dt: new Date('2024-01-01'),
-                    f1: 'value1',
-                    f2: 'value2',
-                    f5: 'value5'
+                    d: {
+                        amount: 100,
+                        dt: new Date('2024-01-01'),
+                        f1: 'value1',
+                        f2: 'value2',
+                        f5: 'value5'
+                    }
                 },
                 {
                     i: 'test-fact-002',
                     t: 1,
                     c: new Date(),
-                    amount: 200,
-                    dt: new Date('2024-01-02'),
-                    f1: 'value1', // Совпадает с первым фактом
-                    f3: 'value3',
-                    f10: 'value7'
+                    d: {
+                        amount: 200,
+                        dt: new Date('2024-01-02'),
+                        f1: 'value1', // Совпадает с первым фактом
+                        f3: 'value3',
+                        f10: 'value7'
+                    }
                 },
                 {
                     i: 'test-fact-003',
                     t: 2,
                     c: new Date(),
-                    amount: 300,
-                    dt: new Date('2024-01-03'),
-                    f2: 'value2', // Совпадает с первым фактом
-                    f4: 'value4',
-                    f15: 'value8'
+                    d: {
+                        amount: 300,
+                        dt: new Date('2024-01-03'),
+                        f2: 'value2', // Совпадает с первым фактом
+                        f4: 'value4',
+                        f15: 'value8'
+                    }
                 },
                 {
                     i: 'test-fact-004',
                     t: 3,
                     c: new Date(),
-                    amount: 400,
-                    dt: new Date('2024-01-04'),
-                    f1: 'different1', // Не совпадает
-                    f2: 'different2', // Не совпадает
-                    f23: 'value9'
+                    d: {
+                        amount: 400,
+                        dt: new Date('2024-01-04'),
+                        f1: 'different1', // Не совпадает
+                        f2: 'different2', // Не совпадает
+                        f23: 'value9'
+                    }
                 }
             ];
 
@@ -1079,43 +1087,51 @@ class MongoProviderTest {
                     i: 'multi-fact-001',
                     t: 1,
                     c: new Date(),
-                    amount: 100,
-                    dt: new Date('2024-02-01'),
-                    f1: 'shared1',
-                    f2: 'shared2',
-                    f3: 'shared3',
-                    f4: 'unique1'
+                    d: {
+                        amount: 100,
+                        dt: new Date('2024-02-01'),
+                        f1: 'shared1',
+                        f2: 'shared2',
+                        f3: 'shared3',
+                        f4: 'unique1'
+                    }
                 },
                 {
                     i: 'multi-fact-002',
                     t: 2,
                     c: new Date(),
-                    amount: 200,
-                    dt: new Date('2024-02-02'),
-                    f1: 'shared1', // Совпадает
-                    f2: 'shared2', // Совпадает
-                    f3: 'shared3', // Совпадает
-                    f5: 'unique2'
+                    d: {
+                        amount: 200,
+                        dt: new Date('2024-02-02'),
+                        f1: 'shared1', // Совпадает
+                        f2: 'shared2', // Совпадает
+                        f3: 'shared3', // Совпадает
+                        f5: 'unique2'
+                    }
                 },
                 {
                     i: 'multi-fact-003',
                     t: 3,
                     c: new Date(),
-                    amount: 300,
-                    dt: new Date('2024-02-03'),
-                    f1: 'shared1', // Совпадает
-                    f2: 'different2', // Не совпадает
-                    f10: 'unique3'
+                    d: {
+                        amount: 300,
+                        dt: new Date('2024-02-03'),
+                        f1: 'shared1', // Совпадает
+                        f2: 'different2', // Не совпадает
+                        f10: 'unique3'
+                    }
                 },
                 {
                     i: 'multi-fact-004',
                     t: 4,
                     c: new Date(),
-                    amount: 400,
-                    dt: new Date('2024-02-04'),
-                    f10: 'unique4',
-                    f15: 'unique5',
-                    f23: 'unique6'
+                    d: {
+                        amount: 400,
+                        dt: new Date('2024-02-04'),
+                        f10: 'unique4',
+                        f15: 'unique5',
+                        f23: 'unique6'
+                    }
                 }
             ];
 
@@ -1180,21 +1196,25 @@ class MongoProviderTest {
                     i: 'unique-fact-001',
                     t: 1,
                     c: new Date(),
-                    amount: 100,
-                    dt: new Date('2024-03-01'),
-                    f1: 'unique1',
-                    f2: 'unique2',
-                    f3: 'unique3'
+                    d: {
+                        amount: 100,
+                        dt: new Date('2024-03-01'),
+                        f1: 'unique1',
+                        f2: 'unique2',
+                        f3: 'unique3'
+                    }
                 },
                 {
                     i: 'unique-fact-002',
                     t: 2,
                     c: new Date(),
-                    amount: 200,
-                    dt: new Date('2024-03-02'),
-                    f4: 'unique4',
-                    f5: 'unique5',
-                    f10: 'unique6'
+                    d: {
+                        amount: 200,
+                        dt: new Date('2024-03-02'),
+                        f4: 'unique4',
+                        f5: 'unique5',
+                        f10: 'unique6'
+                    }
                 }
             ];
 
@@ -1213,11 +1233,13 @@ class MongoProviderTest {
                 i: 'search-fact-001',
                 t: 3,
                 c: new Date(),
-                amount: 300,
-                dt: new Date('2024-03-03'),
-                f1: 'completely-different1',
-                f2: 'completely-different2',
-                f3: 'completely-different3'
+                d: {
+                    amount: 300,
+                    dt: new Date('2024-03-03'),
+                    f1: 'completely-different1',
+                    f2: 'completely-different2',
+                    f3: 'completely-different3'
+                }
             };
 
             // Тестируем поиск - не должно быть совпадений
@@ -1259,37 +1281,45 @@ class MongoProviderTest {
                     i: 'depth-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
-                    amount: 100,
-                    dt: new Date(baseDate.getTime() + 1000),
-                    f1: 'shared-value',
-                    f2: 'unique1'
+                    d: {
+                        amount: 100,
+                        dt: new Date(baseDate.getTime() + 1000),
+                        f1: 'shared-value',
+                        f2: 'unique1'
+                    }
                 },
                 {
                     i: 'depth-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
-                    amount: 200,
-                    dt: new Date(baseDate.getTime() + 2000),
-                    f1: 'shared-value',
-                    f3: 'unique2'
+                    d: {
+                        amount: 200,
+                        dt: new Date(baseDate.getTime() + 2000),
+                        f1: 'shared-value',
+                        f3: 'unique2'
+                    }
                 },
                 {
                     i: 'depth-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
-                    amount: 300,
-                    dt: new Date(baseDate.getTime() + 3000),
-                    f1: 'shared-value',
-                    f4: 'unique3'
+                    d: {
+                        amount: 300,
+                        dt: new Date(baseDate.getTime() + 3000),
+                        f1: 'shared-value',
+                        f4: 'unique3'
+                    }
                 },
                 {
                     i: 'depth-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
-                    amount: 400,
-                    dt: new Date(baseDate.getTime() + 4000),
-                    f1: 'shared-value',
-                    f5: 'unique4'
+                    d: {
+                        amount: 400,
+                        dt: new Date(baseDate.getTime() + 4000),
+                        f1: 'shared-value',
+                        f5: 'unique4'
+                    }
                 }
             ];
 
@@ -1351,37 +1381,45 @@ class MongoProviderTest {
                     i: 'date-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
-                    amount: 100,
-                    dt: new Date(baseDate.getTime() + 2000), // После cutoffDate
-                    f1: 'shared-value',
-                    f2: 'before-cutoff'
+                    d: {
+                        amount: 100,
+                        dt: new Date(baseDate.getTime() + 2000), // После cutoffDate
+                        f1: 'shared-value',
+                        f2: 'before-cutoff'
+                    }
                 },
                 {
                     i: 'date-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
-                    amount: 200,
-                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
-                    f1: 'shared-value',
-                    f3: 'before-cutoff'
+                    d: {
+                        amount: 200,
+                        dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                        f1: 'shared-value',
+                        f3: 'before-cutoff'
+                    }
                 },
                 {
                     i: 'date-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
-                    amount: 300,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f4: 'after-cutoff'
+                    d: {
+                        amount: 300,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f4: 'after-cutoff'
+                    }
                 },
                 {
                     i: 'date-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
-                    amount: 400,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f5: 'after-cutoff'
+                    d: {
+                        amount: 400,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f5: 'after-cutoff'
+                    }
                 }
             ];
 
@@ -1452,37 +1490,45 @@ class MongoProviderTest {
                     i: 'both-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
-                    amount: 100,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f2: 'old'
+                    d: {
+                        amount: 100,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f2: 'old'
+                    }
                 },
                 {
                     i: 'both-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
-                    amount: 200,
-                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
-                    f1: 'shared-value',
-                    f3: 'old'
+                    d: {
+                        amount: 200,
+                        dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                        f1: 'shared-value',
+                        f3: 'old'
+                    }
                 },
                 {
                     i: 'both-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
-                    amount: 300,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f4: 'new'
+                    d: {
+                        amount: 300,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f4: 'new'
+                    }
                 },
                 {
                     i: 'both-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
-                    amount: 400,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f5: 'new'
+                    d: {
+                        amount: 400,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f5: 'new'
+                    }
                 }
             ];
 
@@ -1547,41 +1593,49 @@ class MongoProviderTest {
                     i: 'counter-fact-001',
                     t: 1,
                     c: new Date(),
-                    amount: 100,
-                    dt: new Date('2024-01-01'),
-                    f1: 'value1',
-                    f2: 'value2',
-                    f5: 'value5'
+                    d: {
+                        amount: 100,
+                        dt: new Date('2024-01-01'),
+                        f1: 'value1',
+                        f2: 'value2',
+                        f5: 'value5'
+                    }
                 },
                 {
                     i: 'counter-fact-002',
                     t: 1,
                     c: new Date(),
-                    amount: 200,
-                    dt: new Date('2024-01-02'),
-                    f1: 'value1', // Совпадает с первым фактом
-                    f3: 'value3',
-                    f10: 'value7'
+                    d: {
+                        amount: 200,
+                        dt: new Date('2024-01-02'),
+                        f1: 'value1', // Совпадает с первым фактом
+                        f3: 'value3',
+                        f10: 'value7'
+                    }
                 },
                 {
                     i: 'counter-fact-003',
                     t: 2,
                     c: new Date(),
-                    amount: 300,
-                    dt: new Date('2024-01-03'),
-                    f2: 'value2', // Совпадает с первым фактом
-                    f4: 'value4',
-                    f15: 'value8'
+                    d: {
+                        amount: 300,
+                        dt: new Date('2024-01-03'),
+                        f2: 'value2', // Совпадает с первым фактом
+                        f4: 'value4',
+                        f15: 'value8'
+                    }
                 },
                 {
                     i: 'counter-fact-004',
                     t: 3,
                     c: new Date(),
-                    amount: 400,
-                    dt: new Date('2024-01-04'),
-                    f1: 'different1', // Не совпадает
-                    f2: 'different2', // Не совпадает
-                    f23: 'value9'
+                    d: {
+                        amount: 400,
+                        dt: new Date('2024-01-04'),
+                        f1: 'different1', // Не совпадает
+                        f2: 'different2', // Не совпадает
+                        f23: 'value9'
+                    }
                 }
             ];
 
@@ -1667,43 +1721,51 @@ class MongoProviderTest {
                     i: 'multi-counter-fact-001',
                     t: 1,
                     c: new Date(),
-                    amount: 100,
-                    dt: new Date('2024-02-01'),
-                    f1: 'shared1',
-                    f2: 'shared2',
-                    f3: 'shared3',
-                    f4: 'unique1'
+                    d: {
+                        amount: 100,
+                        dt: new Date('2024-02-01'),
+                        f1: 'shared1',
+                        f2: 'shared2',
+                        f3: 'shared3',
+                        f4: 'unique1'
+                    }
                 },
                 {
                     i: 'multi-counter-fact-002',
                     t: 2,
                     c: new Date(),
-                    amount: 200,
-                    dt: new Date('2024-02-02'),
-                    f1: 'shared1', // Совпадает
-                    f2: 'shared2', // Совпадает
-                    f3: 'shared3', // Совпадает
-                    f5: 'unique2'
+                    d: {
+                        amount: 200,
+                        dt: new Date('2024-02-02'),
+                        f1: 'shared1', // Совпадает
+                        f2: 'shared2', // Совпадает
+                        f3: 'shared3', // Совпадает
+                        f5: 'unique2'
+                    }
                 },
                 {
                     i: 'multi-counter-fact-003',
                     t: 3,
                     c: new Date(),
-                    amount: 300,
-                    dt: new Date('2024-02-03'),
-                    f1: 'shared1', // Совпадает
-                    f2: 'different2', // Не совпадает
-                    f10: 'unique3'
+                    d: {
+                        amount: 300,
+                        dt: new Date('2024-02-03'),
+                        f1: 'shared1', // Совпадает
+                        f2: 'different2', // Не совпадает
+                        f10: 'unique3'
+                    }
                 },
                 {
                     i: 'multi-counter-fact-004',
                     t: 4,
                     c: new Date(),
-                    amount: 400,
-                    dt: new Date('2024-02-04'),
-                    f10: 'unique4',
-                    f15: 'unique5',
-                    f23: 'unique6'
+                    d: {
+                        amount: 400,
+                        dt: new Date('2024-02-04'),
+                        f10: 'unique4',
+                        f15: 'unique5',
+                        f23: 'unique6'
+                    }
                 }
             ];
 
@@ -1785,21 +1847,25 @@ class MongoProviderTest {
                     i: 'unique-counter-fact-001',
                     t: 1,
                     c: new Date(),
-                    amount: 100,
-                    dt: new Date('2024-03-01'),
-                    f1: 'unique1',
-                    f2: 'unique2',
-                    f3: 'unique3'
+                    d: {
+                        amount: 100,
+                        dt: new Date('2024-03-01'),
+                        f1: 'unique1',
+                        f2: 'unique2',
+                        f3: 'unique3'
+                    }
                 },
                 {
                     i: 'unique-counter-fact-002',
                     t: 2,
                     c: new Date(),
-                    amount: 200,
-                    dt: new Date('2024-03-02'),
-                    f4: 'unique4',
-                    f5: 'unique5',
-                    f10: 'unique6'
+                    d: {
+                        amount: 200,
+                        dt: new Date('2024-03-02'),
+                        f4: 'unique4',
+                        f5: 'unique5',
+                        f10: 'unique6'
+                    }
                 }
             ];
 
@@ -1818,11 +1884,13 @@ class MongoProviderTest {
                 i: 'search-counter-fact-001',
                 t: 3,
                 c: new Date(),
-                amount: 300,
-                dt: new Date('2024-03-03'),
-                f1: 'completely-different1',
-                f2: 'completely-different2',
-                f3: 'completely-different3'
+                d: {
+                    amount: 300,
+                    dt: new Date('2024-03-03'),
+                    f1: 'completely-different1',
+                    f2: 'completely-different2',
+                    f3: 'completely-different3'
+                }
             };
 
             // Тестируем получение счетчиков - не должно быть совпадений
@@ -1887,37 +1955,45 @@ class MongoProviderTest {
                     i: 'depth-counter-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
-                    amount: 100,
-                    dt: new Date(baseDate.getTime() + 1000),
-                    f1: 'shared-value',
-                    f2: 'unique1'
+                    d: {
+                        amount: 100,
+                        dt: new Date(baseDate.getTime() + 1000),
+                        f1: 'shared-value',
+                        f2: 'unique1'
+                    }
                 },
                 {
                     i: 'depth-counter-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
-                    amount: 200,
-                    dt: new Date(baseDate.getTime() + 2000),
-                    f1: 'shared-value',
-                    f3: 'unique2'
+                    d: {
+                        amount: 200,
+                        dt: new Date(baseDate.getTime() + 2000),
+                        f1: 'shared-value',
+                        f3: 'unique2'
+                    }
                 },
                 {
                     i: 'depth-counter-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
-                    amount: 300,
-                    dt: new Date(baseDate.getTime() + 3000),
-                    f1: 'shared-value',
-                    f4: 'unique3'
+                    d: {
+                        amount: 300,
+                        dt: new Date(baseDate.getTime() + 3000),
+                        f1: 'shared-value',
+                        f4: 'unique3'
+                    }
                 },
                 {
                     i: 'depth-counter-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
-                    amount: 400,
-                    dt: new Date(baseDate.getTime() + 4000),
-                    f1: 'shared-value',
-                    f5: 'unique4'
+                    d: {
+                        amount: 400,
+                        dt: new Date(baseDate.getTime() + 4000),
+                        f1: 'shared-value',
+                        f5: 'unique4'
+                    }
                 }
             ];
 
@@ -2004,37 +2080,45 @@ class MongoProviderTest {
                     i: 'date-counter-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
-                    amount: 100,
-                    dt: new Date(baseDate.getTime() + 2000), // После cutoffDate
-                    f1: 'shared-value',
-                    f2: 'before-cutoff'
+                    d: {
+                        amount: 100,
+                        dt: new Date(baseDate.getTime() + 2000), // После cutoffDate
+                        f1: 'shared-value',
+                        f2: 'before-cutoff'
+                    }
                 },
                 {
                     i: 'date-counter-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
-                    amount: 200,
-                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
-                    f1: 'shared-value',
-                    f3: 'before-cutoff'
+                    d: {
+                        amount: 200,
+                        dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                        f1: 'shared-value',
+                        f3: 'before-cutoff'
+                    }
                 },
                 {
                     i: 'date-counter-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
-                    amount: 300,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f4: 'after-cutoff'
+                    d: {
+                        amount: 300,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f4: 'after-cutoff'
+                    }
                 },
                 {
                     i: 'date-counter-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
-                    amount: 400,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f5: 'after-cutoff'
+                    d: {
+                        amount: 400,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f5: 'after-cutoff'
+                    }
                 }
             ];
 
@@ -2117,37 +2201,45 @@ class MongoProviderTest {
                     i: 'both-counter-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
-                    amount: 100,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f2: 'old'
+                    d: {
+                        amount: 100,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f2: 'old'
+                    }
                 },
                 {
                     i: 'both-counter-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
-                    amount: 200,
-                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
-                    f1: 'shared-value',
-                    f3: 'old'
+                    d: {
+                        amount: 200,
+                        dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                        f1: 'shared-value',
+                        f3: 'old'
+                    }
                 },
                 {
                     i: 'both-counter-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
-                    amount: 300,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f4: 'new'
+                    d: {
+                        amount: 300,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f4: 'new'
+                    }
                 },
                 {
                     i: 'both-counter-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
-                    amount: 400,
-                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
-                    f1: 'shared-value',
-                    f5: 'new'
+                    d: {
+                        amount: 400,
+                        dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                        f1: 'shared-value',
+                        f5: 'new'
+                    }
                 }
             ];
 

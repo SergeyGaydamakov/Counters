@@ -1154,7 +1154,7 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$amount" }
+                            "sumA": { "$sum": "$d.amount" }
                         }
                     }
                 ],
@@ -1170,7 +1170,7 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$amount" }
+                            "sumA": { "$sum": "$d.amount" }
                         }
                     }
                 ],
@@ -1186,7 +1186,7 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$amount" }
+                            "sumA": { "$sum": "$d.amount" }
                         }
                     }
                 ],
@@ -1202,7 +1202,7 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$amount" }
+                            "sumA": { "$sum": "$d.amount" }
                         }
                     }
                 ],
@@ -1221,7 +1221,7 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "totalSum": {
-                                "$sum": "$amount"
+                                "$sum": "$d.amount"
                             }
                         }
                     }
