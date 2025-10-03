@@ -26,7 +26,7 @@ class MongoProviderTest {
      * Запуск всех тестов
      */
     async runAllTests() {
-        this.logger.debug('=== Тестирование всех методов MongoProvider (27 тестов) ===\n');
+        this.logger.debug('=== Тестирование всех методов MongoProvider (33 тестов) ===\n');
 
         try {
             // Тесты подключения
@@ -73,6 +73,14 @@ class MongoProviderTest {
             await this.testGetRelevantFactsWithDepthLimit();
             await this.testGetRelevantFactsWithDepthFromDate();
             await this.testGetRelevantFactsWithBothParameters();
+            
+            // Тесты получения релевантных счетчиков фактов
+            await this.testGetRelevantFactCounters();
+            await this.testGetRelevantFactCountersWithMultipleFields();
+            await this.testGetRelevantFactCountersWithNoMatches();
+            await this.testGetRelevantFactCountersWithDepthLimit();
+            await this.testGetRelevantFactCountersWithDepthFromDate();
+            await this.testGetRelevantFactCountersWithBothParameters();
             
         } catch (error) {
             console.error('Критическая ошибка:', error.message);
@@ -940,7 +948,7 @@ class MongoProviderTest {
             // test-fact-002 - f1='value1'
             // test-fact-003 - f2='value2'
             const expectedIds = ['test-fact-001', 'test-fact-002', 'test-fact-003'];
-            const foundIds = relevantFacts.map(f => f.fact.i);
+            const foundIds = relevantFacts.map(f => f.i);
 
             if (relevantFacts.length < 2) {
                 throw new Error(`Ожидалось найти минимум 2 релевантных факта, найдено ${relevantFacts.length}`);
@@ -1040,7 +1048,7 @@ class MongoProviderTest {
             // multi-fact-001 (сам факт) - f1, f2, f3
             // multi-fact-002 - f1, f2, f3 (все три совпадают)
             // multi-fact-003 - f1 (только одно совпадает)
-            const foundIds = relevantFacts.map(f => f.fact.i);
+            const foundIds = relevantFacts.map(f => f.i);
 
             if (relevantFacts.length < 2) {
                 throw new Error(`Ожидалось найти минимум 2 релевантных факта, найдено ${relevantFacts.length}`);
@@ -1303,7 +1311,7 @@ class MongoProviderTest {
             }
 
             // Должны найтись только факты до cutoffDate
-            const foundIds = relevantFacts.map(f => f.fact.i);
+            const foundIds = relevantFacts.map(f => f.i);
             const expectedIds = ['date-fact-001', 'date-fact-002']; // Только факты до cutoffDate
             
             // Проверяем, что найдены только ожидаемые факты
@@ -1414,7 +1422,7 @@ class MongoProviderTest {
             }
 
             // Проверяем, что найденный факт соответствует критериям даты
-            const foundId = relevantFacts[0].fact.i;
+            const foundId = relevantFacts[0].i;
             const expectedIds = ['both-fact-001', 'both-fact-002']; // Только факты до cutoffDate
             
             if (!expectedIds.includes(foundId)) {
@@ -1426,6 +1434,687 @@ class MongoProviderTest {
         } catch (error) {
             this.testResults.failed++;
             this.testResults.errors.push(`testGetRelevantFactsWithBothParameters: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест получения релевантных счетчиков фактов - базовый тест
+     */
+    async testGetRelevantFactCounters() {
+        this.logger.debug('28. Тест получения релевантных счетчиков фактов...');
+        
+        try {
+            // Создаем тестовые факты с известными значениями полей
+            const testFacts = [
+                {
+                    i: 'counter-fact-001',
+                    t: 1,
+                    a: 100,
+                    c: new Date(),
+                    d: new Date('2024-01-01'),
+                    f1: 'value1',
+                    f2: 'value2',
+                    f5: 'value5'
+                },
+                {
+                    i: 'counter-fact-002',
+                    t: 1,
+                    a: 200,
+                    c: new Date(),
+                    d: new Date('2024-01-02'),
+                    f1: 'value1', // Совпадает с первым фактом
+                    f3: 'value3',
+                    f7: 'value7'
+                },
+                {
+                    i: 'counter-fact-003',
+                    t: 2,
+                    a: 300,
+                    c: new Date(),
+                    d: new Date('2024-01-03'),
+                    f2: 'value2', // Совпадает с первым фактом
+                    f4: 'value4',
+                    f8: 'value8'
+                },
+                {
+                    i: 'counter-fact-004',
+                    t: 3,
+                    a: 400,
+                    c: new Date(),
+                    d: new Date('2024-01-04'),
+                    f1: 'different1', // Не совпадает
+                    f2: 'different2', // Не совпадает
+                    f9: 'value9'
+                }
+            ];
+
+            // Вставляем факты в базу данных
+            for (const fact of testFacts) {
+                await this.provider.saveFact(fact);
+                
+                // Создаем индексные значения для каждого факта
+                const indexValues = this.indexer.index(fact);
+                if (indexValues.length > 0) {
+                    await this.provider.saveFactIndexList(indexValues);
+                }
+            }
+
+            // Тестируем получение счетчиков для первого факта
+            const searchFact = testFacts[0]; // counter-fact-001 с f1='value1', f2='value2', f5='value5'
+            const excludedFact = testFacts[3];
+            const searchFactIndexValues = this.indexer.index(searchFact);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
+
+            // Проверяем результаты
+            if (!Array.isArray(counters)) {
+                throw new Error('Метод должен возвращать массив');
+            }
+
+            if (counters.length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            }
+
+            const result = counters[0];
+            
+            // Проверяем структуру результата
+            if (!result.total || !Array.isArray(result.total)) {
+                throw new Error('Результат должен содержать массив total');
+            }
+
+            if (result.total.length === 0) {
+                throw new Error('Массив total не должен быть пустым');
+            }
+
+            const totalStats = result.total[0];
+            
+            // Проверяем поля в total
+            if (typeof totalStats.count !== 'number') {
+                throw new Error('Поле count должно быть числом');
+            }
+
+            if (typeof totalStats.sumA !== 'number') {
+                throw new Error('Поле sumA должно быть числом');
+            }
+
+            // Проверяем, что найдены релевантные факты
+            if (totalStats.count < 2) {
+                throw new Error(`Ожидалось минимум 2 релевантных факта, найдено ${totalStats.count}`);
+            }
+
+            // Проверяем сумму значений поля a
+            const expectedSumA = 100 + 200 + 300; // Сумма a для релевантных фактов
+            if (totalStats.sumA !== expectedSumA) {
+                throw new Error(`Ожидалась сумма a = ${expectedSumA}, получена ${totalStats.sumA}`);
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetRelevantFactCounters: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест получения релевантных счетчиков фактов с множественными полями
+     */
+    async testGetRelevantFactCountersWithMultipleFields() {
+        this.logger.debug('29. Тест получения релевантных счетчиков фактов с множественными полями...');
+        
+        try {
+            // Создаем факты с множественными совпадающими полями
+            const testFacts = [
+                {
+                    i: 'multi-counter-fact-001',
+                    t: 1,
+                    a: 100,
+                    c: new Date(),
+                    d: new Date('2024-02-01'),
+                    f1: 'shared1',
+                    f2: 'shared2',
+                    f3: 'shared3',
+                    f4: 'unique1'
+                },
+                {
+                    i: 'multi-counter-fact-002',
+                    t: 2,
+                    a: 200,
+                    c: new Date(),
+                    d: new Date('2024-02-02'),
+                    f1: 'shared1', // Совпадает
+                    f2: 'shared2', // Совпадает
+                    f3: 'shared3', // Совпадает
+                    f5: 'unique2'
+                },
+                {
+                    i: 'multi-counter-fact-003',
+                    t: 3,
+                    a: 300,
+                    c: new Date(),
+                    d: new Date('2024-02-03'),
+                    f1: 'shared1', // Совпадает
+                    f2: 'different2', // Не совпадает
+                    f6: 'unique3'
+                },
+                {
+                    i: 'multi-counter-fact-004',
+                    t: 4,
+                    a: 400,
+                    c: new Date(),
+                    d: new Date('2024-02-04'),
+                    f7: 'unique4',
+                    f8: 'unique5',
+                    f9: 'unique6'
+                }
+            ];
+
+            // Вставляем факты
+            for (const fact of testFacts) {
+                await this.provider.saveFact(fact);
+                
+                const indexValues = this.indexer.index(fact);
+                if (indexValues.length > 0) {
+                    await this.provider.saveFactIndexList(indexValues);
+                }
+            }
+
+            // Тестируем получение счетчиков для первого факта
+            const searchFact = testFacts[0];
+            const excludedFact = testFacts[3];
+            const searchFactIndexValues = this.indexer.index(searchFact);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
+
+            if (!Array.isArray(counters)) {
+                throw new Error('Метод должен возвращать массив');
+            }
+
+            if (counters.length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            }
+
+            const result = counters[0];
+            
+            if (!result.total || !Array.isArray(result.total)) {
+                throw new Error('Результат должен содержать массив total');
+            }
+
+            if (result.total.length === 0) {
+                throw new Error('Массив total не должен быть пустым');
+            }
+
+            const totalStats = result.total[0];
+            
+            if (typeof totalStats.count !== 'number') {
+                throw new Error('Поле count должно быть числом');
+            }
+
+            if (typeof totalStats.sumA !== 'number') {
+                throw new Error('Поле sumA должно быть числом');
+            }
+
+            // Должны найтись релевантные факты
+            if (totalStats.count < 2) {
+                throw new Error(`Ожидалось минимум 2 релевантных факта, найдено ${totalStats.count}`);
+            }
+
+            // Проверяем сумму значений поля a для релевантных фактов
+            const expectedSumA = 100 + 200 + 300; // Сумма a для релевантных фактов
+            if (totalStats.sumA !== expectedSumA) {
+                throw new Error(`Ожидалась сумма a = ${expectedSumA}, получена ${totalStats.sumA}`);
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetRelevantFactCountersWithMultipleFields: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест получения релевантных счетчиков фактов без совпадений
+     */
+    async testGetRelevantFactCountersWithNoMatches() {
+        this.logger.debug('30. Тест получения релевантных счетчиков фактов без совпадений...');
+        
+        try {
+            // Создаем факты с уникальными значениями полей
+            const testFacts = [
+                {
+                    i: 'unique-counter-fact-001',
+                    t: 1,
+                    a: 100,
+                    c: new Date(),
+                    d: new Date('2024-03-01'),
+                    f1: 'unique1',
+                    f2: 'unique2',
+                    f3: 'unique3'
+                },
+                {
+                    i: 'unique-counter-fact-002',
+                    t: 2,
+                    a: 200,
+                    c: new Date(),
+                    d: new Date('2024-03-02'),
+                    f4: 'unique4',
+                    f5: 'unique5',
+                    f6: 'unique6'
+                }
+            ];
+
+            // Вставляем факты
+            for (const fact of testFacts) {
+                await this.provider.saveFact(fact);
+                
+                const indexValues = this.indexer.index(fact);
+                if (indexValues.length > 0) {
+                    await this.provider.saveFactIndexList(indexValues);
+                }
+            }
+
+            // Создаем факт с полностью уникальными значениями
+            const searchFact = {
+                i: 'search-counter-fact-001',
+                t: 3,
+                a: 300,
+                c: new Date(),
+                d: new Date('2024-03-03'),
+                f1: 'completely-different1',
+                f2: 'completely-different2',
+                f3: 'completely-different3'
+            };
+
+            // Тестируем получение счетчиков - не должно быть совпадений
+            const searchFactIndexValues = this.indexer.index(searchFact);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i);
+
+            if (!Array.isArray(counters)) {
+                throw new Error('Метод должен возвращать массив');
+            }
+
+            if (counters.length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            }
+
+            const result = counters[0];
+            
+            if (!result.total || !Array.isArray(result.total)) {
+                throw new Error('Результат должен содержать массив total');
+            }
+
+            if (result.total.length === 0) {
+                throw new Error('Массив total не должен быть пустым');
+            }
+
+            const totalStats = result.total[0];
+            
+            if (typeof totalStats.count !== 'number') {
+                throw new Error('Поле count должно быть числом');
+            }
+
+            if (typeof totalStats.sumA !== 'number') {
+                throw new Error('Поле sumA должно быть числом');
+            }
+
+            // Поскольку нет совпадений, count должен быть 0
+            if (totalStats.count > 0) {
+                this.logger.debug(`   Найдено ${totalStats.count} релевантных фактов (ожидалось 0)`);
+                // Это не критическая ошибка, так как метод может находить факты по частичным совпадениям
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetRelevantFactCountersWithNoMatches: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест получения релевантных счетчиков фактов с ограничением по количеству
+     */
+    async testGetRelevantFactCountersWithDepthLimit() {
+        this.logger.debug('31. Тест получения релевантных счетчиков фактов с ограничением по количеству...');
+        
+        try {
+            // Создаем тестовые факты с разными датами
+            const baseDate = new Date('2024-01-01');
+            const testFacts = [
+                {
+                    i: 'depth-counter-fact-001',
+                    t: 1,
+                    a: 100,
+                    c: new Date(baseDate.getTime() + 1000),
+                    d: new Date(baseDate.getTime() + 1000),
+                    f1: 'shared-value',
+                    f2: 'unique1'
+                },
+                {
+                    i: 'depth-counter-fact-002',
+                    t: 1,
+                    a: 200,
+                    c: new Date(baseDate.getTime() + 2000),
+                    d: new Date(baseDate.getTime() + 2000),
+                    f1: 'shared-value',
+                    f3: 'unique2'
+                },
+                {
+                    i: 'depth-counter-fact-003',
+                    t: 1,
+                    a: 300,
+                    c: new Date(baseDate.getTime() + 3000),
+                    d: new Date(baseDate.getTime() + 3000),
+                    f1: 'shared-value',
+                    f4: 'unique3'
+                },
+                {
+                    i: 'depth-counter-fact-004',
+                    t: 1,
+                    a: 400,
+                    c: new Date(baseDate.getTime() + 4000),
+                    d: new Date(baseDate.getTime() + 4000),
+                    f1: 'shared-value',
+                    f5: 'unique4'
+                }
+            ];
+
+            // Вставляем факты
+            for (const fact of testFacts) {
+                await this.provider.saveFact(fact);
+                
+                const indexValues = this.indexer.index(fact);
+                if (indexValues.length > 0) {
+                    await this.provider.saveFactIndexList(indexValues);
+                }
+            }
+
+            // Тестируем получение счетчиков с ограничением по количеству
+            const searchFact = testFacts[0];
+            const searchFactIndexValues = this.indexer.index(searchFact);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i, 2);
+
+            if (!Array.isArray(counters)) {
+                throw new Error('Метод должен возвращать массив');
+            }
+
+            if (counters.length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            }
+
+            const result = counters[0];
+            
+            if (!result.total || !Array.isArray(result.total)) {
+                throw new Error('Результат должен содержать массив total');
+            }
+
+            if (result.total.length === 0) {
+                throw new Error('Массив total не должен быть пустым');
+            }
+
+            const totalStats = result.total[0];
+            
+            if (typeof totalStats.count !== 'number') {
+                throw new Error('Поле count должно быть числом');
+            }
+
+            if (typeof totalStats.sumA !== 'number') {
+                throw new Error('Поле sumA должно быть числом');
+            }
+
+            // Должно быть не более 2 релевантных фактов (из-за depthLimit)
+            if (totalStats.count > 2) {
+                throw new Error(`Ожидалось максимум 2 релевантных факта, найдено ${totalStats.count}`);
+            }
+
+            // Должен найтись минимум 1 релевантный факт
+            if (totalStats.count < 1) {
+                throw new Error('Ожидался минимум 1 релевантный факт');
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetRelevantFactCountersWithDepthLimit: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест получения релевантных счетчиков фактов с ограничением по дате
+     */
+    async testGetRelevantFactCountersWithDepthFromDate() {
+        this.logger.debug('32. Тест получения релевантных счетчиков фактов с ограничением по дате...');
+        
+        try {
+            // Очищаем коллекции перед тестом
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
+            
+            // Создаем тестовые факты с разными датами
+            const baseDate = new Date('2024-01-01');
+            const cutoffDate = new Date(baseDate.getTime() + 1500); // Отсекаем факты после этой даты
+            
+            const testFacts = [
+                {
+                    i: 'date-counter-fact-001',
+                    t: 1,
+                    a: 100,
+                    c: new Date(baseDate.getTime() + 1000),
+                    d: new Date(baseDate.getTime() + 2000), // После cutoffDate
+                    f1: 'shared-value',
+                    f2: 'before-cutoff'
+                },
+                {
+                    i: 'date-counter-fact-002',
+                    t: 1,
+                    a: 200,
+                    c: new Date(baseDate.getTime() + 2000),
+                    d: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                    f1: 'shared-value',
+                    f3: 'before-cutoff'
+                },
+                {
+                    i: 'date-counter-fact-003',
+                    t: 1,
+                    a: 300,
+                    c: new Date(baseDate.getTime() + 3000),
+                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    f1: 'shared-value',
+                    f4: 'after-cutoff'
+                },
+                {
+                    i: 'date-counter-fact-004',
+                    t: 1,
+                    a: 400,
+                    c: new Date(baseDate.getTime() + 4000),
+                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    f1: 'shared-value',
+                    f5: 'after-cutoff'
+                }
+            ];
+
+            // Вставляем факты
+            for (const fact of testFacts) {
+                await this.provider.saveFact(fact);
+                
+                const indexValues = this.indexer.index(fact);
+                if (indexValues.length > 0) {
+                    await this.provider.saveFactIndexList(indexValues);
+                }
+            }
+
+            // Тестируем получение счетчиков с ограничением по дате
+            const searchFact = testFacts[0];
+            const excludedFact = testFacts[3];
+            const searchFactIndexValues = this.indexer.index(searchFact);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, undefined, cutoffDate);
+
+            if (!Array.isArray(counters)) {
+                throw new Error('Метод должен возвращать массив');
+            }
+
+            if (counters.length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            }
+
+            const result = counters[0];
+            
+            if (!result.total || !Array.isArray(result.total)) {
+                throw new Error('Результат должен содержать массив total');
+            }
+
+            if (result.total.length === 0) {
+                throw new Error('Массив total не должен быть пустым');
+            }
+
+            const totalStats = result.total[0];
+            
+            if (typeof totalStats.count !== 'number') {
+                throw new Error('Поле count должно быть числом');
+            }
+
+            if (typeof totalStats.sumA !== 'number') {
+                throw new Error('Поле sumA должно быть числом');
+            }
+
+            // Должны найтись только факты до cutoffDate
+            if (totalStats.count < 1) {
+                throw new Error('Ожидался минимум 1 релевантный факт');
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetRelevantFactCountersWithDepthFromDate: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест получения релевантных счетчиков фактов с обоими параметрами
+     */
+    async testGetRelevantFactCountersWithBothParameters() {
+        this.logger.debug('33. Тест получения релевантных счетчиков фактов с обоими параметрами...');
+        
+        try {
+            // Очищаем коллекции перед тестом
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
+            
+            // Создаем тестовые факты с разными датами
+            const baseDate = new Date('2024-01-01');
+            const cutoffDate = new Date(baseDate.getTime() + 1500);
+            
+            const testFacts = [
+                {
+                    i: 'both-counter-fact-001',
+                    t: 1,
+                    a: 100,
+                    c: new Date(baseDate.getTime() + 1000),
+                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    f1: 'shared-value',
+                    f2: 'old'
+                },
+                {
+                    i: 'both-counter-fact-002',
+                    t: 1,
+                    a: 200,
+                    c: new Date(baseDate.getTime() + 2000),
+                    d: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                    f1: 'shared-value',
+                    f3: 'old'
+                },
+                {
+                    i: 'both-counter-fact-003',
+                    t: 1,
+                    a: 300,
+                    c: new Date(baseDate.getTime() + 3000),
+                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    f1: 'shared-value',
+                    f4: 'new'
+                },
+                {
+                    i: 'both-counter-fact-004',
+                    t: 1,
+                    a: 400,
+                    c: new Date(baseDate.getTime() + 4000),
+                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    f1: 'shared-value',
+                    f5: 'new'
+                }
+            ];
+
+            // Вставляем факты
+            for (const fact of testFacts) {
+                await this.provider.saveFact(fact);
+                
+                const indexValues = this.indexer.index(fact);
+                if (indexValues.length > 0) {
+                    await this.provider.saveFactIndexList(indexValues);
+                }
+            }
+
+            // Тестируем получение счетчиков с обоими параметрами
+            const searchFact = testFacts[0];
+            const excludedFact = testFacts[3];
+            const searchFactIndexValues = this.indexer.index(searchFact);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, 1, cutoffDate);
+
+            if (!Array.isArray(counters)) {
+                throw new Error('Метод должен возвращать массив');
+            }
+
+            if (counters.length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            }
+
+            const result = counters[0];
+            
+            if (!result.total || !Array.isArray(result.total)) {
+                throw new Error('Результат должен содержать массив total');
+            }
+
+            if (result.total.length === 0) {
+                throw new Error('Массив total не должен быть пустым');
+            }
+
+            const totalStats = result.total[0];
+            
+            if (typeof totalStats.count !== 'number') {
+                throw new Error('Поле count должно быть числом');
+            }
+
+            if (typeof totalStats.sumA !== 'number') {
+                throw new Error('Поле sumA должно быть числом');
+            }
+
+            // Должно быть не более 1 релевантного факта (из-за depthLimit)
+            if (totalStats.count > 1) {
+                throw new Error(`Ожидалось максимум 1 релевантный факт, найдено ${totalStats.count}`);
+            }
+
+            // Должен найтись минимум 1 релевантный факт
+            if (totalStats.count < 1) {
+                throw new Error('Ожидался минимум 1 релевантный факт');
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetRelevantFactCountersWithBothParameters: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }

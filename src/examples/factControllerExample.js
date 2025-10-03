@@ -1,5 +1,5 @@
 const FactController = require('../controllers/factController');
-const MongoProvider = require('../providers/mongoProvider');
+const MongoProvider = require('../db-providers/mongoProvider');
 
 /**
  * Пример использования FactController для создания фактов с индексными значениями

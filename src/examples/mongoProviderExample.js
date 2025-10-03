@@ -1,4 +1,4 @@
-const MongoProvider = require('../providers/mongoProvider');
+const MongoProvider = require('../db-providers/mongoProvider');
 
 /**
  * Пример использования класса MongoProvider
