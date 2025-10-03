@@ -55,7 +55,7 @@ class FactIndexerTest {
         ];
         
         this.indexer = new FactIndexer(this.testConfig);
-        this.generator = new FactGenerator();
+        this.generator = new FactGenerator('fieldConfig.json');
         this.testResults = {
             passed: 0,
             failed: 0,

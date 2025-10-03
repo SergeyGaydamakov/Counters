@@ -14,7 +14,7 @@ class MongoFactIndexTest {
             'factTestDB'
         );
         this.indexer = new FactIndexer();
-        this.generator = new FactGenerator();
+        this.generator = new FactGenerator('fieldConfig.json');
         this.testResults = {
             passed: 0,
             failed: 0,

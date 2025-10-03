@@ -14,9 +14,6 @@ class MongoProvider {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.FACT_COLLECTION_NAME = "facts";
         this.FACT_INDEX_COLLECTION_NAME = "factIndex";
-        this.aggregationClient = null;
-        this.aggregationDb = null;
-        this.factIndexAggregationCollection = null;
         this.factsClient = null;
         this.factsDb = null;
         this.factsCollection = null;
@@ -40,11 +37,6 @@ class MongoProvider {
     async connect() {
         try {
             this.logger.debug(`Три подключения к MongoDB: ${this.connectionString}`);
-            this.aggregationClient = new MongoClient(this.connectionString);
-            await this.aggregationClient.connect();
-            this.aggregationDb = this.aggregationClient.db(this.databaseName);
-            this.factIndexAggregationCollection = this.aggregationDb.collection(this.FACT_INDEX_COLLECTION_NAME);
-
             this.factsClient = new MongoClient(this.connectionString);
             await this.factsClient.connect();
             this.factsDb = this.factsClient.db(this.databaseName);
@@ -84,12 +76,6 @@ class MongoProvider {
      */
     async disconnect() {
         try {
-            if (this.aggregationClient && this.isConnected) {
-                await this.aggregationClient.close();
-                this.aggregationClient = null;
-                this.aggregationDb = null;
-                this.factIndexAggregationCollection = null;
-            }
             if (this.factsClient && this.isConnected) {
                 await this.factsClient.close();
                 this.factsClient = null;
@@ -269,6 +255,7 @@ class MongoProvider {
             const sample = await this.factIndexCollection.findOne({});
 
             if (!sample) {
+                this.logger.debug(`В коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} пусто!`);
                 return {
                     collectionName: this.FACT_INDEX_COLLECTION_NAME,
                     isEmpty: true,
@@ -1102,12 +1089,12 @@ class MongoProvider {
             }
         ];
 
-        this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
+        // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
 
         // Выполнить агрегирующий запрос
         const result = await this.factsCollection.aggregate(aggregateQuery).toArray();
         this.logger.debug(`✓ Получено ${result.length} фактов`);
-        this.logger.debug(JSON.stringify(result, null, 2));
+        // this.logger.debug(JSON.stringify(result, null, 2));
         // Возвращаем массив фактов
         return result;
     }
@@ -1244,7 +1231,7 @@ class MongoProvider {
 
         const aggregateQuery = [queryFacts, statisticStageFacts];
 
-        this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
+        // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
 
         // Выполнить агрегирующий запрос
         const result = await this.factsCollection.aggregate(aggregateQuery).toArray();

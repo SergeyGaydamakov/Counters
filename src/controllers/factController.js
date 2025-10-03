@@ -26,7 +26,7 @@ class FactController {
         
         this.dbProvider = dbProvider;
         this.factIndexer = new FactIndexer();
-        this.factGenerator = new FactGenerator(_fieldCount, _typeCount, _fieldsPerType, _typeFieldsConfig, _fromDate, _toDate, _targetSize);
+        this.factGenerator = new FactGenerator('fieldConfig.json', _fromDate, _toDate, _targetSize);
 
         this.hash10 = this.factIndexer.hash("f10", "1234567890");
     }

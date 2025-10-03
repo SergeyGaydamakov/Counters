@@ -8,8 +8,8 @@ const path = require('path');
  * Структура факта (fact):
  * @property {string} i - Идентификатор факта uuidv4
  * @property {number} t - Тип факта (число)
- * @property {number} a - Количество
  * @property {Date} c - Дата и время создания факта в базе данных
+ * @property {number} a - Количество
  * @property {Date} d - Дата и время факта
  * @property {string} z - Дополнительное поле для достижения нужного размера JSON в байтах
  * @property {string} f1 - Значение случайногенерированного поля f1

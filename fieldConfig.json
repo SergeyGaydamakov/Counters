@@ -35,8 +35,8 @@
     }
   },
   {
-    "src": "amount",
-    "dst": "amount",
+    "src": "dt",
+    "dst": "dt",
     "fact_types": [
       1,
       3,
