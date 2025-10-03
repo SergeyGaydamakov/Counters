@@ -6,7 +6,7 @@ const Logger = require('../utils/logger');
  * Формат файла factConfigs.json
  * @property {string} src - Имя исходного атрибута
  * @property {string} dst - Имя целевого поля
- * @property {Array<string>} types - Массив типов фактов, для которых применяется маппинг
+ * @property {Array<integer>} types - Массив типов фактов (целое число), для которых применяется маппинг
  */
 
 /**

@@ -1,4 +1,3 @@
-const { v4: uuidv4 } = require('uuid');
 const { ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
@@ -8,7 +7,7 @@ const path = require('path');
  * 
  * Структура факта (fact):
  * @property {string} i - Идентификатор факта uuidv4
- * @property {string} t - Тип факта (строка)
+ * @property {number} t - Тип факта (число)
  * @property {number} a - Количество
  * @property {Date} c - Дата и время создания факта в базе данных
  * @property {Date} d - Дата и время факта
@@ -108,8 +107,8 @@ class FactGenerator {
             }
 
             for (let j = 0; j < field.types.length; j++) {
-                if (typeof field.types[j] !== 'string') {
-                    throw new Error(`Поле конфигурации ${i}, тип ${j} должен быть строкой`);
+                if (typeof field.types[j] !== 'number' || !Number.isInteger(field.types[j])) {
+                    throw new Error(`Поле конфигурации ${i}, тип ${j} должен быть целым числом`);
                 }
             }
         }
@@ -209,7 +208,7 @@ class FactGenerator {
 
     /**
      * Генерирует один факт с заданными параметрами
-     * @param {string} type - тип факта (t) - строка
+     * @param {number} type - тип факта (t) - число
      * @returns {Object} объект с данными факта
      */
     generateFact(type) {

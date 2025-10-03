@@ -3,218 +3,218 @@
     "src": "f1",
     "dst": "f1",
     "types": [
-      "type1",
-      "type2",
-      "type5",
-      "type6",
-      "type9"
+      1,
+      3,
+      6,
+      7,
+      10
     ]
   },
   {
     "src": "f2",
     "dst": "f2",
     "types": [
-      "type1",
-      "type10",
-      "type4",
-      "type5",
-      "type6",
-      "type7",
-      "type8",
-      "type9"
+      1,
+      2,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
     ]
   },
   {
     "src": "f3",
     "dst": "f3",
     "types": [
-      "type6",
-      "type9"
+      7,
+      10
     ]
   },
   {
     "src": "f4",
     "dst": "f4",
     "types": [
-      "type3",
-      "type6",
-      "type9"
+      4,
+      7,
+      10
     ]
   },
   {
     "src": "f5",
     "dst": "f5",
     "types": [
-      "type10",
-      "type4",
-      "type5",
-      "type6",
-      "type9"
+      2,
+      5,
+      6,
+      7,
+      10
     ]
   },
   {
     "src": "f6",
     "dst": "f6",
     "types": [
-      "type10",
-      "type7",
-      "type9"
+      2,
+      8,
+      10
     ]
   },
   {
     "src": "f7",
     "dst": "f7",
     "types": [
-      "type1",
-      "type2",
-      "type3",
-      "type4",
-      "type9"
+      1,
+      3,
+      4,
+      5,
+      10
     ]
   },
   {
     "src": "f8",
     "dst": "f8",
     "types": [
-      "type3",
-      "type4",
-      "type5",
-      "type7",
-      "type8",
-      "type9"
+      4,
+      5,
+      6,
+      8,
+      9,
+      10
     ]
   },
   {
     "src": "f9",
     "dst": "f9",
     "types": [
-      "type2",
-      "type3",
-      "type6",
-      "type7"
+      3,
+      4,
+      7,
+      8
     ]
   },
   {
     "src": "f10",
     "dst": "f10",
     "types": [
-      "type1",
-      "type2",
-      "type3",
-      "type4",
-      "type8"
+      1,
+      3,
+      4,
+      5,
+      9
     ]
   },
   {
     "src": "f11",
     "dst": "f11",
     "types": [
-      "type4",
-      "type6"
+      5,
+      7
     ]
   },
   {
     "src": "f12",
     "dst": "f12",
     "types": [
-      "type10",
-      "type3",
-      "type7"
+      2,
+      4,
+      8
     ]
   },
   {
     "src": "f13",
     "dst": "f13",
     "types": [
-      "type2",
-      "type3",
-      "type4",
-      "type8"
+      3,
+      4,
+      5,
+      9
     ]
   },
   {
     "src": "f14",
     "dst": "f14",
     "types": [
-      "type1",
-      "type2",
-      "type4",
-      "type5"
+      1,
+      3,
+      5,
+      6
     ]
   },
   {
     "src": "f15",
     "dst": "f15",
     "types": [
-      "type1",
-      "type2"
+      1,
+      3
     ]
   },
   {
     "src": "f16",
     "dst": "f16",
     "types": [
-      "type2",
-      "type3",
-      "type6",
-      "type9"
+      3,
+      4,
+      7,
+      10
     ]
   },
   {
     "src": "f17",
     "dst": "f17",
     "types": [
-      "type1",
-      "type2",
-      "type6",
-      "type9"
+      1,
+      3,
+      7,
+      10
     ]
   },
   {
     "src": "f18",
     "dst": "f18",
     "types": [
-      "type5"
+      6
     ]
   },
   {
     "src": "f19",
     "dst": "f19",
     "types": [
-      "type3",
-      "type8"
+      4,
+      9
     ]
   },
   {
     "src": "f20",
     "dst": "f20",
     "types": [
-      "type10"
+      2
     ]
   },
   {
     "src": "f21",
     "dst": "f21",
     "types": [
-      "type10",
-      "type7",
-      "type8"
+      2,
+      8,
+      9
     ]
   },
   {
     "src": "f22",
     "dst": "f22",
     "types": [
-      "type10",
-      "type5"
+      2,
+      6
     ]
   },
   {
     "src": "f23",
     "dst": "f23",
     "types": [
-      "type1",
-      "type8"
+      1,
+      9
     ]
   }
 ]

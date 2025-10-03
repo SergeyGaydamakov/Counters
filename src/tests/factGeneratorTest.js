@@ -10,27 +10,27 @@ const testFieldConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "types": ["user_action", "system_event", "payment"]
+        "types": [1, 2, 3] // user_action, system_event, payment
     },
     {
         "src": "f2",
         "dst": "f2",
-        "types": ["user_action", "payment"]
+        "types": [1, 3] // user_action, payment
     },
     {
         "src": "f3",
         "dst": "f3",
-        "types": ["system_event", "payment"]
+        "types": [2, 3] // system_event, payment
     },
     {
         "src": "f4",
         "dst": "f4",
-        "types": ["user_action"]
+        "types": [1] // user_action
     },
     {
         "src": "f5",
         "dst": "f5",
-        "types": ["system_event"]
+        "types": [2] // system_event
     }
 ];
 
@@ -39,32 +39,32 @@ const extendedFieldConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "types": ["type1", "type2", "type3"]
+        "types": [1, 2, 3] // type1, type2, type3
     },
     {
         "src": "f2",
         "dst": "f2",
-        "types": ["type1", "type4"]
+        "types": [1, 4] // type1, type4
     },
     {
         "src": "f3",
         "dst": "f3",
-        "types": ["type2", "type3", "type4"]
+        "types": [2, 3, 4] // type2, type3, type4
     },
     {
         "src": "f4",
         "dst": "f4",
-        "types": ["type1", "type2"]
+        "types": [1, 2] // type1, type2
     },
     {
         "src": "f5",
         "dst": "f5",
-        "types": ["type3", "type4"]
+        "types": [3, 4] // type3, type4
     },
     {
         "src": "f6",
         "dst": "f6",
-        "types": ["type1"]
+        "types": [1] // type1
     }
 ];
 
@@ -82,7 +82,7 @@ const incompleteFieldConfig = [
     {
         "src": "f1",
         // Отсутствует dst
-        "types": ["type1"]
+        "types": [1]
     }
 ];
 
@@ -104,7 +104,7 @@ function testValidConstructor(testName) {
         console.log(`✅ Доступные поля: [${actualFields.join(', ')}]`);
         
         // Проверяем доступные типы
-        const expectedTypes = ['user_action', 'system_event', 'payment'];
+        const expectedTypes = [1, 2, 3]; // user_action, system_event, payment
         const actualTypes = generator._availableTypes;
         console.log(`✅ Доступные типы: [${actualTypes.join(', ')}]`);
         
@@ -179,8 +179,8 @@ function testGenerateFact(testName) {
     try {
         const generator = new FactGenerator(testFieldConfig);
         
-        // Генерируем факт типа user_action
-        const fact = generator.generateFact('user_action');
+        // Генерируем факт типа user_action (тип 1)
+        const fact = generator.generateFact(1);
         
         // Проверяем структуру факта
         console.log('✅ Факт сгенерирован успешно');
@@ -191,7 +191,7 @@ function testGenerateFact(testName) {
         console.log(`   Дата факта: ${fact.d.toISOString()}`);
         
         // Проверяем поля факта
-        const expectedFields = ['f1', 'f2', 'f4']; // Поля для user_action
+        const expectedFields = ['f1', 'f2', 'f4']; // Поля для user_action (тип 1)
         const actualFields = Object.keys(fact).filter(key => key.startsWith('f'));
         console.log(`   Поля: [${actualFields.join(', ')}]`);
         
@@ -219,7 +219,7 @@ function testGenerateFactInvalidType(testName) {
     
     try {
         const generator = new FactGenerator(testFieldConfig);
-        const fact = generator.generateFact('nonexistent_type');
+        const fact = generator.generateFact(999); // Несуществующий тип
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -261,7 +261,7 @@ function testGenerateFactWithTargetSize(testName) {
         const targetSize = 500; // 500 байт
         const generator = new FactGenerator(testFieldConfig, new Date(), new Date(), targetSize);
         
-        const fact = generator.generateFact('user_action');
+        const fact = generator.generateFact(1); // user_action
         const actualSize = Buffer.byteLength(JSON.stringify(fact), 'utf8');
         
         console.log(`✅ Факт сгенерирован с целевым размером ${targetSize} байт`);
@@ -293,7 +293,7 @@ function testGenerateFactWithCustomDates(testName) {
         const toDate = new Date('2024-12-31');
         const generator = new FactGenerator(testFieldConfig, fromDate, toDate);
         
-        const fact = generator.generateFact('user_action');
+        const fact = generator.generateFact(1); // user_action
         
         console.log(`✅ Факт сгенерирован с пользовательскими датами`);
         console.log(`   Диапазон дат: ${fromDate.toISOString()} - ${toDate.toISOString()}`);
@@ -327,7 +327,7 @@ function testGenerateFactForAllTypes(testName) {
         generator._availableTypes.forEach(type => {
             const fact = generator.generateFact(type);
             const fields = Object.keys(fact).filter(key => key.startsWith('f'));
-            console.log(`   ${type}: ${fields.length} полей [${fields.join(', ')}]`);
+            console.log(`   Тип ${type}: ${fields.length} полей [${fields.join(', ')}]`);
         });
         
         return true;
