@@ -26,6 +26,7 @@ class FactGenerator {
         this._availableFields = this._fieldConfig.map(field => field.src);
         this._availableTypes = this._extractAvailableTypes();
         this._typeFieldsMap = this._buildTypeFieldsMap();
+        this._fieldGeneratorsMap = this._buildFieldGeneratorsMap();
         
         // Сохраняем даты для генерации фактов
         this._fromDate = fromDate;
@@ -102,15 +103,136 @@ class FactGenerator {
                 throw new Error(`Поле конфигурации ${i} должно содержать поле 'dst' типа string`);
             }
 
-            if (!Array.isArray(field.types) || field.types.length === 0) {
-                throw new Error(`Поле конфигурации ${i} должно содержать непустой массив 'types'`);
+            if (!Array.isArray(field.fact_types) || field.fact_types.length === 0) {
+                throw new Error(`Поле конфигурации ${i} должно содержать непустой массив 'fact_types'`);
             }
 
-            for (let j = 0; j < field.types.length; j++) {
-                if (typeof field.types[j] !== 'number' || !Number.isInteger(field.types[j])) {
+            for (let j = 0; j < field.fact_types.length; j++) {
+                if (typeof field.fact_types[j] !== 'number' || !Number.isInteger(field.fact_types[j])) {
                     throw new Error(`Поле конфигурации ${i}, тип ${j} должен быть целым числом`);
                 }
             }
+
+            // Валидация поля generator (опционального)
+            if (field.generator !== undefined) {
+                this._validateGeneratorConfig(field.generator, i);
+            }
+        }
+    }
+
+    /**
+     * Валидирует конфигурацию генератора для поля
+     * @param {Object} generator - конфигурация генератора
+     * @param {number} fieldIndex - индекс поля в конфигурации
+     * @throws {Error} если конфигурация генератора имеет неверный формат
+     */
+    _validateGeneratorConfig(generator, fieldIndex) {
+        if (!generator || typeof generator !== 'object') {
+            throw new Error(`Поле конфигурации ${fieldIndex}: generator должен быть объектом`);
+        }
+
+        if (!generator.type || typeof generator.type !== 'string') {
+            throw new Error(`Поле конфигурации ${fieldIndex}: generator.type должен быть строкой`);
+        }
+
+        const validTypes = ['string', 'integer', 'date', 'enum'];
+        if (!validTypes.includes(generator.type)) {
+            throw new Error(`Поле конфигурации ${fieldIndex}: generator.type должен быть одним из: ${validTypes.join(', ')}`);
+        }
+
+        // Валидация дополнительных параметров
+        if (generator.default_value !== undefined) {
+            // default_value может быть любого типа в зависимости от типа генератора
+            // Валидация будет выполнена в соответствующих методах генерации
+        }
+        
+        if (generator.default_random !== undefined) {
+            if (typeof generator.default_random !== 'number' || generator.default_random < 0 || generator.default_random > 1) {
+                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_random должен быть числом от 0 до 1`);
+            }
+        }
+
+        // Валидация в зависимости от типа генератора
+        switch (generator.type) {
+            case 'string':
+                if (generator.min !== undefined && (typeof generator.min !== 'number' || !Number.isInteger(generator.min) || generator.min < 0)) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.min для string должен быть неотрицательным целым числом`);
+                }
+                if (generator.max !== undefined && (typeof generator.max !== 'number' || !Number.isInteger(generator.max) || generator.max < 0)) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.max для string должен быть неотрицательным целым числом`);
+                }
+                if (generator.min !== undefined && generator.max !== undefined && generator.min > generator.max) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.min не может быть больше generator.max`);
+                }
+                if (generator.default_value !== undefined && typeof generator.default_value !== 'string') {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для string должен быть строкой`);
+                }
+                break;
+
+            case 'integer':
+                if (generator.min !== undefined && (typeof generator.min !== 'number' || !Number.isInteger(generator.min))) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.min для integer должен быть целым числом`);
+                }
+                if (generator.max !== undefined && (typeof generator.max !== 'number' || !Number.isInteger(generator.max))) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.max для integer должен быть целым числом`);
+                }
+                if (generator.min !== undefined && generator.max !== undefined && generator.min > generator.max) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.min не может быть больше generator.max`);
+                }
+                if (generator.default_value !== undefined && (typeof generator.default_value !== 'number' || !Number.isInteger(generator.default_value))) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для integer должен быть целым числом`);
+                }
+                break;
+
+            case 'date':
+                if (generator.min !== undefined && typeof generator.min !== 'string') {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.min для date должен быть строкой`);
+                }
+                if (generator.max !== undefined && typeof generator.max !== 'string') {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.max для date должен быть строкой`);
+                }
+                // Проверяем, что даты можно распарсить
+                if (generator.min !== undefined) {
+                    const minDate = new Date(generator.min);
+                    if (isNaN(minDate.getTime())) {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.min содержит невалидную дату`);
+                    }
+                }
+                if (generator.max !== undefined) {
+                    const maxDate = new Date(generator.max);
+                    if (isNaN(maxDate.getTime())) {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.max содержит невалидную дату`);
+                    }
+                }
+                if (generator.min !== undefined && generator.max !== undefined) {
+                    const minDate = new Date(generator.min);
+                    const maxDate = new Date(generator.max);
+                    if (minDate > maxDate) {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.min не может быть больше generator.max`);
+                    }
+                }
+                if (generator.default_value !== undefined) {
+                    if (typeof generator.default_value === 'string') {
+                        const defaultDate = new Date(generator.default_value);
+                        if (isNaN(defaultDate.getTime())) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value содержит невалидную дату`);
+                        }
+                    } else if (generator.default_value instanceof Date) {
+                        // Date объект валиден
+                    } else {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для date должен быть строкой или Date объектом`);
+                    }
+                }
+                break;
+
+            case 'enum':
+                if (!Array.isArray(generator.values) || generator.values.length === 0) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.values для enum должен быть непустым массивом`);
+                }
+                if (generator.default_value !== undefined && !generator.values.includes(generator.default_value)) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для enum должен быть одним из значений в массиве values`);
+                }
+                break;
         }
     }
 
@@ -121,7 +243,7 @@ class FactGenerator {
     _extractAvailableTypes() {
         const types = new Set();
         this._fieldConfig.forEach(field => {
-            field.types.forEach(type => types.add(type));
+            field.fact_types.forEach(type => types.add(type));
         });
         return Array.from(types);
     }
@@ -134,19 +256,38 @@ class FactGenerator {
         const typeFieldsMap = {};
         this._availableTypes.forEach(type => {
             typeFieldsMap[type] = this._fieldConfig
-                .filter(field => field.types.includes(type))
+                .filter(field => field.fact_types.includes(type))
                 .map(field => field.src);
         });
         return typeFieldsMap;
     }
 
     /**
+     * Строит карту генераторов для каждого поля
+     * @returns {Object} объект где ключ - имя поля, значение - конфигурация генератора
+     */
+    _buildFieldGeneratorsMap() {
+        const fieldGeneratorsMap = {};
+        this._fieldConfig.forEach(field => {
+            fieldGeneratorsMap[field.src] = field.generator || null;
+        });
+        return fieldGeneratorsMap;
+    }
+
+    /**
      * Генерирует случайную строку из латинских символов
      * @param {number} minLength - минимальная длина строки
      * @param {number} maxLength - максимальная длина строки
+     * @param {string} defaultValue - значение по умолчанию
+     * @param {number} defaultRandom - вероятность использования значения по умолчанию (0-1)
      * @returns {string} случайная строка
      */
-    _generateRandomString(minLength = 2, maxLength = 20) {
+    _generateRandomString(minLength = 2, maxLength = 20, defaultValue = null, defaultRandom = 0) {
+        // Проверяем, нужно ли использовать значение по умолчанию
+        if (defaultValue !== null && Math.random() < defaultRandom) {
+            return defaultValue;
+        }
+        
         const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         const length = Math.floor(Math.random() * (maxLength - minLength + 1)) + minLength;
         let result = '';
@@ -156,6 +297,102 @@ class FactGenerator {
         }
         
         return result;
+    }
+
+    /**
+     * Генерирует случайное целое число в заданном диапазоне
+     * @param {number} min - минимальное значение
+     * @param {number} max - максимальное значение
+     * @param {number} defaultValue - значение по умолчанию
+     * @param {number} defaultRandom - вероятность использования значения по умолчанию (0-1)
+     * @returns {number} случайное целое число
+     */
+    _generateRandomInteger(min = 0, max = 100, defaultValue = null, defaultRandom = 0) {
+        // Проверяем, нужно ли использовать значение по умолчанию
+        if (defaultValue !== null && Math.random() < defaultRandom) {
+            return defaultValue;
+        }
+        
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    /**
+     * Генерирует случайную дату в заданном диапазоне
+     * @param {string|Date} minDate - минимальная дата (строка или Date)
+     * @param {string|Date} maxDate - максимальная дата (строка или Date)
+     * @param {string|Date} defaultValue - значение по умолчанию
+     * @param {number} defaultRandom - вероятность использования значения по умолчанию (0-1)
+     * @returns {Date} случайная дата
+     */
+    _generateRandomDateFromRange(minDate, maxDate, defaultValue = null, defaultRandom = 0) {
+        // Проверяем, нужно ли использовать значение по умолчанию
+        if (defaultValue !== null && Math.random() < defaultRandom) {
+            return defaultValue instanceof Date ? defaultValue : new Date(defaultValue);
+        }
+        
+        const fromDate = minDate instanceof Date ? minDate : new Date(minDate);
+        const toDate = maxDate instanceof Date ? maxDate : new Date(maxDate);
+        return this._generateRandomDate(fromDate, toDate);
+    }
+
+    /**
+     * Генерирует случайное значение из перечисления
+     * @param {Array} values - массив возможных значений
+     * @param {*} defaultValue - значение по умолчанию
+     * @param {number} defaultRandom - вероятность использования значения по умолчанию (0-1)
+     * @returns {*} случайное значение из массива
+     */
+    _generateRandomEnumValue(values, defaultValue = null, defaultRandom = 0) {
+        if (!Array.isArray(values) || values.length === 0) {
+            throw new Error('Массив значений для enum не может быть пустым');
+        }
+        
+        // Проверяем, нужно ли использовать значение по умолчанию
+        if (defaultValue !== null && Math.random() < defaultRandom) {
+            return defaultValue;
+        }
+        
+        return values[Math.floor(Math.random() * values.length)];
+    }
+
+    /**
+     * Генерирует значение поля на основе конфигурации генератора
+     * @param {Object} generatorConfig - конфигурация генератора
+     * @returns {*} сгенерированное значение
+     */
+    _generateFieldValue(generatorConfig) {
+        if (!generatorConfig || !generatorConfig.type) {
+            // Значение по умолчанию: string с min=6, max=20
+            return this._generateRandomString(6, 20);
+        }
+
+        // Извлекаем параметры default_value и default_random
+        const defaultValue = generatorConfig.default_value !== undefined ? generatorConfig.default_value : null;
+        const defaultRandom = generatorConfig.default_random !== undefined ? generatorConfig.default_random : 0;
+
+        switch (generatorConfig.type) {
+            case 'string':
+                const minLength = generatorConfig.min !== undefined ? generatorConfig.min : 6;
+                const maxLength = generatorConfig.max !== undefined ? generatorConfig.max : 20;
+                return this._generateRandomString(minLength, maxLength, defaultValue, defaultRandom);
+
+            case 'integer':
+                const minInt = generatorConfig.min !== undefined ? generatorConfig.min : 0;
+                const maxInt = generatorConfig.max !== undefined ? generatorConfig.max : 100;
+                return this._generateRandomInteger(minInt, maxInt, defaultValue, defaultRandom);
+
+            case 'date':
+                const minDate = generatorConfig.min !== undefined ? generatorConfig.min : this._fromDate;
+                const maxDate = generatorConfig.max !== undefined ? generatorConfig.max : this._toDate;
+                return this._generateRandomDateFromRange(minDate, maxDate, defaultValue, defaultRandom);
+
+            case 'enum':
+                return this._generateRandomEnumValue(generatorConfig.values, defaultValue, defaultRandom);
+
+            default:
+                // Fallback к значению по умолчанию
+                return this._generateRandomString(6, 20);
+        }
     }
 
     /**
@@ -227,9 +464,14 @@ class FactGenerator {
         const fieldsForType = this._typeFieldsMap[type];
         
         fieldsForType.forEach(fieldName => {
-            fact[fieldName] = this._generateRandomString(2, 20);
-            // Иногда генерируем постоянный идентификатор
-            if (Math.random() < 0.1) {
+            // Получаем конфигурацию генератора для поля
+            const generatorConfig = this._fieldGeneratorsMap[fieldName];
+            
+            // Генерируем значение на основе конфигурации
+            fact[fieldName] = this._generateFieldValue(generatorConfig);
+            
+            // Иногда генерируем постоянный идентификатор (только для строковых полей)
+            if (Math.random() < 0.1 && typeof fact[fieldName] === 'string') {
                 fact[fieldName] = "1234567890";
             }
         });

@@ -1,19 +1,94 @@
 [
   {
+    "src": "amount",
+    "dst": "amount",
+    "fact_types": [
+      1,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      7,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "generator": {
+      "type": "integer",
+      "min": 1,
+      "max": 10000000,
+      "default_value": 1000,
+      "default_random": 0.1
+    }
+  },
+  {
+    "src": "amount",
+    "dst": "amount",
+    "fact_types": [
+      1,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      7,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23
+    ],
+    "generator": {
+      "type": "date",
+      "min": "2024-01-01 00:00:00",
+      "max": "2024-12-31 23:59:59"
+    }
+  },
+  {
     "src": "f1",
     "dst": "f1",
-    "types": [
+    "fact_types": [
       1,
       3,
       6,
       7,
       10
-    ]
+    ],
+    "generator": {
+      "type": "string",
+      "min": 2,
+      "max": 20,
+      "default_value": "1234567890",
+      "default_random": 0.1
+    }
   },
   {
     "src": "f2",
     "dst": "f2",
-    "types": [
+    "fact_types": [
       1,
       2,
       5,
@@ -22,20 +97,32 @@
       8,
       9,
       10
-    ]
+    ],
+    "generator": {
+      "type": "enum",
+      "values": ["value1", "value2", "value3", "value4", "value5", "value6", "value7", "value8", "value9", "value10"],
+      "default_value": "value1",
+      "default_random": 0.1
+    }
   },
   {
     "src": "f3",
     "dst": "f3",
-    "types": [
+    "fact_types": [
       7,
       10
-    ]
+    ],
+    "generator": {
+      "type": "enum",
+      "values": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "default_value": 1,
+      "default_random": 0.1
+    }
   },
   {
     "src": "f4",
     "dst": "f4",
-    "types": [
+    "fact_types": [
       4,
       7,
       10
@@ -44,7 +131,7 @@
   {
     "src": "f5",
     "dst": "f5",
-    "types": [
+    "fact_types": [
       2,
       5,
       6,
@@ -55,7 +142,7 @@
   {
     "src": "f6",
     "dst": "f6",
-    "types": [
+    "fact_types": [
       2,
       8,
       10
@@ -64,7 +151,7 @@
   {
     "src": "f7",
     "dst": "f7",
-    "types": [
+    "fact_types": [
       1,
       3,
       4,
@@ -75,7 +162,7 @@
   {
     "src": "f8",
     "dst": "f8",
-    "types": [
+    "fact_types": [
       4,
       5,
       6,
@@ -87,7 +174,7 @@
   {
     "src": "f9",
     "dst": "f9",
-    "types": [
+    "fact_types": [
       3,
       4,
       7,
@@ -97,7 +184,7 @@
   {
     "src": "f10",
     "dst": "f10",
-    "types": [
+    "fact_types": [
       1,
       3,
       4,
@@ -108,7 +195,7 @@
   {
     "src": "f11",
     "dst": "f11",
-    "types": [
+    "fact_types": [
       5,
       7
     ]
@@ -116,7 +203,7 @@
   {
     "src": "f12",
     "dst": "f12",
-    "types": [
+    "fact_types": [
       2,
       4,
       8
@@ -125,7 +212,7 @@
   {
     "src": "f13",
     "dst": "f13",
-    "types": [
+    "fact_types": [
       3,
       4,
       5,
@@ -135,7 +222,7 @@
   {
     "src": "f14",
     "dst": "f14",
-    "types": [
+    "fact_types": [
       1,
       3,
       5,
@@ -145,7 +232,7 @@
   {
     "src": "f15",
     "dst": "f15",
-    "types": [
+    "fact_types": [
       1,
       3
     ]
@@ -153,7 +240,7 @@
   {
     "src": "f16",
     "dst": "f16",
-    "types": [
+    "fact_types": [
       3,
       4,
       7,
@@ -163,7 +250,7 @@
   {
     "src": "f17",
     "dst": "f17",
-    "types": [
+    "fact_types": [
       1,
       3,
       7,
@@ -173,14 +260,14 @@
   {
     "src": "f18",
     "dst": "f18",
-    "types": [
+    "fact_types": [
       6
     ]
   },
   {
     "src": "f19",
     "dst": "f19",
-    "types": [
+    "fact_types": [
       4,
       9
     ]
@@ -188,14 +275,14 @@
   {
     "src": "f20",
     "dst": "f20",
-    "types": [
+    "fact_types": [
       2
     ]
   },
   {
     "src": "f21",
     "dst": "f21",
-    "types": [
+    "fact_types": [
       2,
       8,
       9
@@ -204,7 +291,7 @@
   {
     "src": "f22",
     "dst": "f22",
-    "types": [
+    "fact_types": [
       2,
       6
     ]
@@ -212,7 +299,7 @@
   {
     "src": "f23",
     "dst": "f23",
-    "types": [
+    "fact_types": [
       1,
       9
     ]
