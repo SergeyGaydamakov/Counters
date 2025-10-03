@@ -31,9 +31,7 @@ async function quickExample() {
         const fact = {
             i: 'quick-example-001',
             t: 1,
-            a: 100,
             c: new Date(),
-            d: new Date(),
             f1: 'первое значение',
             f2: 'второе значение',
             f5: 'пятое значение'

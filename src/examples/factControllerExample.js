@@ -32,9 +32,7 @@ async function factControllerExample() {
         const fact1 = {
             i: '550e8400-e29b-41d4-a716-446655440001', // GUID
             t: 1, // тип факта
-            a: 100, // количество
             c: new Date(), // дата создания
-            d: new Date(), // дата факта
             f1: 'значение1',
             f2: 'значение2',
             f5: 'значение5',
@@ -49,9 +47,7 @@ async function factControllerExample() {
         const fact2 = {
             i: '550e8400-e29b-41d4-a716-446655440002',
             t: 2,
-            a: 200,
             c: new Date(),
-            d: new Date(),
             z: 'факт без полей f1, f2, f3...'
         };
 
@@ -64,18 +60,14 @@ async function factControllerExample() {
             {
                 i: '550e8400-e29b-41d4-a716-446655440003',
                 t: 3,
-                a: 300,
                 c: new Date(),
-                d: new Date(),
                 f1: 'множественное1',
                 f3: 'множественное3'
             },
             {
                 i: '550e8400-e29b-41d4-a716-446655440004',
                 t: 4,
-                a: 400,
                 c: new Date(),
-                d: new Date(),
                 f2: 'множественное2',
                 f4: 'множественное4',
                 f6: 'множественное6'
@@ -91,9 +83,7 @@ async function factControllerExample() {
         const duplicateFact = {
             i: '550e8400-e29b-41d4-a716-446655440001', // тот же ID
             t: 1,
-            a: 150, // изменили количество
             c: new Date(),
-            d: new Date(),
             f1: 'обновленное значение1',
             f2: 'обновленное значение2',
             f5: 'обновленное значение5'

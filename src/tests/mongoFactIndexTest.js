@@ -13,8 +13,100 @@ class MongoFactIndexTest {
             mongoConfig.connectionString,
             'factTestDB'
         );
-        this.indexer = new FactIndexer();
-        this.generator = new FactGenerator('fieldConfig.json');
+
+        this.testIndexConfig = [
+            {
+                fieldName: "f1",
+                dateName: "d",
+                indexTypeName: "test_type_1",
+                indexType: 1,
+                indexValue: 1
+            },
+            {
+                fieldName: "f2",
+                dateName: "d",
+                indexTypeName: "test_type_2",
+                indexType: 2,
+                indexValue: 2
+            },
+            {
+                fieldName: "f3",
+                dateName: "d",
+                indexTypeName: "test_type_3",
+                indexType: 3,
+                indexValue: 1
+            },
+            {
+                fieldName: "f5",
+                dateName: "d",
+                indexTypeName: "test_type_5",
+                indexType: 5,
+                indexValue: 2
+            },
+            {
+                fieldName: "f4",
+                dateName: "d",
+                indexTypeName: "test_type_4",
+                indexType: 4,
+                indexValue: 1
+            },
+            {
+                fieldName: "f6",
+                dateName: "d",
+                indexTypeName: "test_type_6",
+                indexType: 6,
+                indexValue: 2
+            },
+            {
+                fieldName: "f7",
+                dateName: "d",
+                indexTypeName: "test_type_7",
+                indexType: 7,
+                indexValue: 1
+            }
+        ];
+        this.indexer = new FactIndexer(this.testIndexConfig);
+
+        // Тестовая конфигурация полей
+        const testFieldConfig = [
+            {
+                "src": "d",
+                "dst": "d",
+                "fact_types": [1, 2, 3], // user_action, system_event, payment
+                "generator": {
+                    "type": "date",
+                    "min": "2024-01-01",
+                    "max": "2024-06-30"
+                }
+            },
+            {
+                "src": "f1",
+                "dst": "f1",
+                "fact_types": [1, 2, 3] // user_action, system_event, payment
+            },
+            {
+                "src": "f2",
+                "dst": "f2",
+                "fact_types": [1, 3] // user_action, payment
+            },
+            {
+                "src": "f3",
+                "dst": "f3",
+                "fact_types": [2, 3] // system_event, payment
+            },
+            {
+                "src": "f4",
+                "dst": "f4",
+                "fact_types": [1] // user_action
+            },
+            {
+                "src": "f5",
+                "dst": "f5",
+                "fact_types": [2] // system_event
+            }
+        ];
+
+        this.generator = new FactGenerator(testFieldConfig);
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -77,8 +169,6 @@ class MongoFactIndexTest {
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые факты
-            const fromDate = new Date('2024-01-01');
-            const toDate = new Date('2024-12-31');
             const facts = [];
             for (let i = 0; i < 5; i++) {
                 facts.push(this.generator.generateRandomTypeFact());

@@ -28,14 +28,19 @@ const Logger = require('../utils/logger');
 class FactIndexer {
     constructor(configPathOrMapArray = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
-        if (Array.isArray(configPathOrMapArray)) {
-            this._validateConfig(configPathOrMapArray);
-            this._indexConfig = configPathOrMapArray;
-        } else if (typeof configPathOrMapArray === 'string') {
-            this._indexConfig = this._loadConfig(configPathOrMapArray);
-        } else {
-            this.logger.info('Конфигурация не задана. Индексирование не будет производиться.');
-            return;
+        try {
+            if (Array.isArray(configPathOrMapArray)) {
+                this._validateConfig(configPathOrMapArray);
+                this._indexConfig = configPathOrMapArray;
+            } else if (typeof configPathOrMapArray === 'string') {
+                this._indexConfig = this._loadConfig(configPathOrMapArray);
+            } else {
+                this.logger.info('Конфигурация не задана. Индексирование не будет производиться.');
+                return;
+            }
+        } catch (error) {
+            this.logger.error(`Ошибка при создании FactIndexer и загрузке конфигурации: ${error.message}`);
+            throw error;
         }
         // Выводим информацию о загруженной конфигурации
         if (this._indexConfig && this._indexConfig.length > 0) {
@@ -215,7 +220,7 @@ class FactIndexer {
         }
 
         // Проверяем наличие обязательных полей
-        const requiredFields = ['t', 'i', 'd', 'c'];
+        const requiredFields = ['t', 'i', 'c'];
         for (const field of requiredFields) {
             if (!(field in fact)) {
                 throw new Error(`Отсутствует обязательное поле: ${field}`);

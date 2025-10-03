@@ -9,8 +9,6 @@ const path = require('path');
  * @property {string} i - Идентификатор факта uuidv4
  * @property {number} t - Тип факта (число)
  * @property {Date} c - Дата и время создания факта в базе данных
- * @property {number} a - Количество
- * @property {Date} d - Дата и время факта
  * @property {string} z - Дополнительное поле для достижения нужного размера JSON в байтах
  * @property {string} f1 - Значение случайногенерированного поля f1
  * @property {string} f2 - Значение случайногенерированного поля f2
@@ -455,9 +453,7 @@ class FactGenerator {
         const fact = {
             i: this._generateGuid(),
             t: type,
-            a: Math.floor(Math.random() * 1000000) + 1, // от 1 до 1000000
-            c: new Date(), // дата и время создания объекта
-            d: this._generateRandomDate(this._fromDate, this._toDate)
+            c: new Date() // дата и время создания объекта
         };
 
         // Добавляем поля для данного типа на основе конфигурации

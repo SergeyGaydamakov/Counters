@@ -7,9 +7,9 @@ const Logger = require('../utils/logger');
 class FactIndexerTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
-        
+
         // Локальная конфигурация для тестирования
-        this.testConfig = [
+        this.testIndexConfig = [
             {
                 fieldName: "f1",
                 dateName: "d",
@@ -39,30 +39,70 @@ class FactIndexerTest {
                 indexValue: 2
             },
             {
-                fieldName: "f10",
+                fieldName: "f4",
                 dateName: "d",
-                indexTypeName: "test_type_10",
-                indexType: 10,
+                indexTypeName: "test_type_4",
+                indexType: 4,
                 indexValue: 1
             },
             {
-                fieldName: "f15",
+                fieldName: "f6",
                 dateName: "d",
-                indexTypeName: "test_type_15",
-                indexType: 15,
+                indexTypeName: "test_type_6",
+                indexType: 6,
                 indexValue: 2
             },
             {
-                fieldName: "f23",
+                fieldName: "f7",
                 dateName: "d",
-                indexTypeName: "test_type_23",
-                indexType: 23,
+                indexTypeName: "test_type_7",
+                indexType: 7,
                 indexValue: 1
             }
         ];
-        
-        this.indexer = new FactIndexer(this.testConfig);
-        this.generator = new FactGenerator('fieldConfig.json');
+
+        this.indexer = new FactIndexer(this.testIndexConfig);
+
+        // Тестовая конфигурация полей
+        const testFieldConfig = [
+            {
+                "src": "d",
+                "dst": "d",
+                "fact_types": [1, 2, 3], // user_action, system_event, payment
+                "generator": {
+                    "type": "date",
+                    "min": "2024-01-01",
+                    "max": "2024-06-30"
+                }
+            },
+            {
+                "src": "f1",
+                "dst": "f1",
+                "fact_types": [1, 2, 3] // user_action, system_event, payment
+            },
+            {
+                "src": "f2",
+                "dst": "f2",
+                "fact_types": [1, 3] // user_action, payment
+            },
+            {
+                "src": "f3",
+                "dst": "f3",
+                "fact_types": [2, 3] // system_event, payment
+            },
+            {
+                "src": "f4",
+                "dst": "f4",
+                "fact_types": [1] // user_action
+            },
+            {
+                "src": "f5",
+                "dst": "f5",
+                "fact_types": [2] // system_event
+            }
+        ];
+
+        this.generator = new FactGenerator(testFieldConfig);
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -95,7 +135,7 @@ class FactIndexerTest {
      */
     testBasicIndexing(title) {
         this.logger.debug(title);
-        
+
         const fact = {
             i: 'test-id-123',
             t: 1,
@@ -109,7 +149,7 @@ class FactIndexerTest {
 
         try {
             const indexValues = this.indexer.index(fact);
-            
+
             // Проверяем количество индексных значений (должно быть 3 для f1, f2, f5)
             if (indexValues.length !== 3) {
                 throw new Error(`Ожидалось 3 индексных значения, получено ${indexValues.length}`);
@@ -169,7 +209,7 @@ class FactIndexerTest {
      */
     testMultipleFields(title) {
         this.logger.debug(title);
-        
+
         const fact = {
             i: 'multi-field-test',
             t: 2,
@@ -179,16 +219,16 @@ class FactIndexerTest {
             f1: 'val1',
             f2: 'val2',
             f3: 'val3',
-            f10: 'val10',
-            f15: 'val15',
-            f23: 'val23',
+            f4: 'val4',
+            f6: 'val6',
+            f7: 'val7',
             otherField: 'should be ignored',
             notF: 'should be ignored'
         };
 
         try {
             const indexValues = this.indexer.index(fact);
-            
+
             if (indexValues.length !== 6) {
                 throw new Error(`Ожидалось 6 индексных значений, получено ${indexValues.length}`);
             }
@@ -198,7 +238,7 @@ class FactIndexerTest {
                 if (indexValue.i !== 'multi-field-test') {
                     throw new Error('Неправильный ID факта в индексном значении');
                 }
-                
+
                 // Проверяем структуру
                 const requiredFields = ['it', 'f', 'h', 'i', 'd', 'c'];
                 for (const field of requiredFields) {
@@ -210,21 +250,21 @@ class FactIndexerTest {
 
             // Проверяем типы индексов
             const indexTypes = indexValues.map(iv => iv.it).sort();
-            const expectedTypes = [1, 2, 3, 10, 15, 23].sort();
+            const expectedTypes = [1, 2, 3, 4, 6, 7].sort();
             if (JSON.stringify(indexTypes) !== JSON.stringify(expectedTypes)) {
-                throw new Error(`Неправильные типы индексов: ожидалось [1,2,3,10,15,23], получено [${indexTypes.join(',')}]`);
+                throw new Error(`Неправильные типы индексов: ожидалось [1,2,3,4,6,7], получено [${indexTypes.join(',')}]`);
             }
 
             // Проверяем значения полей
             const fieldValues = indexValues.map(iv => iv.f).sort();
-            const expectedValues = ['val1', 'val2', 'val3', 'val10', 'val15', 'val23'].sort();
+            const expectedValues = ['val1', 'val2', 'val3', 'val4', 'val6', 'val7'].sort();
             if (JSON.stringify(fieldValues) !== JSON.stringify(expectedValues)) {
-                throw new Error(`Неправильные значения полей: ожидалось [val1,val2,val3,val10,val15,val23], получено [${fieldValues.join(',')}]`);
+                throw new Error(`Неправильные значения полей: ожидалось [val1,val2,val3,val4,val6,val7], получено [${fieldValues.join(',')}]`);
             }
 
             // Проверяем правильность вычисления h (хеш для f1, f3, f10, f23; само значение для f2, f15)
-            const hashFields = ['val1', 'val3', 'val10', 'val23'];
-            const valueFields = ['val2', 'val15'];
+            const hashFields = ['val1', 'val3', 'val4', 'val7'];
+            const valueFields = ['val2', 'val6'];
 
             hashFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.f === val);
@@ -254,7 +294,7 @@ class FactIndexerTest {
      */
     testNoFields(title) {
         this.logger.debug(title);
-        
+
         const fact = {
             i: 'no-fields-test',
             t: 3,
@@ -267,7 +307,7 @@ class FactIndexerTest {
 
         try {
             const indexValues = this.indexer.index(fact);
-            
+
             if (indexValues.length !== 0) {
                 throw new Error(`Ожидалось 0 индексных значений, получено ${indexValues.length}`);
             }
@@ -286,7 +326,7 @@ class FactIndexerTest {
      */
     testInvalidInput(title) {
         this.logger.debug(title);
-        
+
         const testCases = [
             { input: null, description: 'null' },
             { input: undefined, description: 'undefined' },
@@ -322,7 +362,7 @@ class FactIndexerTest {
      */
     testMultipleFacts(title) {
         this.logger.debug(title);
-        
+
         const facts = [
             {
                 i: 'fact1',
@@ -346,7 +386,7 @@ class FactIndexerTest {
 
         try {
             const indexValues = this.indexer.indexFacts(facts);
-            
+
             if (indexValues.length !== 4) {
                 throw new Error(`Ожидалось 4 индексных значения, получено ${indexValues.length}`);
             }
@@ -371,7 +411,7 @@ class FactIndexerTest {
      */
     testStatistics(title) {
         this.logger.debug(title);
-        
+
         const fact = {
             i: 'statistics-test',
             t: 1,
@@ -384,7 +424,7 @@ class FactIndexerTest {
 
         try {
             const indexValues = this.indexer.index(fact);
-            
+
             // Проверяем базовую структуру индексных значений
             if (indexValues.length !== 2) {
                 throw new Error(`Неправильное количество индексных значений: ${indexValues.length}`);
@@ -433,19 +473,16 @@ class FactIndexerTest {
      */
     testWithGeneratedFacts(title) {
         this.logger.debug(title);
-        
+
         try {
-            const fromDate = new Date('2024-01-01');
-            const toDate = new Date('2024-12-31');
-            
             // Генерируем несколько фактов
             const facts = [];
             for (let i = 0; i < 5; i++) {
                 facts.push(this.generator.generateRandomTypeFact());
             }
-            
+
             const indexValues = this.indexer.indexFacts(facts);
-            
+
             if (indexValues.length === 0) {
                 throw new Error('Не создано ни одного индексного значения');
             }
@@ -474,7 +511,7 @@ class FactIndexerTest {
      */
     testDateNameField(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем конфигурацию с разными полями дат
             const config = [
@@ -486,7 +523,7 @@ class FactIndexerTest {
                     indexValue: 1
                 },
                 {
-                    fieldName: "f2", 
+                    fieldName: "f2",
                     dateName: "dt",
                     indexTypeName: "test_type_2",
                     indexType: 2,
@@ -563,7 +600,7 @@ class FactIndexerTest {
      */
     testConfigValidation(title) {
         this.logger.debug(title);
-        
+
         const testCases = [
             {
                 config: 'string',
@@ -703,14 +740,14 @@ class FactIndexerTest {
         this.logger.debug('\n=== Результаты тестирования FactIndexer ===');
         this.logger.debug(`Пройдено: ${this.testResults.passed}`);
         this.logger.debug(`Провалено: ${this.testResults.failed}`);
-        
+
         if (this.testResults.errors.length > 0) {
             this.logger.debug('\nОшибки:');
             this.testResults.errors.forEach(error => {
                 this.logger.debug(`  - ${error}`);
             });
         }
-        
+
         const total = this.testResults.passed + this.testResults.failed;
         const successRate = total > 0 ? (this.testResults.passed / total * 100).toFixed(1) : 0;
         this.logger.debug(`\nПроцент успеха: ${successRate}%`);

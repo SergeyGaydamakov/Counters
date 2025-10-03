@@ -86,24 +86,28 @@ class MongoProviderTest {
         this.indexConfig = [
             {
                 fieldName: "f1",
+                dateName: "dt",
                 indexTypeName: "test_type_1",
                 indexType: 1,
                 indexValue: 1
             },
             {
                 fieldName: "f2",
+                dateName: "dt",
                 indexTypeName: "test_type_2",
                 indexType: 2,
                 indexValue: 2
             },
             {
                 fieldName: "f3",
+                dateName: "dt",
                 indexTypeName: "test_type_3",
                 indexType: 3,
                 indexValue: 1
             },
             {
                 fieldName: "f4",
+                dateName: "dt",
                 indexTypeName: "test_type_4",
                 indexType: 4,
                 indexValue: 1
@@ -295,7 +299,7 @@ class MongoProviderTest {
                 throw new Error('Схема не содержит $jsonSchema');
             }
 
-            const requiredFields = ['i', 't', 'a', 'c', 'd'];
+            const requiredFields = ['i', 't', 'amount', 'c', 'dt'];
             const schemaFields = Object.keys(schema.$jsonSchema.properties);
             
             for (const field of requiredFields) {
@@ -324,8 +328,6 @@ class MongoProviderTest {
             await this.provider.factsCollection.deleteMany({});
             
             // Генерируем тестовый факт
-            const fromDate = new Date('2024-01-01');
-            const toDate = new Date('2024-12-31');
             const testFact = this.generator.generateRandomTypeFact();
 
             // Тест первой вставки (должна создать новый документ)
@@ -340,7 +342,7 @@ class MongoProviderTest {
             }
 
             // Тест повторной вставки с измененными данными (должна обновить существующий по умолчанию)
-            const modifiedFact = { ...testFact, a: testFact.a + 100 }; // Изменяем значение поля a
+            const modifiedFact = { ...testFact, amount: testFact.amount + 100 }; // Изменяем значение поля amount
             const upsertResult = await this.provider.saveFact(modifiedFact);
             
             if (!upsertResult.success) {
@@ -975,9 +977,9 @@ class MongoProviderTest {
                 {
                     i: 'test-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(),
-                    d: new Date('2024-01-01'),
+                    amount: 100,
+                    dt: new Date('2024-01-01'),
                     f1: 'value1',
                     f2: 'value2',
                     f5: 'value5'
@@ -985,9 +987,9 @@ class MongoProviderTest {
                 {
                     i: 'test-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(),
-                    d: new Date('2024-01-02'),
+                    amount: 200,
+                    dt: new Date('2024-01-02'),
                     f1: 'value1', // Совпадает с первым фактом
                     f3: 'value3',
                     f10: 'value7'
@@ -995,9 +997,9 @@ class MongoProviderTest {
                 {
                     i: 'test-fact-003',
                     t: 2,
-                    a: 300,
                     c: new Date(),
-                    d: new Date('2024-01-03'),
+                    amount: 300,
+                    dt: new Date('2024-01-03'),
                     f2: 'value2', // Совпадает с первым фактом
                     f4: 'value4',
                     f15: 'value8'
@@ -1005,9 +1007,9 @@ class MongoProviderTest {
                 {
                     i: 'test-fact-004',
                     t: 3,
-                    a: 400,
                     c: new Date(),
-                    d: new Date('2024-01-04'),
+                    amount: 400,
+                    dt: new Date('2024-01-04'),
                     f1: 'different1', // Не совпадает
                     f2: 'different2', // Не совпадает
                     f23: 'value9'
@@ -1076,9 +1078,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(),
-                    d: new Date('2024-02-01'),
+                    amount: 100,
+                    dt: new Date('2024-02-01'),
                     f1: 'shared1',
                     f2: 'shared2',
                     f3: 'shared3',
@@ -1087,9 +1089,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-fact-002',
                     t: 2,
-                    a: 200,
                     c: new Date(),
-                    d: new Date('2024-02-02'),
+                    amount: 200,
+                    dt: new Date('2024-02-02'),
                     f1: 'shared1', // Совпадает
                     f2: 'shared2', // Совпадает
                     f3: 'shared3', // Совпадает
@@ -1098,9 +1100,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-fact-003',
                     t: 3,
-                    a: 300,
                     c: new Date(),
-                    d: new Date('2024-02-03'),
+                    amount: 300,
+                    dt: new Date('2024-02-03'),
                     f1: 'shared1', // Совпадает
                     f2: 'different2', // Не совпадает
                     f10: 'unique3'
@@ -1108,9 +1110,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-fact-004',
                     t: 4,
-                    a: 400,
                     c: new Date(),
-                    d: new Date('2024-02-04'),
+                    amount: 400,
+                    dt: new Date('2024-02-04'),
                     f10: 'unique4',
                     f15: 'unique5',
                     f23: 'unique6'
@@ -1177,9 +1179,9 @@ class MongoProviderTest {
                 {
                     i: 'unique-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(),
-                    d: new Date('2024-03-01'),
+                    amount: 100,
+                    dt: new Date('2024-03-01'),
                     f1: 'unique1',
                     f2: 'unique2',
                     f3: 'unique3'
@@ -1187,9 +1189,9 @@ class MongoProviderTest {
                 {
                     i: 'unique-fact-002',
                     t: 2,
-                    a: 200,
                     c: new Date(),
-                    d: new Date('2024-03-02'),
+                    amount: 200,
+                    dt: new Date('2024-03-02'),
                     f4: 'unique4',
                     f5: 'unique5',
                     f10: 'unique6'
@@ -1210,9 +1212,9 @@ class MongoProviderTest {
             const searchFact = {
                 i: 'search-fact-001',
                 t: 3,
-                a: 300,
                 c: new Date(),
-                d: new Date('2024-03-03'),
+                amount: 300,
+                dt: new Date('2024-03-03'),
                 f1: 'completely-different1',
                 f2: 'completely-different2',
                 f3: 'completely-different3'
@@ -1256,36 +1258,36 @@ class MongoProviderTest {
                 {
                     i: 'depth-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(baseDate.getTime() + 1000),
-                    d: new Date(baseDate.getTime() + 1000),
+                    amount: 100,
+                    dt: new Date(baseDate.getTime() + 1000),
                     f1: 'shared-value',
                     f2: 'unique1'
                 },
                 {
                     i: 'depth-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(baseDate.getTime() + 2000),
-                    d: new Date(baseDate.getTime() + 2000),
+                    amount: 200,
+                    dt: new Date(baseDate.getTime() + 2000),
                     f1: 'shared-value',
                     f3: 'unique2'
                 },
                 {
                     i: 'depth-fact-003',
                     t: 1,
-                    a: 300,
                     c: new Date(baseDate.getTime() + 3000),
-                    d: new Date(baseDate.getTime() + 3000),
+                    amount: 300,
+                    dt: new Date(baseDate.getTime() + 3000),
                     f1: 'shared-value',
                     f4: 'unique3'
                 },
                 {
                     i: 'depth-fact-004',
                     t: 1,
-                    a: 400,
                     c: new Date(baseDate.getTime() + 4000),
-                    d: new Date(baseDate.getTime() + 4000),
+                    amount: 400,
+                    dt: new Date(baseDate.getTime() + 4000),
                     f1: 'shared-value',
                     f5: 'unique4'
                 }
@@ -1348,36 +1350,36 @@ class MongoProviderTest {
                 {
                     i: 'date-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(baseDate.getTime() + 1000),
-                    d: new Date(baseDate.getTime() + 2000), // После cutoffDate
+                    amount: 100,
+                    dt: new Date(baseDate.getTime() + 2000), // После cutoffDate
                     f1: 'shared-value',
                     f2: 'before-cutoff'
                 },
                 {
                     i: 'date-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(baseDate.getTime() + 2000),
-                    d: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                    amount: 200,
+                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
                     f1: 'shared-value',
                     f3: 'before-cutoff'
                 },
                 {
                     i: 'date-fact-003',
                     t: 1,
-                    a: 300,
                     c: new Date(baseDate.getTime() + 3000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 300,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f4: 'after-cutoff'
                 },
                 {
                     i: 'date-fact-004',
                     t: 1,
-                    a: 400,
                     c: new Date(baseDate.getTime() + 4000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 400,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f5: 'after-cutoff'
                 }
@@ -1449,36 +1451,36 @@ class MongoProviderTest {
                 {
                     i: 'both-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(baseDate.getTime() + 1000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 100,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f2: 'old'
                 },
                 {
                     i: 'both-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(baseDate.getTime() + 2000),
-                    d: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                    amount: 200,
+                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
                     f1: 'shared-value',
                     f3: 'old'
                 },
                 {
                     i: 'both-fact-003',
                     t: 1,
-                    a: 300,
                     c: new Date(baseDate.getTime() + 3000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 300,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f4: 'new'
                 },
                 {
                     i: 'both-fact-004',
                     t: 1,
-                    a: 400,
                     c: new Date(baseDate.getTime() + 4000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 400,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f5: 'new'
                 }
@@ -1544,9 +1546,9 @@ class MongoProviderTest {
                 {
                     i: 'counter-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(),
-                    d: new Date('2024-01-01'),
+                    amount: 100,
+                    dt: new Date('2024-01-01'),
                     f1: 'value1',
                     f2: 'value2',
                     f5: 'value5'
@@ -1554,9 +1556,9 @@ class MongoProviderTest {
                 {
                     i: 'counter-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(),
-                    d: new Date('2024-01-02'),
+                    amount: 200,
+                    dt: new Date('2024-01-02'),
                     f1: 'value1', // Совпадает с первым фактом
                     f3: 'value3',
                     f10: 'value7'
@@ -1564,9 +1566,9 @@ class MongoProviderTest {
                 {
                     i: 'counter-fact-003',
                     t: 2,
-                    a: 300,
                     c: new Date(),
-                    d: new Date('2024-01-03'),
+                    amount: 300,
+                    dt: new Date('2024-01-03'),
                     f2: 'value2', // Совпадает с первым фактом
                     f4: 'value4',
                     f15: 'value8'
@@ -1574,9 +1576,9 @@ class MongoProviderTest {
                 {
                     i: 'counter-fact-004',
                     t: 3,
-                    a: 400,
                     c: new Date(),
-                    d: new Date('2024-01-04'),
+                    amount: 400,
+                    dt: new Date('2024-01-04'),
                     f1: 'different1', // Не совпадает
                     f2: 'different2', // Не совпадает
                     f23: 'value9'
@@ -1637,10 +1639,10 @@ class MongoProviderTest {
                 throw new Error(`Ожидалось минимум 2 релевантных факта, найдено ${totalStats.count}`);
             }
 
-            // Проверяем сумму значений поля a
-            const expectedSumA = 100 + 200 + 300; // Сумма a для релевантных фактов
+            // Проверяем сумму значений поля amount
+            const expectedSumA = 100 + 200 + 300; // Сумма amount для релевантных фактов
             if (totalStats.sumA !== expectedSumA) {
-                throw new Error(`Ожидалась сумма a = ${expectedSumA}, получена ${totalStats.sumA}`);
+                throw new Error(`Ожидалась сумма amount = ${expectedSumA}, получена ${totalStats.sumA}`);
             }
 
             this.testResults.passed++;
@@ -1664,9 +1666,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-counter-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(),
-                    d: new Date('2024-02-01'),
+                    amount: 100,
+                    dt: new Date('2024-02-01'),
                     f1: 'shared1',
                     f2: 'shared2',
                     f3: 'shared3',
@@ -1675,9 +1677,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-counter-fact-002',
                     t: 2,
-                    a: 200,
                     c: new Date(),
-                    d: new Date('2024-02-02'),
+                    amount: 200,
+                    dt: new Date('2024-02-02'),
                     f1: 'shared1', // Совпадает
                     f2: 'shared2', // Совпадает
                     f3: 'shared3', // Совпадает
@@ -1686,9 +1688,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-counter-fact-003',
                     t: 3,
-                    a: 300,
                     c: new Date(),
-                    d: new Date('2024-02-03'),
+                    amount: 300,
+                    dt: new Date('2024-02-03'),
                     f1: 'shared1', // Совпадает
                     f2: 'different2', // Не совпадает
                     f10: 'unique3'
@@ -1696,9 +1698,9 @@ class MongoProviderTest {
                 {
                     i: 'multi-counter-fact-004',
                     t: 4,
-                    a: 400,
                     c: new Date(),
-                    d: new Date('2024-02-04'),
+                    amount: 400,
+                    dt: new Date('2024-02-04'),
                     f10: 'unique4',
                     f15: 'unique5',
                     f23: 'unique6'
@@ -1755,10 +1757,10 @@ class MongoProviderTest {
                 throw new Error(`Ожидалось минимум 2 релевантных факта, найдено ${totalStats.count}`);
             }
 
-            // Проверяем сумму значений поля a для релевантных фактов
-            const expectedSumA = 100 + 200 + 300; // Сумма a для релевантных фактов
+            // Проверяем сумму значений поля amount для релевантных фактов
+            const expectedSumA = 100 + 200 + 300; // Сумма amount для релевантных фактов
             if (totalStats.sumA !== expectedSumA) {
-                throw new Error(`Ожидалась сумма a = ${expectedSumA}, получена ${totalStats.sumA}`);
+                throw new Error(`Ожидалась сумма amount = ${expectedSumA}, получена ${totalStats.sumA}`);
             }
 
             this.testResults.passed++;
@@ -1782,9 +1784,9 @@ class MongoProviderTest {
                 {
                     i: 'unique-counter-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(),
-                    d: new Date('2024-03-01'),
+                    amount: 100,
+                    dt: new Date('2024-03-01'),
                     f1: 'unique1',
                     f2: 'unique2',
                     f3: 'unique3'
@@ -1792,9 +1794,9 @@ class MongoProviderTest {
                 {
                     i: 'unique-counter-fact-002',
                     t: 2,
-                    a: 200,
                     c: new Date(),
-                    d: new Date('2024-03-02'),
+                    amount: 200,
+                    dt: new Date('2024-03-02'),
                     f4: 'unique4',
                     f5: 'unique5',
                     f10: 'unique6'
@@ -1815,9 +1817,9 @@ class MongoProviderTest {
             const searchFact = {
                 i: 'search-counter-fact-001',
                 t: 3,
-                a: 300,
                 c: new Date(),
-                d: new Date('2024-03-03'),
+                amount: 300,
+                dt: new Date('2024-03-03'),
                 f1: 'completely-different1',
                 f2: 'completely-different2',
                 f3: 'completely-different3'
@@ -1884,36 +1886,36 @@ class MongoProviderTest {
                 {
                     i: 'depth-counter-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(baseDate.getTime() + 1000),
-                    d: new Date(baseDate.getTime() + 1000),
+                    amount: 100,
+                    dt: new Date(baseDate.getTime() + 1000),
                     f1: 'shared-value',
                     f2: 'unique1'
                 },
                 {
                     i: 'depth-counter-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(baseDate.getTime() + 2000),
-                    d: new Date(baseDate.getTime() + 2000),
+                    amount: 200,
+                    dt: new Date(baseDate.getTime() + 2000),
                     f1: 'shared-value',
                     f3: 'unique2'
                 },
                 {
                     i: 'depth-counter-fact-003',
                     t: 1,
-                    a: 300,
                     c: new Date(baseDate.getTime() + 3000),
-                    d: new Date(baseDate.getTime() + 3000),
+                    amount: 300,
+                    dt: new Date(baseDate.getTime() + 3000),
                     f1: 'shared-value',
                     f4: 'unique3'
                 },
                 {
                     i: 'depth-counter-fact-004',
                     t: 1,
-                    a: 400,
                     c: new Date(baseDate.getTime() + 4000),
-                    d: new Date(baseDate.getTime() + 4000),
+                    amount: 400,
+                    dt: new Date(baseDate.getTime() + 4000),
                     f1: 'shared-value',
                     f5: 'unique4'
                 }
@@ -2001,36 +2003,36 @@ class MongoProviderTest {
                 {
                     i: 'date-counter-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(baseDate.getTime() + 1000),
-                    d: new Date(baseDate.getTime() + 2000), // После cutoffDate
+                    amount: 100,
+                    dt: new Date(baseDate.getTime() + 2000), // После cutoffDate
                     f1: 'shared-value',
                     f2: 'before-cutoff'
                 },
                 {
                     i: 'date-counter-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(baseDate.getTime() + 2000),
-                    d: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                    amount: 200,
+                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
                     f1: 'shared-value',
                     f3: 'before-cutoff'
                 },
                 {
                     i: 'date-counter-fact-003',
                     t: 1,
-                    a: 300,
                     c: new Date(baseDate.getTime() + 3000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 300,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f4: 'after-cutoff'
                 },
                 {
                     i: 'date-counter-fact-004',
                     t: 1,
-                    a: 400,
                     c: new Date(baseDate.getTime() + 4000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 400,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f5: 'after-cutoff'
                 }
@@ -2114,36 +2116,36 @@ class MongoProviderTest {
                 {
                     i: 'both-counter-fact-001',
                     t: 1,
-                    a: 100,
                     c: new Date(baseDate.getTime() + 1000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 100,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f2: 'old'
                 },
                 {
                     i: 'both-counter-fact-002',
                     t: 1,
-                    a: 200,
                     c: new Date(baseDate.getTime() + 2000),
-                    d: new Date(baseDate.getTime() + 2000), // До cutoffDate
+                    amount: 200,
+                    dt: new Date(baseDate.getTime() + 2000), // До cutoffDate
                     f1: 'shared-value',
                     f3: 'old'
                 },
                 {
                     i: 'both-counter-fact-003',
                     t: 1,
-                    a: 300,
                     c: new Date(baseDate.getTime() + 3000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 300,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f4: 'new'
                 },
                 {
                     i: 'both-counter-fact-004',
                     t: 1,
-                    a: 400,
                     c: new Date(baseDate.getTime() + 4000),
-                    d: new Date(baseDate.getTime() + 1000), // До cutoffDate
+                    amount: 400,
+                    dt: new Date(baseDate.getTime() + 1000), // До cutoffDate
                     f1: 'shared-value',
                     f5: 'new'
                 }

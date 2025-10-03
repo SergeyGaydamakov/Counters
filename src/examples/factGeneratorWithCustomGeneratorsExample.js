@@ -71,9 +71,7 @@ try {
         console.log(`Факт типа ${i}:`);
         console.log(`  ID: ${fact.i}`);
         console.log(`  Тип: ${fact.t}`);
-        console.log(`  Количество: ${fact.a}`);
         console.log(`  Дата создания: ${fact.c.toISOString()}`);
-        console.log(`  Дата факта: ${fact.d.toISOString()}`);
         console.log(`  Поля:`);
         
         // Выводим поля с их значениями и типами

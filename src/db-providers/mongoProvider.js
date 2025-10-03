@@ -140,7 +140,7 @@ class MongoProvider {
                     bsonType: "object",
                     title: "Facts Collection Schema",
                     description: "Схема для коллекции фактов с автоматически генерируемой структурой",
-                    required: ["i", "t", "a", "c", "d"],
+                    required: ["i", "t", "amount", "c", "dt"],
                     properties: {
                         _id: {
                             bsonType: "objectId",
@@ -156,7 +156,7 @@ class MongoProvider {
                             maximum: 100,
                             description: "Тип факта - целое число от 1 до 100"
                         },
-                        a: {
+                        amount: {
                             bsonType: "int",
                             minimum: 1,
                             maximum: 1000000,
@@ -166,7 +166,7 @@ class MongoProvider {
                             bsonType: "date",
                             description: "Дата и время создания объекта"
                         },
-                        d: {
+                        dt: {
                             bsonType: "date",
                             description: "Дата факта"
                         },
@@ -1154,14 +1154,14 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$a" }
+                            "sumA": { "$sum": "$amount" }
                         }
                     }
                 ],
                 "lastWeek": [
                     {
                         "$match": {
-                            "d": {
+                            "dt": {
                                 "$gte": new Date(Date.now() - 1000 * 3600 * 24 * 7)
                             }
                         }
@@ -1170,14 +1170,14 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$a" }
+                            "sumA": { "$sum": "$amount" }
                         }
                     }
                 ],
                 "lastHour": [
                     {
                         "$match": {
-                            "d": {
+                            "dt": {
                                 "$gte": new Date(Date.now() - 1000 * 3600)
                             }
                         }
@@ -1186,14 +1186,14 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$a" }
+                            "sumA": { "$sum": "$amount" }
                         }
                     }
                 ],
                 "lastDay": [
                     {
                         "$match": {
-                            "d": {
+                            "dt": {
                                 "$gte": new Date(Date.now() - 1000 * 3600 * 24)
                             }
                         }
@@ -1202,14 +1202,14 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$a" }
+                            "sumA": { "$sum": "$amount" }
                         }
                     }
                 ],
                 "conditionLastHour": [
                     {
                         "$match": {
-                            "d": {
+                            "dt": {
                                 "$gte": new Date(Date.now() - 1000 * 3600)
                             },
                             "a": {
@@ -1221,7 +1221,7 @@ class MongoProvider {
                         "$group": {
                             "_id": null,
                             "totalSum": {
-                                "$sum": "$a"
+                                "$sum": "$amount"
                             }
                         }
                     }
