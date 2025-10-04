@@ -39,7 +39,7 @@ class FactIndexer {
                 return;
             }
         } catch (error) {
-            this.logger.error(`Ошибка при создании FactIndexer и загрузке конфигурации: ${error.message}`);
+            this.logger.error(`Ошибка при создании FactIndexer и загрузке конфигурации индексов ${configPathOrMapArray}: ${error.message}`);
             throw error;
         }
         // Выводим информацию о загруженной конфигурации
@@ -58,7 +58,7 @@ class FactIndexer {
     _loadConfig(configPath) {
         try {
             if (!fs.existsSync(configPath)) {
-                throw new Error(`Файл конфигурации не найден: ${configPath}`);
+                throw new Error(`Файл конфигурации индексов не найден: ${configPath}`);
             }
 
             const configData = fs.readFileSync(configPath, 'utf8');
@@ -67,11 +67,11 @@ class FactIndexer {
             // Валидация структуры конфигурации
             this._validateConfig(indexConfig);
 
-            this.logger.info(`Загружена конфигурация маппинга из ${configPath}`);
-            this.logger.info(`Количество индексов: ${this._indexConfig.length}`);
+            this.logger.info(`Загружена конфигурация индексов из ${configPath}`);
+            this.logger.info(`Количество индексов: ${indexConfig.length}`);
             return indexConfig;
         } catch (error) {
-            this.logger.error(`Ошибка загрузки конфигурации: ${error.message}`);
+            this.logger.error(`Ошибка загрузки конфигурации индексов: ${error.message}`);
             throw error;
         }
     }
@@ -175,7 +175,7 @@ class FactIndexer {
             usedIndexTypes.add(configItem.indexType);
         });
 
-        this.logger.info(`Конфигурация валидна. Количество элементов: ${indexConfig.length}`);
+        this.logger.info(`Конфигурация индексов валидна. Количество индексов: ${indexConfig.length}`);
     }
 
     /**

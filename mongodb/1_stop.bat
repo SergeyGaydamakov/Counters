@@ -14,3 +14,4 @@ taskkill.exe /F /FI "WINDOWTITLE eq cfg-1"
 taskkill.exe /F /FI "WINDOWTITLE eq mongos"
 
 rem pause
+exit

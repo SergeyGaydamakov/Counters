@@ -61,11 +61,11 @@ class FactMapper {
             // Валидация структуры конфигурации
             this._validateConfig(mappingConfig);
 
-            this.logger.info(`Загружена конфигурация маппинга из ${configPath}`);
-            this.logger.info(`Количество правил маппинга: ${this._mappingConfig.length}`);
+            this.logger.info(`Загружена конфигурация маппинга полей из ${configPath}`);
+            this.logger.info(`Количество правил маппинга: ${mappingConfig.length}`);
             return mappingConfig;
         } catch (error) {
-            this.logger.error(`Ошибка загрузки конфигурации: ${error.message}`);
+            this.logger.error(`Ошибка загрузки конфигурации маппинга полей: ${error.message}`);
             throw error;
         }
     }
@@ -76,7 +76,7 @@ class FactMapper {
      */
     _validateConfig(mappingConfig) {
         if (!Array.isArray(mappingConfig)) {
-            throw new Error('Конфигурация должна быть массивом объектов');
+            throw new Error('Конфигурация маппинга полей должна быть массивом объектов');
         }
 
         for (let i = 0; i < mappingConfig.length; i++) {
@@ -104,6 +104,7 @@ class FactMapper {
                 }
             }
         }
+        this.logger.info(`Конфигурация маппинга полей валидна. Количество правил маппинга полей: ${mappingConfig.length}`);
     }
 
     /**

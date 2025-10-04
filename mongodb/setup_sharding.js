@@ -4,13 +4,15 @@
 print("=== Настройка шардирования для коллекций fact и factIndex ===");
 
 // Конфигурация
-const DATABASE_NAME = "CounterTest4"; // Замените на нужное имя базы данных
+const DATABASE_NAME = "CounterTest"; // Замените на нужное имя базы данных
 const FACTS_COLLECTION = "facts";
 const FACT_INDEX_COLLECTION = "factIndex";
 
 // Управление выполняется в admin базе данных
 const adminDb = db.getSiblingDB("admin");
 let hasError = false;
+print("process.argv: "+process.argv);
+print("process.env: "+JSON.stringify(process.env));
 
 // Функция для выполнения команд с обработкой ошибок
 function executeCommand(command, description) {
@@ -413,8 +415,4 @@ if (hasError) {
     print("✓ Настройка шардирования завершена успешно");
 }
 
-print("Рекомендации:");
-print("1. Мониторьте работу балансировщика");
-print("2. Проверяйте распределение данных по шардам");
-print("3. Оптимизируйте запросы для работы с шардированными коллекциями");
-print("4. Регулярно проверяйте статистику производительности");
+print("");

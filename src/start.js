@@ -3,8 +3,8 @@ const Logger = require('./utils/logger');
 const { MongoProvider, FactController } = require('./index');
 
 // Загружаем переменные окружения из .env файла
-require('dotenv').config();
-
+const dotenv = require('dotenv');
+dotenv.config();
 
 // Создаем глобальный логгер с уровнем из переменной окружения
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
@@ -14,40 +14,18 @@ const connectionString = process.env.MONGODB_CONNECTION_STRING || 'mongodb://loc
 const databaseName = process.env.MONGODB_DATABASE_NAME || 'CounterTest';
 
 // Параметры генерации фактов из .env
-const fieldCount = parseInt(process.env.FACT_FIELD_COUNT) || 23;
-const typeCount = parseInt(process.env.FACT_TYPE_COUNT) || 10;
-const fieldsPerType = parseInt(process.env.FACT_FIELDS_PER_TYPE) || 10;
+const fieldConfigPath = process.env.FACT_FIELD_CONFIG_PATH || null;
+const indexConfigPath = process.env.INDEX_CONFIG_PATH || null;
 const targetSize = parseInt(process.env.FACT_TARGET_SIZE) || 500;
 
-// Даты из .env
-const fromDate = process.env.FACT_FROM_DATE ? new Date(process.env.FACT_FROM_DATE) : undefined;
-const toDate = process.env.FACT_TO_DATE ? new Date(process.env.FACT_TO_DATE) : undefined;
-
-// Описание структуры полей для каждого типа факта
-const typeFieldsConfig = {
-    1: ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10'],
-    2: ['f2', 'f4', 'f6', 'f8', 'f10', 'f12', 'f14', 'f16', 'f18', 'f20'],
-    3: ['f3', 'f6', 'f9', 'f12', 'f15', 'f17', 'f19', 'f21', 'f22', 'f23'],
-    4: ['f1', 'f5', 'f7', 'f11', 'f13', 'f15', 'f17', 'f19', 'f21', 'f23'],
-    5: ['f2', 'f4', 'f8', 'f10', 'f14', 'f16', 'f18', 'f20', 'f22', 'f23'],
-    6: ['f1', 'f3', 'f7', 'f9', 'f11', 'f13', 'f15', 'f17', 'f19', 'f21'],
-    7: ['f2', 'f5', 'f8', 'f11', 'f14', 'f16', 'f18', 'f20', 'f22', 'f23'],
-    8: ['f3', 'f6', 'f9', 'f12', 'f13', 'f15', 'f17', 'f19', 'f21', 'f22'],
-    9: ['f1', 'f4', 'f7', 'f10', 'f12', 'f14', 'f16', 'f18', 'f20', 'f23'],
-    10: ['f2', 'f5', 'f8', 'f11', 'f13', 'f15', 'f17', 'f19', 'f21', 'f22']
-};
-
 // Логируем загруженные параметры
-logger.debug('=== Загруженные параметры из .env ===');
-logger.debug('MongoDB Connection String:', connectionString);
-logger.debug('MongoDB Database Name:', databaseName);
-logger.debug('Field Count:', fieldCount);
-logger.debug('Type Count:', typeCount);
-logger.debug('Fields Per Type:', fieldsPerType);
-logger.debug('Target Size:', targetSize);
-logger.debug('From Date:', fromDate ? fromDate.toISOString() : 'default');
-logger.debug('To Date:', toDate ? toDate.toISOString() : 'default');
-logger.debug('=====================================\n');
+logger.info('=== Загруженные параметры из .env ===');
+logger.info('MongoDB Connection String:', connectionString);
+logger.info('MongoDB Database Name:', databaseName);
+logger.info('Field Config Path:', fieldConfigPath);
+logger.info('Index Config Path:', indexConfigPath);
+logger.info('Target Size:', targetSize);
+logger.info('=====================================\n');
 
 // Глобальная переменная для хранения провайдера
 let mongoProvider = null;
@@ -90,7 +68,7 @@ async function main(){
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider
-        const factController = new FactController(mongoProvider, fieldCount, typeCount, fieldsPerType, typeFieldsConfig, fromDate, toDate, targetSize);
+        const factController = new FactController(mongoProvider, fieldConfigPath, indexConfigPath, targetSize);
         const CYCLE_OUTPUT = 100;
         let startCycleTime = Date.now();
         // Функция с бесконечным циклом запуска run

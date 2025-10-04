@@ -192,5 +192,5 @@ function createCluster(){
 
 module.exports = {
     build,
-    CreateCluster
+    createCluster
 };
