@@ -327,7 +327,7 @@ class MongoProvider {
             batchSize: 5000,
             readConcern: { level: "local" },
             readPreference: "secondaryPreferred",
-            comment: "getRelevantFactCounters",
+            comment: "getRelevantFactCounters - find",
             projection: { _id: 0, i: 1 }
         };
         const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
@@ -355,7 +355,7 @@ class MongoProvider {
             batchSize: 5000,
             readConcern: { level: "local" },
             readPreference: { mode: "secondaryPreferred" },
-            comment: "getRelevantFactCounters",
+            comment: "getRelevantFactCounters - aggregate",
         };
         const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(5000).toArray();
         this.logger.debug(`✓ Получено ${result.length} фактов`);
@@ -395,7 +395,7 @@ class MongoProvider {
             batchSize: 5000,
             readConcern: { level: "local" },
             readPreference: { mode: "secondaryPreferred" },
-            comment: "getRelevantFactCounters",
+            comment: "getRelevantFactCounters - find",
             projection: { _id: 0, i: 1 }
         };
         const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
@@ -510,7 +510,7 @@ class MongoProvider {
             batchSize: 5000,
             readConcern: { level: "local" },
             readPreference: { mode: "secondaryPreferred" },
-            comment: "getRelevantFactCounters",
+            comment: "getRelevantFactCounters - aggregate",
         };
         const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
         this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
@@ -594,8 +594,7 @@ class MongoProvider {
                 batchSize: 5000,
                 readConcern: { level: "local" },
                 readPreference: { mode: "secondaryPreferred" },
-                comment: "getRelevantFactCounters",
-                projection: { _id: 0, i: 1 }
+                comment: "findFacts"
             };
             const facts = await this._findFactsCollection.find(filter, findOptions).toArray();
             this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
@@ -658,32 +657,21 @@ class MongoProvider {
     // ============================================================================
 
     /**
-     * Создание зон шардирования
-     * @returns {Promise<boolean>} результат создания зон шардирования  
-     */
-    async _createShardZones(adminDb) {
-        this.checkConnection();
-        try {
-            // Получение списка шардов
-            const result = await adminDb.command({ createShardZones: this.databaseName });
-            this.logger.debug('✓ Зоны шардирования созданы: ' + result.ok);
-            return result.ok;
-        } catch (error) {
-            this.logger.error('✗ Ошибка при создании зон шардирования:', error.message);
-            return false;
-        }
-    }
-
-    /**
      * Проверяет работает ли база в режиме шардирования
      * @returns {Promise<boolean>} результат проверки
      */
     async _isShardingMode(adminDb) {
         try {
-            var result = adminDb.command({ listShards: 1 });
-            return result.ok == 1;
+            var result = await adminDb.command({ listShards: 1 });
+            if (result.ok == 1) {
+                this.logger.debug(`✓ База данных ${this.databaseName} работает в режиме шардирования. Шарды: ${result.shards.map(shard => shard._id).join(', ')}`);
+                return result.shards.length > 0;
+            } else {
+                throw new Error(result.message);
+            }
         } catch (e) {
-            return false;
+            this.logger.error(`✗ Ошибка при проверке, что база данных работает в режиме шардирования: ${e.message}. Считаем, что режим шардирования не включен.`);
+            throw e;
         }
     }
 

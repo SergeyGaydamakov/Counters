@@ -137,16 +137,16 @@ class MongoProviderTest {
             
             // Тесты создания базы данных
             await this.testCreateDatabase('5. Тест создания базы данных...');
-            await this.testGetFactsCollectionSchema('6. Тест получения схемы коллекции фактов...');
-            await this.testGetFactIndexSchema('7. Тест получения схемы коллекции индексных значений...');
 
             // Тесты работы с фактами
-            await this.testInsertFact('8. Тест вставки одного факта...');
-            await this.testBulkInsert('9. Тест массовой вставки фактов...');
-            await this.testClearFactsCollection('10. Тест очистки коллекции фактов...');
+            await this.testInsertFact('6. Тест вставки одного факта...');
+            await this.testBulkInsert('7. Тест массовой вставки фактов...');
+            await this.testGetFactsCollectionSchema('8. Тест получения схемы коллекции фактов...');
+            await this.testClearFactsCollection('09. Тест очистки коллекции фактов...');
             
             // Тесты индексных значений
-            await this.testInsertFactIndexList('11. Тест вставки списка индексных значений...');
+            await this.testInsertFactIndexList('10. Тест вставки списка индексных значений...');
+            await this.testGetFactIndexSchema('11. Тест получения схемы коллекции индексных значений...');
             await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
             
             // Тесты повторных вызовов с теми же данными
