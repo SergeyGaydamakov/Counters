@@ -16,10 +16,12 @@ class MongoProvider {
         this.FACT_INDEX_COLLECTION_NAME = "factIndex";
         this._counterClient = null;
         this._counterDb = null;
+        // Разные коллекции для работы в разных потоках
         this._updateFactsCollection = null;
         this._updateFactIndexCollection = null;
         this._findFactsCollection = null;
         this._findFactIndexCollection = null;
+        //
         this._isConnected = false;
     }
 
@@ -35,9 +37,9 @@ class MongoProvider {
     async connect() {
         try {
             this.logger.debug(`Подключение к MongoDB: ${this.connectionString}`);
-            
-            // Опции для основного подключения (запись)
-            const writeOptions = {
+
+            // Опции для подключения по умолчанию
+            const defaultOptions = {
                 readConcern: { level: "local" },
                 readPreference: "primary",
                 writeConcern: {
@@ -46,14 +48,14 @@ class MongoProvider {
                     wtimeout: 5000
                 },
                 appName: "CounterTest",
-                monitorCommands: true,
+                // monitorCommands: true,
                 // minPoolSize: 10,
                 // maxPoolSize: 100,
                 // maxIdleTimeMS: 10000,
                 // maxConnecting: 10,
                 serverSelectionTimeoutMS: 30000,
             };
-            this._counterClient = new MongoClient(this.connectionString, writeOptions);
+            this._counterClient = new MongoClient(this.connectionString, defaultOptions);
             await this._counterClient.connect();
             this._counterDb = this._counterClient.db(this.databaseName);
             this._updateFactsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
@@ -63,9 +65,9 @@ class MongoProvider {
 
             this._isConnected = true;
 
-            this.logger.debug(`✓ Успешно подключен к базе данных: ${this.databaseName}`);
-            this.logger.debug(`✓ Используется коллекция: ${this.FACT_COLLECTION_NAME}`);
-            this.logger.debug(`✓ Используется коллекция индексных значений: ${this.FACT_INDEX_COLLECTION_NAME}`);
+            this.logger.debug(`✓ Успешное подключение к базе данных: ${this.databaseName}`);
+            this.logger.debug(`✓ Коллекция фактов: ${this.FACT_COLLECTION_NAME}`);
+            this.logger.debug(`✓ Коллекция индексных значений: ${this.FACT_INDEX_COLLECTION_NAME}`);
         } catch (error) {
             this.logger.error('✗ Ошибка подключения к MongoDB:', error.message);
             this._isConnected = false;
@@ -90,7 +92,7 @@ class MongoProvider {
                 await this._counterClient.close();
                 this.logger.debug('✓ Основное соединение с MongoDB закрыто');
             }
-            
+
             // Очищаем все ссылки на объекты
             this._counterClient = null;
             this._counterDb = null;
@@ -99,7 +101,7 @@ class MongoProvider {
             this._findFactsCollection = null;
             this._findFactIndexCollection = null;
             this._isConnected = false;
-            
+
             this.logger.debug('✓ Все соединения с MongoDB закрыты');
         } catch (error) {
             this.logger.error('✗ Ошибка при закрытии соединения:', error.message);
@@ -119,344 +121,6 @@ class MongoProvider {
         return true;
     }
 
-    // ============================================================================
-    // ГРУППА 2: УПРАВЛЕНИЕ СХЕМАМИ И ВАЛИДАЦИЕЙ
-    // ============================================================================
-
-    /**
-     * Создает схему валидации для коллекции facts на основе структуры JSON
-     * Схема определяет структуру документов и типы полей
-     * @returns {Promise<boolean>} результат создания схемы
-     */
-    async createFactsCollectionSchema() {
-        this.checkConnection();
-
-        try {
-
-            // Определяем схему валидации JSON для коллекции facts
-            const schema = {
-                $jsonSchema: {
-                    bsonType: "object",
-                    title: "Facts Collection Schema",
-                    description: "Схема для коллекции фактов с автоматически генерируемой структурой",
-                    required: ["i", "t", "c", "d"],
-                    properties: {
-                        _id: {
-                            bsonType: "objectId",
-                            description: "MongoDB ObjectId (автоматически генерируется)"
-                        },
-                        i: {
-                            bsonType: "objectId",
-                            description: "Уникальный идентификатор факта (преобразованный из GUID)"
-                        },
-                        t: {
-                            bsonType: "int",
-                            minimum: 1,
-                            description: "Тип факта - целое число >= 1 "
-                        },
-                        c: {
-                            bsonType: "date",
-                            description: "Дата и время создания объекта"
-                        },
-                        d: {
-                            bsonType: "object",
-                            description: "JSON объект с данными факта"
-                        },
-                        z: {
-                            bsonType: "string",
-                            description: "Поле заполнения для достижения целевого размера JSON (необязательное)"
-                        }
-                    },
-                    additionalProperties: false
-                }
-            };
-
-            // Проверяем, существует ли коллекция
-            const collections = await this._counterDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
-
-            if (collections.length > 0) {
-                // Коллекция существует, обновляем схему валидации
-                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_COLLECTION_NAME}...`);
-                await this._counterDb.command({
-                    collMod: this.FACT_COLLECTION_NAME,
-                    validator: schema,
-                    validationLevel: "moderate", // moderate - валидация только для новых документов и обновлений
-                    validationAction: "warn" // warn - предупреждения вместо ошибок при нарушении схемы
-                });
-            } else {
-                // Коллекция не существует, создаем с валидацией
-                this.logger.debug(`Создание новой коллекции ${this.FACT_COLLECTION_NAME} со схемой валидации...`);
-                await this._counterDb.createCollection(this.FACT_COLLECTION_NAME, {
-                    validator: schema,
-                    validationLevel: "moderate",
-                    validationAction: "warn"
-                });
-            }
-
-            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_COLLECTION_NAME} успешно создана/обновлена`);
-
-            return true;
-        } catch (error) {
-            console.error('✗ Ошибка при создании схемы коллекции:', error.message);
-            return false;
-        }
-    }
-
-        /**
-     * Создает схему валидации для коллекции индексных значений
-     * @returns {Promise<boolean>} результат создания схемы
-     */
-    async createFactIndexCollectionSchema() {
-        this.checkConnection();
-
-        try {
-            // Определяем схему валидации JSON для коллекции factIndex
-            const schema = {
-                $jsonSchema: {
-                    bsonType: "object",
-                    title: "FactIndex Collection Schema",
-                    description: "Схема для коллекции индексных значений фактов",
-                    required: ["h", "i", "d", "c"],
-                    properties: {
-                        _id: {
-                            bsonType: "objectId",
-                            description: "MongoDB ObjectId (автоматически генерируется)"
-                        },
-                        h: {
-                            bsonType: "string",
-                            description: "Хеш значение типа + поля факта"
-                        },
-                        // @deprecated нужно удалить после отладки
-                        f: {
-                            bsonType: "string",
-                            description: "Поле факта (f1, f2, f3, ...)"
-                        },
-                        it: {
-                            bsonType: "int",
-                            minimum: 1,
-                            maximum: 100,
-                            description: "Тип индекса - целое число от 1 до 100"
-                        },
-                        i: {
-                            bsonType: "string",
-                            description: "Уникальный идентификатор факта (GUID)"
-                        },
-                        d: {
-                            bsonType: "date",
-                            description: "Дата факта"
-                        },
-                        c: {
-                            bsonType: "date",
-                            description: "Дата и время создания объекта"
-                        }
-                    },
-                    additionalProperties: false
-                }
-            };
-
-            // Проверяем, существует ли коллекция
-            const collections = await this._counterDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
-
-            if (collections.length > 0) {
-                // Коллекция существует, обновляем схему валидации
-                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
-                await this._counterDb.command({
-                    collMod: this.FACT_INDEX_COLLECTION_NAME,
-                    validator: schema,
-                    validationLevel: "moderate",
-                    validationAction: "warn"
-                });
-            } else {
-                // Коллекция не существует, создаем с валидацией
-                this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
-                await this._counterDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
-                    validator: schema,
-                    validationLevel: "moderate",
-                    validationAction: "warn"
-                });
-            }
-
-            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_INDEX_COLLECTION_NAME} успешно создана/обновлена`);
-
-            return true;
-        } catch (error) {
-            console.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
-            return false;
-        }
-    }
-
-    /**
-     * Создает схему валидации для коллекции индексных значений
-     * @returns {Promise<boolean>} результат создания схемы
-     */
-    async createFactIndexCollectionSchema() {
-        this.checkConnection();
-
-        try {
-            // Определяем схему валидации JSON для коллекции factIndex
-            const schema = {
-                $jsonSchema: {
-                    bsonType: "object",
-                    title: "FactIndex Collection Schema",
-                    description: "Схема для коллекции индексных значений фактов",
-                    required: ["h", "i", "t", "d", "c"],
-                    properties: {
-                        _id: {
-                            bsonType: "objectId",
-                            description: "MongoDB ObjectId (автоматически генерируется)"
-                        },
-                        h: {
-                            bsonType: "string",
-                            description: "Хеш значение типа + поля факта"
-                        },
-                        i: {
-                            bsonType: "string",
-                            description: "Уникальный идентификатор факта (GUID)"
-                        },
-                        t: {
-                            bsonType: "int",
-                            minimum: 1,
-                            description: "Тип факта - целое число >= 1"
-                        },
-                        d: {
-                            bsonType: "date",
-                            description: "Дата факта"
-                        },
-                        c: {
-                            bsonType: "date",
-                            description: "Дата и время создания индексного значения"
-                        },
-                        // @deprecated нужно удалить после отладки
-                        v: {
-                            bsonType: "string",
-                            description: "Индексное значение поля факта"
-                        },
-                        it: {
-                            bsonType: "int",
-                            minimum: 1,
-                            maximum: 100,
-                            description: "Тип индекса - целое число от 1 до 100"
-                        }
-                    },
-                    additionalProperties: false
-                }
-            };
-
-            // Проверяем, существует ли коллекция
-            const collections = await this._counterDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
-
-            if (collections.length > 0) {
-                // Коллекция существует, обновляем схему валидации
-                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
-                await this._counterDb.command({
-                    collMod: this.FACT_INDEX_COLLECTION_NAME,
-                    validator: schema,
-                    validationLevel: "moderate",
-                    validationAction: "warn"
-                });
-            } else {
-                // Коллекция не существует, создаем с валидацией
-                this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
-                await this._counterDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
-                    validator: schema,
-                    validationLevel: "moderate",
-                    validationAction: "warn"
-                });
-            }
-
-            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_INDEX_COLLECTION_NAME} успешно создана/обновлена`);
-
-            return true;
-        } catch (error) {
-            console.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
-            return false;
-        }
-    }
-
-    /**
-     * Получает информацию о схеме коллекции facts
-     * @returns {Promise<Object|null>} информация о схеме валидации или null
-     */
-    async getFactsCollectionSchema() {
-        this.checkConnection();
-
-        try {
-            const collectionInfo = await this._counterDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
-
-            if (collectionInfo.length === 0) {
-                this.logger.debug(`Коллекция ${this.FACT_COLLECTION_NAME} не существует`);
-                return null;
-            }
-
-            const schema = collectionInfo[0].options?.validator;
-            if (schema) {
-                this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_COLLECTION_NAME} найдена`);
-                return schema;
-            } else {
-                this.logger.warn(`⚠ Коллекция ${this.FACT_COLLECTION_NAME} существует, но схема валидации не настроена`);
-                return null;
-            }
-        } catch (error) {
-            console.error('✗ Ошибка при получении схемы коллекции:', error.message);
-            throw error;
-        }
-    }
-
-
-    /**
-     * Получает схему коллекции индексных значений
-     * @returns {Promise<Object>} схема коллекции
-     */
-    async getFactIndexCollectionSchema() {
-        if (!this._isConnected) {
-            throw new Error('Нет подключения к MongoDB');
-        }
-
-        try {
-            const sample = await this._updateFactIndexCollection.findOne({});
-
-            if (!sample) {
-                this.logger.debug(`В коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} пусто!`);
-                return {
-                    collectionName: this.FACT_INDEX_COLLECTION_NAME,
-                    isEmpty: true,
-                    fields: [],
-                    message: 'Коллекция пуста'
-                };
-            }
-
-            const fields = Object.keys(sample).map(fieldName => {
-                const value = sample[fieldName];
-                return {
-                    name: fieldName,
-                    type: typeof value,
-                    example: value,
-                    isArray: Array.isArray(value),
-                    isDate: value instanceof Date,
-                    isObjectId: value instanceof ObjectId
-                };
-            });
-
-            const schema = {
-                collectionName: this.FACT_INDEX_COLLECTION_NAME,
-                isEmpty: false,
-                totalFields: fields.length,
-                fields: fields,
-                sampleDocument: sample
-            };
-
-            this.logger.debug(`\n=== Схема коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} ===`);
-            this.logger.debug(`Поля (${fields.length}):`);
-            fields.forEach(field => {
-                this.logger.debug(`  - ${field.name}: ${field.type}${field.isArray ? '[]' : ''}${field.isDate ? ' (Date)' : ''}${field.isObjectId ? ' (ObjectId)' : ''}`);
-            });
-
-            return schema;
-        } catch (error) {
-            console.error('✗ Ошибка при получении схемы коллекции индексных значений:', error.message);
-            throw error;
-        }
-    }
 
     // ============================================================================
     // ГРУППА 3: ВСТАВКА ДАННЫХ
@@ -632,608 +296,6 @@ class MongoProvider {
         }
     }
 
-    // ============================================================================
-    // ГРУППА 5: УПРАВЛЕНИЕ ИНДЕКСАМИ
-    // ============================================================================
-
-    /**
-     * Создание зон шардирования
-     * @returns {Promise<boolean>} результат создания зон шардирования  
-     */
-    async createShardZones(adminDb) {
-        this.checkConnection();
-        try {
-            // Получение списка шардов
-            const result = await adminDb.command({ createShardZones: this.databaseName });
-            this.logger.debug('✓ Зоны шардирования созданы: ' + result.ok);
-            return result.ok;
-        } catch (error) {
-            this.logger.error('✗ Ошибка при создании зон шардирования:', error.message);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Проверяет работает ли база в режиме шардирования
-     * @returns {Promise<boolean>} результат проверки
-     */
-    async isShardingMode(adminDb) {
-        try {
-            var result = adminDb.command({ listShards: 1 });
-            return result.ok == 1;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    /**
-     * Проверяет является ли база данных шардированной
-     * @returns {Promise<boolean>} результат проверки
-     */
-    isShardingEnabled(databaseName) {
-        return false;
-    }
-
-
-    /**
-     * Включает шардирование для базы данных
-     * @returns {Promise<boolean>} результат включения шардирования
-     */
-    async enableSharding(adminDb, databaseName) {
-        /*
-        if (this.isShardingEnabled(databaseName)) {
-            return true;
-        }
-        */
-        try {
-            if (!this._isConnected) {
-                throw new Error('Нет подключения к MongoDB');
-            }
-            const result = await adminDb.command({ enableSharding: databaseName });
-            this.logger.debug('✓ Включено шардирование для базы данных: ' + databaseName + ' ' + result.ok);
-            return result.ok;
-        } catch (error) {
-            this.logger.error('✗ Ошибка при включении шардирования для базы данных:', error.message);
-            return false;
-        }
-    }
-
-
-    /**
-     * Шардирует коллекцию
-     * @param {string} collectionName - имя коллекции
-     * @param {Object} shardKey - ключ шардирования
-     * @param {boolean} unique - уникален ли ключ шардирования
-     * @param {Object} options - дополнительные опции
-     * @returns {Promise<boolean>} результат создания индексов
-     */
-    async shardCollection(collectionName, shardKey, unique, options) {
-        let adminClient = null;
-        try {
-            adminClient = new MongoClient(this.connectionString);
-            await adminClient.connect();
-            const adminDb = adminClient.db('admin');
-
-            const shardCollectionCommand = {
-                shardCollection: `${this.databaseName}.${collectionName}`,
-                key: shardKey
-            };
-
-            if (unique !== undefined) {
-                Object.assign(shardCollectionCommand, { unique: !!unique });
-            }
-            if (options) {
-                Object.assign(shardCollectionCommand, options);
-            }
-
-            const result = await adminDb.command(shardCollectionCommand);
-            return true;
-        } catch (error) {
-            this.logger.error('✗ Ошибка при шардировании коллекции ${collectionName}: ', error.message);
-            return false;
-        } finally {
-            if (adminClient) {
-                try {
-                    await adminClient.close();
-                } catch (closeError) {
-                    this.logger.error('✗ Ошибка при закрытии adminClient:', closeError.message);
-                }
-            }
-        }
-    }
-
-    /**
-     * Создает индексы для коллекции индексных значений
-     * @returns {Promise<boolean>} результат создания индексов
-     */
-    async createFactIndexIndexes() {
-        try {
-            if (!this._isConnected) {
-                throw new Error('Нет подключения к MongoDB');
-            }
-
-            const indexesToCreate = [
-                // Уникальный составной индекс по h, i
-                {
-                    key: { h: 1, i: 1 },
-                    options: {
-                        name: 'idx_h_i_unique',
-                        background: true,
-                        unique: true
-                    },
-                    shardIndex: true
-                },
-                // Составной индекс по h (хешированный), -d, i (для всех основных запросов)
-                {
-                    key: { h: 1, d: -1, i: 1 },
-                    options: {
-                        name: 'idx_h_d_i',
-                        background: true
-                    }
-                }
-            ];
-
-            let successCount = 0;
-            let errors = [];
-
-            this.logger.debug(`Создание индексов для коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME}...`);
-
-            for (const indexSpec of indexesToCreate) {
-                try {
-                    await this._updateFactIndexCollection.createIndex(indexSpec.key, indexSpec.options);
-                    if (indexSpec.shardIndex) {
-                        await this.shardCollection(this.FACT_INDEX_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
-                        this.logger.info(`✓ Для коллекции ${this.FACT_INDEX_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
-                    } else {
-                        this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
-                    }
-                    successCount++;
-                } catch (error) {
-                    // Если индекс уже существует, это не ошибка
-                    if (error.code === 85 || error.message.includes('already exists')) {
-                        this.logger.warn(`⚠ Индекс ${indexSpec.options.name} уже существует`);
-                        successCount++;
-                    } else {
-                        console.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
-                        errors.push({ index: indexSpec.options.name, error: error.message });
-                    }
-                }
-            }
-
-            this.logger.debug(`\n=== Результат создания индексов для индексных значений ===`);
-            this.logger.debug(`✓ Успешно создано/проверено: ${successCount}/${indexesToCreate.length} индексов`);
-
-            if (errors.length > 0) {
-                this.logger.error(`✗ Ошибок: ${errors.length}`);
-                errors.forEach(err => this.logger.error(`  - ${err.index}: ${err.error}`));
-            }
-
-            return errors.length === 0;
-        } catch (error) {
-            console.error('✗ Ошибка при создании индексов для индексных значений:', error.message);
-            return false;
-        }
-    }
-
-    /**
-     * Создает индексы для коллекции facts
-     * @returns {Promise<boolean>} результат создания индексов
-     */
-    async createFactIndexes() {
-        try {
-            if (!this._isConnected) {
-                throw new Error('Нет подключения к MongoDB');
-            }
-            const indexesToCreate = [
-                // Уникальный индекс по полю i (GUID)
-                {
-                    key: { i: 1 },
-                    options: {
-                        name: 'idx_i_unique',
-                        background: true,
-                        unique: true
-                    },
-                    shardIndex: true
-                },
-                // Вспомогательный индекс для подсчета статистики
-                {
-                    key: { c: -1 },
-                    options: {
-                        name: 'idx_c',
-                        background: true,
-                        unique: false
-                    },
-                    shardIndex: false
-                }
-            ];
-
-            let successCount = 0;
-            let errors = [];
-
-            this.logger.debug(`Создание индексов для коллекции фактов ${this.FACT_COLLECTION_NAME}...`);
-
-            for (const indexSpec of indexesToCreate) {
-                try {
-                    await this._updateFactsCollection.createIndex(indexSpec.key, indexSpec.options);
-                    if (indexSpec.shardIndex) {
-                        await this.shardCollection(this.FACT_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
-                        this.logger.info(`✓ Для коллекции ${this.FACT_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
-                    } else {
-                        this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
-                    }
-                    successCount++;
-                } catch (error) {
-                    // Если индекс уже существует, это не ошибка
-                    if (error.code === 85 || error.message.includes('already exists')) {
-                        this.logger.warn(`⚠ Индекс ${indexSpec.options.name} уже существует`);
-                        successCount++;
-                    } else {
-                        console.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
-                        errors.push({ index: indexSpec.options.name, error: error.message });
-                    }
-                }
-            }
-
-            this.logger.debug(`\n=== Результат создания индексов для фактов ===`);
-            this.logger.debug(`✓ Успешно создано/проверено: ${successCount}/${indexesToCreate.length} индексов`);
-
-            if (errors.length > 0) {
-                this.logger.error(`✗ Ошибок: ${errors.length}`);
-                errors.forEach(err => this.logger.error(`  - ${err.index}: ${err.error}`));
-            }
-
-            return errors.length === 0;
-        } catch (error) {
-            console.error('✗ Ошибка при создании индексов для фактов:', error.message);
-            return false;
-        }
-    }
-
-    // ============================================================================
-    // ГРУППА 6: СТАТИСТИКА И МОНИТОРИНГ
-    // ============================================================================
-
-    /**
-     * Получает статистику использования коллекции facts
-     * @returns {Promise<Object>} статистика коллекции
-     */
-    async getFactsCollectionStats() {
-        this.checkConnection();
-
-        try {
-            const stats = await this._counterDb.command({ collStats: this.FACT_COLLECTION_NAME });
-
-            const result = {
-                namespace: stats.ns,
-                documentCount: stats.count,
-                avgDocumentSize: Math.round(stats.avgObjSize),
-                totalSize: stats.size,
-                storageSize: stats.storageSize,
-                indexCount: stats.nindexes,
-                totalIndexSize: stats.totalIndexSize,
-                capped: stats.capped || false
-            };
-
-            this.logger.debug(`\n=== Статистика коллекции ${this.FACT_COLLECTION_NAME} ===`);
-            this.logger.debug(`Документов: ${result.documentCount.toLocaleString()}`);
-            this.logger.debug(`Средний размер документа: ${result.avgDocumentSize} байт`);
-            this.logger.debug(`Общий размер данных: ${(result.totalSize / 1024 / 1024).toFixed(2)} МБ`);
-            this.logger.debug(`Размер хранилища: ${(result.storageSize / 1024 / 1024).toFixed(2)} МБ`);
-            this.logger.debug(`Количество индексов: ${result.indexCount}`);
-            this.logger.debug(`Размер индексов: ${(result.totalIndexSize / 1024 / 1024).toFixed(2)} МБ`);
-
-            return result;
-        } catch (error) {
-            console.error('✗ Ошибка при получении статистики коллекции:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Получает статистику коллекции индексных значений
-     * @returns {Promise<Object>} статистика коллекции
-     */
-    async getFactIndexStats() {
-        if (!this._isConnected) {
-            throw new Error('Нет подключения к MongoDB');
-        }
-
-        try {
-            // Используем один запрос collStats вместо двух отдельных запросов
-            const stats = await this._counterDb.command({ collStats: this.FACT_INDEX_COLLECTION_NAME });
-
-            const result = {
-                collectionName: this.FACT_INDEX_COLLECTION_NAME,
-                documentCount: stats.count || 0,
-                avgDocumentSize: Math.round(stats.avgObjSize) || 0,
-                totalSize: stats.size || 0,
-                storageSize: stats.storageSize || 0,
-                indexCount: stats.nindexes || 0,
-                totalIndexSize: stats.totalIndexSize || 0
-            };
-
-            this.logger.debug(`\n=== Статистика коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} ===`);
-            this.logger.debug(`Документов: ${result.documentCount.toLocaleString()}`);
-            this.logger.debug(`Средний размер документа: ${result.avgDocumentSize} байт`);
-            this.logger.debug(`Общий размер данных: ${(result.totalSize / 1024 / 1024).toFixed(2)} МБ`);
-            this.logger.debug(`Размер хранилища: ${(result.storageSize / 1024 / 1024).toFixed(2)} МБ`);
-            this.logger.debug(`Количество индексов: ${result.indexCount}`);
-            this.logger.debug(`Размер индексов: ${(result.totalIndexSize / 1024 / 1024).toFixed(2)} МБ`);
-
-            return result;
-        } catch (error) {
-            console.error('✗ Ошибка при получении статистики коллекции индексных значений:', error.message);
-            throw error;
-        }
-    }
-
-    // ============================================================================
-    // ГРУППА 7: ОЧИСТКА И УПРАВЛЕНИЕ ДАННЫМИ
-    // ============================================================================
-
-    /**
-     * Очищает коллекцию фактов
-     * @returns {Promise<Object>} результат очистки
-     */
-    async clearFactsCollection() {
-        if (!this._isConnected) {
-            throw new Error('Нет подключения к MongoDB');
-        }
-
-        try {
-            const deleteOptions = {
-                readConcern: { level: "local" },
-                readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
-                comment: "clearFactCollection",
-            };
-            const result = await this._updateFactsCollection.deleteMany({}, deleteOptions);
-            this.logger.debug(`✓ Удалено ${result.deletedCount} фактов из коллекции ${this.FACT_COLLECTION_NAME}`);
-            return result;
-        } catch (error) {
-            console.error('✗ Ошибка при очистке коллекции фактов:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Подсчитывает количество документов в коллекции фактов
-     * @returns {Promise<number>} количество документов
-     */
-    async countFactsCollection() {
-        if (!this._isConnected) {
-            throw new Error('Нет подключения к MongoDB');
-        }
-
-        try {
-            const result = await this._updateFactsCollection.countDocuments();
-            return result;
-        } catch (error) {
-            console.error('✗ Ошибка при подсчете числа документов в коллекции фактов:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Очищает коллекцию индексных значений
-     * @returns {Promise<Object>} результат очистки
-     */
-    async clearFactIndexCollection() {
-        if (!this._isConnected) {
-            throw new Error('Нет подключения к MongoDB');
-        }
-
-        try {
-            const deleteOptions = {
-                readConcern: { level: "local" },
-                readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
-                comment: "clearFactIndexCollection",
-            };
-            const result = await this._updateFactIndexCollection.deleteMany({}, deleteOptions);
-            this.logger.debug(`✓ Удалено ${result.deletedCount} индексных значений из коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
-            return result;
-        } catch (error) {
-            console.error('✗ Ошибка при очистке коллекции индексных значений:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Подсчитывает количество документов в коллекции фактов
-     * @returns {Promise<number>} количество документов
-     */
-    async countFactIndexCollection() {
-        if (!this._isConnected) {
-            throw new Error('Нет подключения к MongoDB');
-        }
-
-        try {
-            const result = await this._updateFactIndexCollection.countDocuments();
-            return result;
-        } catch (error) {
-            console.error('✗ Ошибка при подсчете числа документов в коллекции индексных значений:', error.message);
-            throw error;
-        }
-    }
-
-    /**
-     * Проверка, что база данных создана
-     * @returns {Promise<boolean>} результат проверки
-     */
-    async isDatabaseCreated(databaseName) {
-        this.checkConnection();
-
-        let adminClient = null;
-        try {
-            adminClient = new MongoClient(this.connectionString);
-            await adminClient.connect();
-            const adminDb = adminClient.db('admin');
-
-            const listDatabases = await adminDb.command({ listDatabases: 1 });
-            const database = listDatabases.databases.find(db => db.name === databaseName);
-            // this.logger.debug(`База данных ${databaseName} ${database ? 'найдена' : 'не найдена'} ${database ? JSON.stringify(database) : ''}`);
-            const result = database !== undefined;
-            this.logger.debug(`База данных ${databaseName} ${result ? 'создана' : 'не создана'}`);
-
-            return result;
-        } catch (error) {
-            this.logger.error('✗ Ошибка при проверке, что база данных создана:', error.message);
-            return false;
-        } finally {
-            if (adminClient) {
-                try {
-                    await adminClient.close();
-                } catch (closeError) {
-                    this.logger.error('✗ Ошибка при закрытии adminClient:', closeError.message);
-                }
-            }
-        }
-    }
-
-    /**
-     * Создает полную схему базы данных с коллекциями, схемами валидации и индексами
-     * @returns {Promise<Object>} результат создания базы данных
-     */
-    async createDatabase() {
-        this.checkConnection();
-
-        const results = {
-            success: true,
-            factsSchema: false,
-            factIndexSchema: false,
-            factsIndexes: false,
-            factIndexIndexes: false,
-            errors: []
-        };
-
-        if (await this.isDatabaseCreated(this.databaseName)) {
-            this.logger.debug(`База данных ${this.databaseName} уже создана`);
-            return results;
-        }
-
-        try {
-            this.logger.debug('\n=== Создание базы данных ===');
-            this.logger.debug(`База данных: ${this.databaseName}`);
-            this.logger.debug(`Коллекция facts: ${this.FACT_COLLECTION_NAME}`);
-            this.logger.debug(`Коллекция factIndex: ${this.FACT_INDEX_COLLECTION_NAME}`);
-
-            // 0. Подготовка к созданию базы данных
-            this.logger.debug('\n0. Подготовка к созданию базы данных...');
-
-            // 1. Создание схемы для коллекции facts
-            this.logger.debug('\n1. Создание схемы для коллекции facts...');
-            try {
-                results.factsSchema = await this.createFactsCollectionSchema();
-                if (results.factsSchema) {
-                    this.logger.debug('✓ Схема для коллекции facts создана успешно');
-                } else {
-                    results.errors.push('Не удалось создать схему для коллекции facts');
-                }
-            } catch (error) {
-                results.errors.push(`Ошибка создания схемы facts: ${error.message}`);
-                console.error('✗ Ошибка создания схемы facts:', error.message);
-            }
-
-            // 2. Создание схемы для коллекции factIndex
-            this.logger.debug('\n2. Создание схемы для коллекции factIndex...');
-            try {
-                results.factIndexSchema = await this.createFactIndexCollectionSchema();
-                if (results.factIndexSchema) {
-                    this.logger.debug('✓ Схема для коллекции factIndex создана успешно');
-                } else {
-                    results.errors.push('Не удалось создать схему для коллекции factIndex');
-                }
-            } catch (error) {
-                results.errors.push(`Ошибка создания схемы factIndex: ${error.message}`);
-                console.error('✗ Ошибка создания схемы factIndex:', error.message);
-            }
-
-            // 3. Создание индексов для коллекции facts
-            this.logger.debug('\n3. Создание индексов для коллекции facts...');
-            try {
-                results.factsIndexes = await this.createFactIndexes();
-                if (results.factsIndexes) {
-                    this.logger.debug('✓ Индексы для коллекции facts созданы успешно');
-                } else {
-                    results.errors.push('Не удалось создать индексы для коллекции facts');
-                }
-            } catch (error) {
-                results.errors.push(`Ошибка создания индексов facts: ${error.message}`);
-                console.error('✗ Ошибка создания индексов facts:', error.message);
-            }
-
-            // 4. Создание индексов для коллекции factIndex
-            this.logger.debug('\n4. Создание индексов для коллекции factIndex...');
-            try {
-                results.factIndexIndexes = await this.createFactIndexIndexes();
-                if (results.factIndexIndexes) {
-                    this.logger.debug('✓ Индексы для коллекции factIndex созданы успешно');
-                } else {
-                    results.errors.push('Не удалось создать индексы для коллекции factIndex');
-                }
-            } catch (error) {
-                results.errors.push(`Ошибка создания индексов factIndex: ${error.message}`);
-                console.error('✗ Ошибка создания индексов factIndex:', error.message);
-            }
-
-            // Определяем общий успех
-            results.success = results.errors.length === 0;
-
-            this.logger.debug('\n=== Результат создания базы данных ===');
-            this.logger.debug(`✓ Схема facts: ${results.factsSchema ? 'создана' : 'не создана'}`);
-            this.logger.debug(`✓ Схема factIndex: ${results.factIndexSchema ? 'создана' : 'не создана'}`);
-            this.logger.debug(`✓ Индексы facts: ${results.factsIndexes ? 'созданы' : 'не созданы'}`);
-            this.logger.debug(`✓ Индексы factIndex: ${results.factIndexIndexes ? 'созданы' : 'не созданы'}`);
-
-            if (results.errors.length > 0) {
-                this.logger.warn(`⚠ Ошибок: ${results.errors.length}`);
-                results.errors.forEach(error => this.logger.error(`  - ${error}`));
-            } else {
-                this.logger.info('✓ База данных создана успешно');
-            }
-
-            return results;
-        } catch (error) {
-            console.error('✗ Критическая ошибка при создании базы данных:', error.message);
-            results.success = false;
-            results.errors.push(`Критическая ошибка: ${error.message}`);
-            return results;
-        }
-    }
-
-    /**
-     * Поиск фактов по заданному фильтру (для тестов)
-     * @param {Object} filter - фильтр для поиска
-     * @returns {Promise<Array>} найденные факты
-     */
-    async findFacts(filter = {}) {
-        try {
-            const findOptions = {
-                batchSize: 5000,
-                readConcern: { level: "local" },
-                readPreference: { mode: "secondaryPreferred" },
-                comment: "getRelevantFactCounters",
-                projection: { _id: 0, i: 1 }
-            };
-            const facts = await this._findFactsCollection.find(filter, findOptions).toArray();
-            this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
-            return facts;
-        } catch (error) {
-            this.logger.error('✗ Ошибка при поиске фактов:', error.message);
-            throw error;
-        }
-    }
-
     /**
      * Получает релевантные факты для заданного факта с целью вычисления счетчиков
      * @param {Object} fact - факт
@@ -1337,7 +399,7 @@ class MongoProvider {
             projection: { _id: 0, i: 1 }
         };
         const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
-        
+
         // Если нет релевантных индексных значений, возвращаем пустую статистику
         if (factIndexResult.length === 0) {
             return [{
@@ -1348,7 +410,7 @@ class MongoProvider {
                 conditionLastHour: [{ totalSum: 0 }]
             }];
         }
-        
+
         // Сформировать агрегирующий запрос к коллекции facts,
         const queryFacts = {
             "$match": {
@@ -1452,7 +514,7 @@ class MongoProvider {
         };
         const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
         this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
-        
+
         // Если результат пустой, возвращаем пустую статистику
         if (result.length === 0) {
             return [{
@@ -1463,10 +525,849 @@ class MongoProvider {
                 conditionLastHour: [{ totalSum: 0 }]
             }];
         }
-        
+
         // Возвращаем массив статистики
         return result;
     }
+
+
+
+    // ============================================================================
+    // ГРУППА 5: УПРАВЛЕНИЕ ДАННЫМИ ДЛЯ ТЕСТОВ
+    // ============================================================================
+
+    /**
+     * Очищает коллекцию фактов
+     * @returns {Promise<Object>} результат очистки
+     */
+    async clearFactsCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            const deleteOptions = {
+                readConcern: { level: "local" },
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                comment: "clearFactCollection",
+            };
+            const result = await this._updateFactsCollection.deleteMany({}, deleteOptions);
+            this.logger.debug(`✓ Удалено ${result.deletedCount} фактов из коллекции ${this.FACT_COLLECTION_NAME}`);
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при очистке коллекции фактов:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Подсчитывает количество документов в коллекции фактов
+     * @returns {Promise<number>} количество документов
+     */
+    async countFactsCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            const result = await this._updateFactsCollection.countDocuments();
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при подсчете числа документов в коллекции фактов:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Поиск фактов по заданному фильтру (для тестов)
+     * @param {Object} filter - фильтр для поиска
+     * @returns {Promise<Array>} найденные факты
+     */
+    async findFacts(filter = {}) {
+        try {
+            const findOptions = {
+                batchSize: 5000,
+                readConcern: { level: "local" },
+                readPreference: { mode: "secondaryPreferred" },
+                comment: "getRelevantFactCounters",
+                projection: { _id: 0, i: 1 }
+            };
+            const facts = await this._findFactsCollection.find(filter, findOptions).toArray();
+            this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
+            return facts;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при поиске фактов:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Очищает коллекцию индексных значений
+     * @returns {Promise<Object>} результат очистки
+     */
+    async clearFactIndexCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            const deleteOptions = {
+                readConcern: { level: "local" },
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                comment: "clearFactIndexCollection",
+            };
+            const result = await this._updateFactIndexCollection.deleteMany({}, deleteOptions);
+            this.logger.debug(`✓ Удалено ${result.deletedCount} индексных значений из коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при очистке коллекции индексных значений:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Подсчитывает количество документов в коллекции фактов
+     * @returns {Promise<number>} количество документов
+     */
+    async countFactIndexCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            const result = await this._updateFactIndexCollection.countDocuments();
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при подсчете числа документов в коллекции индексных значений:', error.message);
+            throw error;
+        }
+    }
+
+    // ============================================================================
+    // ГРУППА 8: СОЗДАНИЕ И УПРАВЛЕНИЕ БАЗОЙ ДАННЫХ
+    // ============================================================================
+
+    /**
+     * Создание зон шардирования
+     * @returns {Promise<boolean>} результат создания зон шардирования  
+     */
+    async _createShardZones(adminDb) {
+        this.checkConnection();
+        try {
+            // Получение списка шардов
+            const result = await adminDb.command({ createShardZones: this.databaseName });
+            this.logger.debug('✓ Зоны шардирования созданы: ' + result.ok);
+            return result.ok;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при создании зон шардирования:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Проверяет работает ли база в режиме шардирования
+     * @returns {Promise<boolean>} результат проверки
+     */
+    async _isShardingMode(adminDb) {
+        try {
+            var result = adminDb.command({ listShards: 1 });
+            return result.ok == 1;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Включает шардирование для базы данных
+     * @returns {Promise<boolean>} результат включения шардирования
+     */
+    async _enableSharding(adminDb, databaseName) {
+        if (!this._isShardingMode(adminDb)) {
+            return true;
+        }
+        try {
+            if (!this._isConnected) {
+                throw new Error('Нет подключения к MongoDB');
+            }
+            const result = await adminDb.command({ enableSharding: databaseName });
+            this.logger.debug('✓ Включено шардирование для базы данных: ' + databaseName + ' ' + result.ok);
+            return result.ok;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при включении шардирования для базы данных:', error.message);
+            throw error;
+        }
+    }
+
+
+    /**
+     * Шардирует коллекцию
+     * @param {string} collectionName - имя коллекции
+     * @param {Object} shardKey - ключ шардирования
+     * @param {boolean} unique - уникален ли ключ шардирования
+     * @param {Object} options - дополнительные опции
+     * @returns {Promise<boolean>} результат создания индексов
+     */
+    async _shardCollection(adminDb, collectionName, shardKey, unique, options) {
+        try {
+
+            const shardCollectionCommand = {
+                shardCollection: `${this.databaseName}.${collectionName}`,
+                key: shardKey
+            };
+
+            if (unique !== undefined) {
+                Object.assign(shardCollectionCommand, { unique: !!unique });
+            }
+            if (options) {
+                Object.assign(shardCollectionCommand, options);
+            }
+
+            const result = await adminDb.command(shardCollectionCommand);
+            return true;
+        } catch (error) {
+            this.logger.error(`✗ Ошибка при шардировании коллекции ${collectionName}: ${error.message}`);
+            throw error;
+        }
+    }
+
+
+    /**
+     * Создает схему валидации для коллекции facts на основе структуры JSON
+     * Схема определяет структуру документов и типы полей
+     * @returns {Promise<boolean>} результат создания схемы
+     */
+    async _createFactsCollectionSchema() {
+        this.checkConnection();
+
+        try {
+
+            // Определяем схему валидации JSON для коллекции facts
+            const schema = {
+                $jsonSchema: {
+                    bsonType: "object",
+                    title: "Facts Collection Schema",
+                    description: "Схема для коллекции фактов с автоматически генерируемой структурой",
+                    required: ["i", "t", "c", "d"],
+                    properties: {
+                        _id: {
+                            bsonType: "objectId",
+                            description: "MongoDB ObjectId (автоматически генерируется)"
+                        },
+                        i: {
+                            bsonType: "objectId",
+                            description: "Уникальный идентификатор факта (преобразованный из GUID)"
+                        },
+                        t: {
+                            bsonType: "int",
+                            minimum: 1,
+                            description: "Тип факта - целое число >= 1 "
+                        },
+                        c: {
+                            bsonType: "date",
+                            description: "Дата и время создания объекта"
+                        },
+                        d: {
+                            bsonType: "object",
+                            description: "JSON объект с данными факта"
+                        },
+                        z: {
+                            bsonType: "string",
+                            description: "Поле заполнения для достижения целевого размера JSON (необязательное)"
+                        }
+                    },
+                    additionalProperties: false
+                }
+            };
+
+            // Проверяем, существует ли коллекция
+            const collections = await this._counterDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
+
+            if (collections.length > 0) {
+                // Коллекция существует, обновляем схему валидации
+                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_COLLECTION_NAME}...`);
+                await this._counterDb.command({
+                    collMod: this.FACT_COLLECTION_NAME,
+                    validator: schema,
+                    validationLevel: "moderate", // moderate - валидация только для новых документов и обновлений
+                    validationAction: "warn" // warn - предупреждения вместо ошибок при нарушении схемы
+                });
+            } else {
+                // Коллекция не существует, создаем с валидацией
+                this.logger.debug(`Создание новой коллекции ${this.FACT_COLLECTION_NAME} со схемой валидации...`);
+                await this._counterDb.createCollection(this.FACT_COLLECTION_NAME, {
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            }
+
+            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_COLLECTION_NAME} успешно создана/обновлена`);
+
+            return true;
+        } catch (error) {
+            console.error('✗ Ошибка при создании схемы коллекции:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Создает индексы для коллекции facts
+     * @returns {Promise<boolean>} результат создания индексов
+     */
+    async _createFactIndexes(adminDb) {
+        try {
+            if (!this._isConnected) {
+                throw new Error('Нет подключения к MongoDB');
+            }
+            const indexesToCreate = [
+                // Уникальный индекс по полю i (GUID)
+                {
+                    key: { i: 1 },
+                    options: {
+                        name: 'idx_i_unique',
+                        background: true,
+                        unique: true
+                    },
+                    shardIndex: true
+                },
+                // Вспомогательный индекс для подсчета статистики
+                {
+                    key: { c: -1 },
+                    options: {
+                        name: 'idx_c',
+                        background: true,
+                        unique: false
+                    },
+                    shardIndex: false
+                }
+            ];
+
+            let successCount = 0;
+            let errors = [];
+
+            this.logger.debug(`Создание индексов для коллекции фактов ${this.FACT_COLLECTION_NAME}...`);
+
+            for (const indexSpec of indexesToCreate) {
+                try {
+                    await this._updateFactsCollection.createIndex(indexSpec.key, indexSpec.options);
+                    if (indexSpec.shardIndex) {
+                        await this._shardCollection(adminDb, this.FACT_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
+                        this.logger.info(`✓ Для коллекции ${this.FACT_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
+                    } else {
+                        this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
+                    }
+                    successCount++;
+                } catch (error) {
+                    // Если индекс уже существует, это не ошибка
+                    if (error.code === 85 || error.message.includes('already exists')) {
+                        this.logger.warn(`⚠ Индекс ${indexSpec.options.name} уже существует`);
+                        successCount++;
+                    } else {
+                        console.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
+                        errors.push({ index: indexSpec.options.name, error: error.message });
+                    }
+                }
+            }
+
+            this.logger.debug(`\n=== Результат создания индексов для фактов ===`);
+            this.logger.debug(`✓ Успешно создано/проверено: ${successCount}/${indexesToCreate.length} индексов`);
+
+            if (errors.length > 0) {
+                this.logger.error(`✗ Ошибок: ${errors.length}`);
+                errors.forEach(err => this.logger.error(`  - ${err.index}: ${err.error}`));
+            }
+
+            return errors.length === 0;
+        } catch (error) {
+            console.error('✗ Ошибка при создании индексов для фактов:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Получает информацию о схеме коллекции facts
+     * @returns {Promise<Object|null>} информация о схеме валидации или null
+     */
+    async _getFactsCollectionSchema() {
+        this.checkConnection();
+
+        try {
+            const collectionInfo = await this._counterDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
+
+            if (collectionInfo.length === 0) {
+                this.logger.debug(`Коллекция ${this.FACT_COLLECTION_NAME} не существует`);
+                return null;
+            }
+
+            const schema = collectionInfo[0].options?.validator;
+            if (schema) {
+                this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_COLLECTION_NAME} найдена`);
+                return schema;
+            } else {
+                this.logger.warn(`⚠ Коллекция ${this.FACT_COLLECTION_NAME} существует, но схема валидации не настроена`);
+                return null;
+            }
+        } catch (error) {
+            console.error('✗ Ошибка при получении схемы коллекции:', error.message);
+            throw error;
+        }
+    }
+
+   
+ 
+    /**
+     * Создает схему валидации для коллекции индексных значений
+     * @returns {Promise<boolean>} результат создания схемы
+     */
+    async _createFactIndexCollectionSchema() {
+        this.checkConnection();
+
+        try {
+            // Определяем схему валидации JSON для коллекции factIndex
+            const schema = {
+                $jsonSchema: {
+                    bsonType: "object",
+                    title: "FactIndex Collection Schema",
+                    description: "Схема для коллекции индексных значений фактов",
+                    required: ["h", "i", "t", "d", "c"],
+                    properties: {
+                        _id: {
+                            bsonType: "objectId",
+                            description: "MongoDB ObjectId (автоматически генерируется)"
+                        },
+                        h: {
+                            bsonType: "string",
+                            description: "Хеш значение типа + поля факта"
+                        },
+                        i: {
+                            bsonType: "string",
+                            description: "Уникальный идентификатор факта (GUID)"
+                        },
+                        t: {
+                            bsonType: "int",
+                            minimum: 1,
+                            description: "Тип факта - целое число >= 1"
+                        },
+                        d: {
+                            bsonType: "date",
+                            description: "Дата факта"
+                        },
+                        c: {
+                            bsonType: "date",
+                            description: "Дата и время создания индексного значения"
+                        },
+                        // @deprecated нужно удалить после отладки
+                        v: {
+                            bsonType: "string",
+                            description: "Индексное значение поля факта"
+                        },
+                        it: {
+                            bsonType: "int",
+                            minimum: 1,
+                            maximum: 100,
+                            description: "Тип индекса - целое число от 1 до 100"
+                        }
+                    },
+                    additionalProperties: false
+                }
+            };
+
+            // Проверяем, существует ли коллекция
+            const collections = await this._counterDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
+
+            if (collections.length > 0) {
+                // Коллекция существует, обновляем схему валидации
+                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
+                await this._counterDb.command({
+                    collMod: this.FACT_INDEX_COLLECTION_NAME,
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            } else {
+                // Коллекция не существует, создаем с валидацией
+                this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
+                await this._counterDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            }
+
+            this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_INDEX_COLLECTION_NAME} успешно создана/обновлена`);
+
+            return true;
+        } catch (error) {
+            console.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Создает индексы для коллекции индексных значений
+     * @returns {Promise<boolean>} результат создания индексов
+     */
+    async _createFactIndexIndexes(adminDb) {
+        try {
+            if (!this._isConnected) {
+                throw new Error('Нет подключения к MongoDB');
+            }
+
+            const indexesToCreate = [
+                // Уникальный составной индекс по h, i
+                {
+                    key: { h: 1, i: 1 },
+                    options: {
+                        name: 'idx_h_i_unique',
+                        background: true,
+                        unique: true
+                    },
+                    shardIndex: true
+                },
+                // Составной индекс по h (хешированный), -d, i (для всех основных запросов)
+                {
+                    key: { h: 1, d: -1, i: 1 },
+                    options: {
+                        name: 'idx_h_d_i',
+                        background: true
+                    }
+                }
+            ];
+
+            let successCount = 0;
+            let errors = [];
+
+            this.logger.debug(`Создание индексов для коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME}...`);
+
+            for (const indexSpec of indexesToCreate) {
+                try {
+                    await this._updateFactIndexCollection.createIndex(indexSpec.key, indexSpec.options);
+                    if (indexSpec.shardIndex) {
+                        await this._shardCollection(adminDb, this.FACT_INDEX_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
+                        this.logger.info(`✓ Для коллекции ${this.FACT_INDEX_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
+                    } else {
+                        this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
+                    }
+                    successCount++;
+                } catch (error) {
+                    // Если индекс уже существует, это не ошибка
+                    if (error.code === 85 || error.message.includes('already exists')) {
+                        this.logger.warn(`⚠ Индекс ${indexSpec.options.name} уже существует`);
+                        successCount++;
+                    } else {
+                        console.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
+                        errors.push({ index: indexSpec.options.name, error: error.message });
+                    }
+                }
+            }
+
+            this.logger.debug(`\n=== Результат создания индексов для индексных значений ===`);
+            this.logger.debug(`✓ Успешно создано/проверено: ${successCount}/${indexesToCreate.length} индексов`);
+
+            if (errors.length > 0) {
+                this.logger.error(`✗ Ошибок: ${errors.length}`);
+                errors.forEach(err => this.logger.error(`  - ${err.index}: ${err.error}`));
+            }
+
+            return errors.length === 0;
+        } catch (error) {
+            console.error('✗ Ошибка при создании индексов для индексных значений:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Получает схему коллекции индексных значений
+     * @returns {Promise<Object>} схема коллекции
+     */
+    async _getFactIndexCollectionSchema() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            const sample = await this._updateFactIndexCollection.findOne({});
+
+            if (!sample) {
+                this.logger.debug(`В коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} пусто!`);
+                return {
+                    collectionName: this.FACT_INDEX_COLLECTION_NAME,
+                    isEmpty: true,
+                    fields: [],
+                    message: 'Коллекция пуста'
+                };
+            }
+
+            const fields = Object.keys(sample).map(fieldName => {
+                const value = sample[fieldName];
+                return {
+                    name: fieldName,
+                    type: typeof value,
+                    example: value,
+                    isArray: Array.isArray(value),
+                    isDate: value instanceof Date,
+                    isObjectId: value instanceof ObjectId
+                };
+            });
+
+            const schema = {
+                collectionName: this.FACT_INDEX_COLLECTION_NAME,
+                isEmpty: false,
+                totalFields: fields.length,
+                fields: fields,
+                sampleDocument: sample
+            };
+
+            this.logger.debug(`\n=== Схема коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} ===`);
+            this.logger.debug(`Поля (${fields.length}):`);
+            fields.forEach(field => {
+                this.logger.debug(`  - ${field.name}: ${field.type}${field.isArray ? '[]' : ''}${field.isDate ? ' (Date)' : ''}${field.isObjectId ? ' (ObjectId)' : ''}`);
+            });
+
+            return schema;
+        } catch (error) {
+            console.error('✗ Ошибка при получении схемы коллекции индексных значений:', error.message);
+            throw error;
+        }
+    }
+
+
+    /**
+     * Проверка, что база данных создана
+     * @returns {Promise<boolean>} результат проверки
+     */
+    async _isDatabaseCreated(adminDb, databaseName) {
+        this.checkConnection();
+
+        try {
+            const listDatabases = await adminDb.command({ listDatabases: 1 });
+            const database = listDatabases.databases.find(db => db.name === databaseName);
+            // this.logger.debug(`База данных ${databaseName} ${database ? 'найдена' : 'не найдена'} ${database ? JSON.stringify(database) : ''}`);
+            const result = database !== undefined;
+            this.logger.debug(`База данных ${databaseName} ${result ? 'создана' : 'не создана'}`);
+
+            return result;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при проверке, что база данных создана:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Создает полную схему базы данных с коллекциями, схемами валидации и индексами
+     * @returns {Promise<Object>} результат создания базы данных
+     */
+    async createDatabase() {
+        this.checkConnection();
+
+        let adminClient = null;
+        try {
+            adminClient = new MongoClient(this.connectionString);
+            await adminClient.connect();
+            const adminDb = adminClient.db('admin');
+
+
+            const results = {
+                success: true,
+                factsSchema: false,
+                factIndexSchema: false,
+                factsIndexes: false,
+                factIndexIndexes: false,
+                errors: []
+            };
+
+            if (await this._isDatabaseCreated(adminDb, this.databaseName)) {
+                this.logger.debug(`База данных ${this.databaseName} уже создана`);
+                return results;
+            }
+
+            this.logger.debug('\n=== Создание базы данных ===');
+            this.logger.debug(`База данных: ${this.databaseName}`);
+            this.logger.debug(`Коллекция facts: ${this.FACT_COLLECTION_NAME}`);
+            this.logger.debug(`Коллекция factIndex: ${this.FACT_INDEX_COLLECTION_NAME}`);
+
+            // 0. Подготовка к созданию базы данных
+            this.logger.debug('\n0. Подготовка к созданию базы данных...');
+            this._enableSharding(adminDb, this.databaseName);
+
+            // 1. Создание схемы для коллекции facts
+            this.logger.debug('\n1. Создание схемы для коллекции facts...');
+            try {
+                results.factsSchema = await this._createFactsCollectionSchema();
+                if (results.factsSchema) {
+                    this.logger.debug('✓ Схема для коллекции facts создана успешно');
+                } else {
+                    results.errors.push('Не удалось создать схему для коллекции facts');
+                }
+            } catch (error) {
+                results.errors.push(`Ошибка создания схемы facts: ${error.message}`);
+                console.error('✗ Ошибка создания схемы facts:', error.message);
+            }
+
+            // 2. Создание схемы для коллекции factIndex
+            this.logger.debug('\n2. Создание схемы для коллекции factIndex...');
+            try {
+                results.factIndexSchema = await this._createFactIndexCollectionSchema();
+                if (results.factIndexSchema) {
+                    this.logger.debug('✓ Схема для коллекции factIndex создана успешно');
+                } else {
+                    results.errors.push('Не удалось создать схему для коллекции factIndex');
+                }
+            } catch (error) {
+                results.errors.push(`Ошибка создания схемы factIndex: ${error.message}`);
+                console.error('✗ Ошибка создания схемы factIndex:', error.message);
+            }
+
+            // 3. Создание индексов для коллекции facts
+            this.logger.debug('\n3. Создание индексов для коллекции facts...');
+            try {
+                results.factsIndexes = await this._createFactIndexes(adminDb);
+                if (results.factsIndexes) {
+                    this.logger.debug('✓ Индексы для коллекции facts созданы успешно');
+                } else {
+                    results.errors.push('Не удалось создать индексы для коллекции facts');
+                }
+            } catch (error) {
+                results.errors.push(`Ошибка создания индексов facts: ${error.message}`);
+                console.error('✗ Ошибка создания индексов facts:', error.message);
+            }
+
+            // 4. Создание индексов для коллекции factIndex
+            this.logger.debug('\n4. Создание индексов для коллекции factIndex...');
+            try {
+                results.factIndexIndexes = await this._createFactIndexIndexes(adminDb);
+                if (results.factIndexIndexes) {
+                    this.logger.debug('✓ Индексы для коллекции factIndex созданы успешно');
+                } else {
+                    results.errors.push('Не удалось создать индексы для коллекции factIndex');
+                }
+            } catch (error) {
+                results.errors.push(`Ошибка создания индексов factIndex: ${error.message}`);
+                console.error('✗ Ошибка создания индексов factIndex:', error.message);
+            }
+
+            // Определяем общий успех
+            results.success = results.errors.length === 0;
+
+            this.logger.debug('\n=== Результат создания базы данных ===');
+            this.logger.debug(`✓ Схема facts: ${results.factsSchema ? 'создана' : 'не создана'}`);
+            this.logger.debug(`✓ Схема factIndex: ${results.factIndexSchema ? 'создана' : 'не создана'}`);
+            this.logger.debug(`✓ Индексы facts: ${results.factsIndexes ? 'созданы' : 'не созданы'}`);
+            this.logger.debug(`✓ Индексы factIndex: ${results.factIndexIndexes ? 'созданы' : 'не созданы'}`);
+
+            if (results.errors.length > 0) {
+                this.logger.warn(`⚠ Ошибок: ${results.errors.length}`);
+                results.errors.forEach(error => this.logger.error(`  - ${error}`));
+            } else {
+                this.logger.info('✓ База данных создана успешно');
+            }
+
+            return results;
+        } catch (error) {
+            console.error('✗ Критическая ошибка при создании базы данных:', error.message);
+            results.success = false;
+            results.errors.push(`Критическая ошибка: ${error.message}`);
+            return results;
+        } finally {
+            if (adminClient) {
+                try {
+                    await adminClient.close();
+                } catch (closeError) {
+                    this.logger.error('✗ Ошибка при закрытии adminClient:', closeError.message);
+                }
+            }
+        }
+    }
+
+    // ============================================================================
+    // ГРУППА 6: СТАТИСТИКА И МОНИТОРИНГ
+    // ============================================================================
+
+    /**
+     * Получает статистику использования коллекции facts
+     * @returns {Promise<Object>} статистика коллекции
+     */
+    async getFactsCollectionStats() {
+        this.checkConnection();
+
+        try {
+            const stats = await this._counterDb.command({ collStats: this.FACT_COLLECTION_NAME });
+
+            const result = {
+                namespace: stats.ns,
+                documentCount: stats.count,
+                avgDocumentSize: Math.round(stats.avgObjSize),
+                totalSize: stats.size,
+                storageSize: stats.storageSize,
+                indexCount: stats.nindexes,
+                totalIndexSize: stats.totalIndexSize,
+                capped: stats.capped || false
+            };
+
+            this.logger.debug(`\n=== Статистика коллекции ${this.FACT_COLLECTION_NAME} ===`);
+            this.logger.debug(`Документов: ${result.documentCount.toLocaleString()}`);
+            this.logger.debug(`Средний размер документа: ${result.avgDocumentSize} байт`);
+            this.logger.debug(`Общий размер данных: ${(result.totalSize / 1024 / 1024).toFixed(2)} МБ`);
+            this.logger.debug(`Размер хранилища: ${(result.storageSize / 1024 / 1024).toFixed(2)} МБ`);
+            this.logger.debug(`Количество индексов: ${result.indexCount}`);
+            this.logger.debug(`Размер индексов: ${(result.totalIndexSize / 1024 / 1024).toFixed(2)} МБ`);
+
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при получении статистики коллекции:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Получает статистику коллекции индексных значений
+     * @returns {Promise<Object>} статистика коллекции
+     */
+    async getFactIndexStats() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            // Используем один запрос collStats вместо двух отдельных запросов
+            const stats = await this._counterDb.command({ collStats: this.FACT_INDEX_COLLECTION_NAME });
+
+            const result = {
+                collectionName: this.FACT_INDEX_COLLECTION_NAME,
+                documentCount: stats.count || 0,
+                avgDocumentSize: Math.round(stats.avgObjSize) || 0,
+                totalSize: stats.size || 0,
+                storageSize: stats.storageSize || 0,
+                indexCount: stats.nindexes || 0,
+                totalIndexSize: stats.totalIndexSize || 0
+            };
+
+            this.logger.debug(`\n=== Статистика коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} ===`);
+            this.logger.debug(`Документов: ${result.documentCount.toLocaleString()}`);
+            this.logger.debug(`Средний размер документа: ${result.avgDocumentSize} байт`);
+            this.logger.debug(`Общий размер данных: ${(result.totalSize / 1024 / 1024).toFixed(2)} МБ`);
+            this.logger.debug(`Размер хранилища: ${(result.storageSize / 1024 / 1024).toFixed(2)} МБ`);
+            this.logger.debug(`Количество индексов: ${result.indexCount}`);
+            this.logger.debug(`Размер индексов: ${(result.totalIndexSize / 1024 / 1024).toFixed(2)} МБ`);
+
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при получении статистики коллекции индексных значений:', error.message);
+            throw error;
+        }
+    }
+
+
 }
 
 module.exports = MongoProvider;

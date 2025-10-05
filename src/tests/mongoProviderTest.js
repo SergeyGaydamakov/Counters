@@ -126,62 +126,53 @@ class MongoProviderTest {
      * Запуск всех тестов
      */
     async runAllTests() {
-        this.logger.debug('=== Тестирование всех методов MongoProvider (33 тестов) ===\n');
+        this.logger.debug('=== Тестирование всех методов MongoProvider (29 тестов) ===\n');
 
         try {
             // Тесты подключения
             await this.testConnection('1. Тест подключения к MongoDB...');
             await this.testDisconnection('2. Тест отключения от MongoDB...');
             await this.testReconnection('3. Тест переподключения к MongoDB...');
+            await this.testCheckConnection('4. Тест проверки подключения...');
             
-            // Тесты схемы коллекции facts
-            await this.testCreateFactsCollectionSchema('4. Тест создания схемы коллекции facts...');
-            await this.testGetFactsCollectionSchema('5. Тест получения схемы коллекции facts...');
-            await this.testCreateFactIndexes('6. Тест создания индексов фактов...');
-            await this.testCreateFactIndexCollectionSchema('7. Тест создания схемы коллекции индексных значений...');
-            await this.testCreateDatabase('8. Тест создания базы данных...');
-            await this.testCreateFactIndexIndexes('9. Тест создания индексов для индексных значений...');   
+            // Тесты создания базы данных
+            await this.testCreateDatabase('5. Тест создания базы данных...');
+            await this.testGetFactsCollectionSchema('6. Тест получения схемы коллекции фактов...');
+            await this.testGetFactIndexSchema('7. Тест получения схемы коллекции индексных значений...');
 
             // Тесты работы с фактами
-            await this.testInsertFact('10. Тест вставки одного факта...');
-            await this.testBulkInsert('11. Тест массовой вставки фактов...');
-            
-            // Тесты статистики
-            await this.testGetFactsCollectionStats('12. Тест получения статистики коллекции facts...');
+            await this.testInsertFact('8. Тест вставки одного факта...');
+            await this.testBulkInsert('9. Тест массовой вставки фактов...');
+            await this.testClearFactsCollection('10. Тест очистки коллекции фактов...');
             
             // Тесты индексных значений
-            await this.testInsertFactIndexList('13. Тест вставки списка индексных значений...');
-            await this.testGetFactIndexStats('14. Тест получения статистики индексных значений...');
-            await this.testGetFactIndexSchema('15. Тест получения схемы индексных значений...');
-            await this.testClearFactIndexCollection('16. Тест очистки коллекции индексных значений...');
-            
-            // Тесты проверки подключения
-            await this.testCheckConnection('17. Тест проверки подключения...');
+            await this.testInsertFactIndexList('11. Тест вставки списка индексных значений...');
+            await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
             
             // Тесты повторных вызовов с теми же данными
-            await this.testDuplicateInsertFact('18. Тест повторной вставки того же факта...');
-            await this.testDuplicateInsertFactIndexList('19. Тест повторной вставки тех же индексных значений...');
-            await this.testDuplicateBulkInsert('20. Тест повторной массовой вставки...');
-            
-            // Тесты очистки коллекций
-            await this.testClearFactsCollection('21. Тест очистки коллекции фактов...');
+            await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
+            await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
+            await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
             
             // Тесты получения релевантных фактов
-            await this.testGetRelevantFacts('22. Тест получения релевантных фактов...');
-            await this.testGetRelevantFactsWithMultipleFields('23. Тест получения релевантных фактов с множественными полями...');
-            await this.testGetRelevantFactsWithNoMatches('24. Тест получения релевантных фактов без совпадений...');
-            await this.testGetRelevantFactsWithDepthLimit('25. Тест получения релевантных фактов с ограничением глубины...');
-            await this.testGetRelevantFactsWithDepthFromDate('26. Тест получения релевантных фактов с глубиной от даты...');
-            await this.testGetRelevantFactsWithBothParameters('27. Тест получения релевантных фактов с обоими параметрами...');
+            await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
+            await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
+            await this.testGetRelevantFactsWithNoMatches('18. Тест получения релевантных фактов без совпадений...');
+            await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
+            await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
+            await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
             
             // Тесты получения релевантных счетчиков фактов
-            await this.testGetRelevantFactCounters('28. Тест получения релевантных счетчиков фактов...');
-            await this.testGetRelevantFactCountersWithMultipleFields('29. Тест получения релевантных счетчиков с множественными полями...');
-            await this.testGetRelevantFactCountersWithNoMatches('30. Тест получения релевантных счетчиков без совпадений...');
-            await this.testGetRelevantFactCountersWithDepthLimit('31. Тест получения релевантных счетчиков с ограничением глубины...');
-            await this.testGetRelevantFactCountersWithDepthFromDate('32. Тест получения релевантных счетчиков с глубиной от даты...');
-            await this.testGetRelevantFactCountersWithBothParameters('33. Тест получения релевантных счетчиков с обоими параметрами...');
+            await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
+            await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
+            await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
+            await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');
+            await this.testGetRelevantFactCountersWithDepthFromDate('26. Тест получения релевантных счетчиков с глубиной от даты...');
+            await this.testGetRelevantFactCountersWithBothParameters('27. Тест получения релевантных счетчиков с обоими параметрами...');
             
+            // Тесты статистики
+            await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
+            await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
         } catch (error) {
             console.error('Критическая ошибка:', error.message);
         } finally {
@@ -267,35 +258,13 @@ class MongoProviderTest {
     }
 
     /**
-     * Тест создания схемы коллекции facts
-     */
-    async testCreateFactsCollectionSchema(title) {
-        this.logger.debug(title);
-        
-        try {
-            const success = await this.provider.createFactsCollectionSchema(10);
-            
-            if (!success) {
-                throw new Error('Не удалось создать схему коллекции');
-            }
-
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-        } catch (error) {
-            this.testResults.failed++;
-            this.testResults.errors.push(`testCreateFactsCollectionSchema: ${error.message}`);
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-        }
-    }
-
-    /**
      * Тест получения схемы коллекции facts
      */
     async testGetFactsCollectionSchema(title) {
         this.logger.debug(title);
         
         try {
-            const schema = await this.provider.getFactsCollectionSchema();
+            const schema = await this.provider._getFactsCollectionSchema();
             
             if (!schema) {
                 throw new Error('Схема не получена');
@@ -501,50 +470,6 @@ class MongoProviderTest {
     }
 
     /**
-     * Тест создания индексов для индексных значений
-     */
-    async testCreateFactIndexIndexes(title) {
-        this.logger.debug(title);
-        
-        try {
-            const success = await this.provider.createFactIndexIndexes();
-            
-            if (!success) {
-                throw new Error('Не удалось создать индексы для индексных значений');
-            }
-
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-        } catch (error) {
-            this.testResults.failed++;
-            this.testResults.errors.push(`testCreateFactIndexIndexes: ${error.message}`);
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-        }
-    }
-
-    /**
-     * Тест создания индексов для коллекции facts
-     */
-    async testCreateFactIndexes(title) {
-        this.logger.debug(title);
-        
-        try {
-            const success = await this.provider.createFactIndexes();
-            
-            if (!success) {
-                throw new Error('Не удалось создать индексы для коллекции facts');
-            }
-
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-        } catch (error) {
-            this.testResults.failed++;
-            this.testResults.errors.push(`testCreateFactIndexes: ${error.message}`);
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-        }
-    }
-
-    /**
      * Тест получения статистики индексных значений
      */
     async testGetFactIndexStats(title) {
@@ -577,7 +502,7 @@ class MongoProviderTest {
         this.logger.debug(title);
         
         try {
-            const schema = await this.provider.getFactIndexCollectionSchema();
+            const schema = await this.provider._getFactIndexCollectionSchema();
             
             if (!schema || schema.isEmpty) {
                 throw new Error('Схема индексных значений пуста или не получена');
@@ -597,32 +522,6 @@ class MongoProviderTest {
         } catch (error) {
             this.testResults.failed++;
             this.testResults.errors.push(`testGetFactIndexSchema: ${error.message}`);
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-        }
-    }
-
-    /**
-     * Тест создания схемы коллекции индексных значений
-     */
-    async testCreateFactIndexCollectionSchema(title) {
-        this.logger.debug(title);
-        
-        try {
-            const result = await this.provider.createFactIndexCollectionSchema();
-            
-            if (typeof result !== 'boolean') {
-                throw new Error('Результат должен быть boolean');
-            }
-
-            if (!result) {
-                throw new Error('Схема не была создана');
-            }
-
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-        } catch (error) {
-            this.testResults.failed++;
-            this.testResults.errors.push(`testCreateFactIndexCollectionSchema: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }
