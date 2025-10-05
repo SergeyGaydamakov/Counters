@@ -185,7 +185,13 @@ class MongoProviderTest {
         } catch (error) {
             console.error('Критическая ошибка:', error.message);
         } finally {
-            await this.provider.disconnect();
+            try {
+                await this.provider.disconnect();
+                this.logger.debug('✓ Все соединения с MongoDB закрыты');
+            } catch (error) {
+                this.logger.error('✗ Ошибка при закрытии соединений:', error.message);
+            }
+            
             this.printResults();
         }
     }
@@ -203,7 +209,7 @@ class MongoProviderTest {
                 throw new Error('Не удалось подключиться к MongoDB');
             }
 
-            if (!this.provider.isConnected) {
+            if (!this.provider._isConnected) {
                 throw new Error('Флаг isConnected не установлен');
             }
 
@@ -225,7 +231,7 @@ class MongoProviderTest {
         try {
             await this.provider.disconnect();
             
-            if (this.provider.isConnected) {
+            if (this.provider._isConnected) {
                 throw new Error('Флаг isConnected не сброшен после отключения');
             }
 
@@ -325,7 +331,7 @@ class MongoProviderTest {
         
         try {
             // Очищаем коллекцию
-            await this.provider.factsCollection.deleteMany({});
+            await this.provider.clearFactsCollection();
             
             // Генерируем тестовый факт
             const testFact = this.generator.generateRandomTypeFact();
@@ -383,8 +389,8 @@ class MongoProviderTest {
         
         try {
             // Очищаем коллекции
-            await this.provider.factsCollection.deleteMany({});
-            await this.provider.factIndexCollection.deleteMany({});
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
             const fromDate = new Date('2024-01-01');
@@ -739,7 +745,7 @@ class MongoProviderTest {
         
         try {
             // Очищаем коллекцию
-            await this.provider.factsCollection.deleteMany({});
+            await this.provider.clearFactsCollection();
             
             // Генерируем тестовый факт
             const fromDate = new Date('2024-01-01');
@@ -771,7 +777,7 @@ class MongoProviderTest {
             }
 
             // Проверяем, что в базе только один документ
-            const count = await this.provider.factsCollection.countDocuments();
+            const count = await this.provider.countFactsCollection();
             if (count !== 1) {
                 throw new Error(`Ожидалось 1 документ в базе, найдено ${count}`);
             }
@@ -824,7 +830,7 @@ class MongoProviderTest {
             }
 
             // Проверяем, что в базе есть документы
-            const count = await this.provider.factIndexCollection.countDocuments();
+            const count = await this.provider.countFactIndexCollection();
             if (count === 0) {
                 throw new Error(`В базе нет документов`);
             }
@@ -846,7 +852,7 @@ class MongoProviderTest {
         
         try {
             // Очищаем коллекции
-            await this.provider.factsCollection.deleteMany({});
+            await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
@@ -896,8 +902,8 @@ class MongoProviderTest {
             }
 
             // Проверяем, что в базах только нужное количество документов
-            const factCount = await this.provider.factsCollection.countDocuments();
-            const indexCount = await this.provider.factIndexCollection.countDocuments();
+            const factCount = await this.provider.countFactsCollection();
+            const indexCount = await this.provider.countFactIndexCollection();
             
             if (factCount !== 1) {
                 throw new Error(`Ожидалось 1 факт в базе, найдено ${factCount}`);
@@ -934,7 +940,7 @@ class MongoProviderTest {
             }
             
             // Проверяем, что факты добавлены
-            const countBefore = await this.provider.factsCollection.countDocuments();
+            const countBefore = await this.provider.countFactsCollection();
             if (countBefore === 0) {
                 throw new Error('Факты не были добавлены для тестирования очистки');
             }
@@ -951,7 +957,7 @@ class MongoProviderTest {
             }
             
             // Проверяем, что коллекция пуста
-            const countAfter = await this.provider.factsCollection.countDocuments();
+            const countAfter = await this.provider.countFactsCollection();
             if (countAfter !== 0) {
                 throw new Error(`Коллекция фактов не пуста после очистки, осталось ${countAfter} документов`);
             }

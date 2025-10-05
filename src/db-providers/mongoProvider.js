@@ -14,15 +14,13 @@ class MongoProvider {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.FACT_COLLECTION_NAME = "facts";
         this.FACT_INDEX_COLLECTION_NAME = "factIndex";
-        this.factsClient = null;
-        this.factsDb = null;
-        this.factsCollection = null;
-        this.factIndexClient = null;
-        this.factIndexDb = null;
-        this.factIndexCollection = null;
-        this.adminClient = null;
-        this.adminDb = null;
-        this.isConnected = false;
+        this._counterClient = null;
+        this._counterDb = null;
+        this._updateFactsCollection = null;
+        this._updateFactIndexCollection = null;
+        this._findFactsCollection = null;
+        this._findFactIndexCollection = null;
+        this._isConnected = false;
     }
 
     // ============================================================================
@@ -36,36 +34,48 @@ class MongoProvider {
      */
     async connect() {
         try {
-            this.logger.debug(`Три подключения к MongoDB: ${this.connectionString}`);
-            this.factsClient = new MongoClient(this.connectionString);
-            await this.factsClient.connect();
-            this.factsDb = this.factsClient.db(this.databaseName);
-            this.factsCollection = this.factsDb.collection(this.FACT_COLLECTION_NAME);
+            this.logger.debug(`Подключение к MongoDB: ${this.connectionString}`);
+            
+            // Опции для основного подключения (запись)
+            const writeOptions = {
+                readConcern: { level: "local" },
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                appName: "CounterTest",
+                monitorCommands: true,
+                // minPoolSize: 10,
+                // maxPoolSize: 100,
+                // maxIdleTimeMS: 10000,
+                // maxConnecting: 10,
+                serverSelectionTimeoutMS: 30000,
+            };
+            this._counterClient = new MongoClient(this.connectionString, writeOptions);
+            await this._counterClient.connect();
+            this._counterDb = this._counterClient.db(this.databaseName);
+            this._updateFactsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            this._updateFactIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            this._findFactsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            this._findFactIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
 
-            this.factIndexClient = new MongoClient(this.connectionString);
-            await this.factIndexClient.connect();
-            this.factIndexDb = this.factIndexClient.db(this.databaseName);
-            this.factIndexCollection = this.factIndexDb.collection(this.FACT_INDEX_COLLECTION_NAME);
-
-            this.adminClient = new MongoClient(this.connectionString);
-            await this.adminClient.connect();
-            this.adminDb = this.adminClient.db('admin');
-
-            this.isConnected = true;
+            this._isConnected = true;
 
             this.logger.debug(`✓ Успешно подключен к базе данных: ${this.databaseName}`);
             this.logger.debug(`✓ Используется коллекция: ${this.FACT_COLLECTION_NAME}`);
             this.logger.debug(`✓ Используется коллекция индексных значений: ${this.FACT_INDEX_COLLECTION_NAME}`);
         } catch (error) {
             this.logger.error('✗ Ошибка подключения к MongoDB:', error.message);
-            this.isConnected = false;
+            this._isConnected = false;
             return false;
         }
         try {
             await this.createDatabase();
         } catch (error) {
             this.logger.error('✗ Ошибка при создании базы данных:', error.message);
-            this.isConnected = false;
+            this._isConnected = false;
             return false;
         }
         return true;
@@ -76,27 +86,25 @@ class MongoProvider {
      */
     async disconnect() {
         try {
-            if (this.factsClient && this.isConnected) {
-                await this.factsClient.close();
-                this.factsClient = null;
-                this.factsDb = null;
-                this.factsCollection = null;
+            if (this._counterClient && this._isConnected) {
+                await this._counterClient.close();
+                this.logger.debug('✓ Основное соединение с MongoDB закрыто');
             }
-            if (this.factIndexClient && this.isConnected) {
-                await this.factIndexClient.close();
-                this.factIndexClient = null;
-                this.factIndexDb = null;
-                this.factIndexCollection = null;
-            }
-            if (this.adminClient && this.isConnected) {
-                await this.adminClient.close();
-                this.adminClient = null;
-                this.adminDb = null;
-            }
-            this.isConnected = false;
-            this.logger.debug('✓ Соединение с MongoDB закрыто');
+            
+            // Очищаем все ссылки на объекты
+            this._counterClient = null;
+            this._counterDb = null;
+            this._updateFactsCollection = null;
+            this._updateFactIndexCollection = null;
+            this._findFactsCollection = null;
+            this._findFactIndexCollection = null;
+            this._isConnected = false;
+            
+            this.logger.debug('✓ Все соединения с MongoDB закрыты');
         } catch (error) {
             this.logger.error('✗ Ошибка при закрытии соединения:', error.message);
+            // Даже при ошибке сбрасываем флаги
+            this._isConnected = false;
         }
     }
 
@@ -105,7 +113,7 @@ class MongoProvider {
      * @returns {boolean} статус подключения
      */
     checkConnection() {
-        if (!this.isConnected) {
+        if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB. Вызовите connect() перед использованием методов.');
         }
         return true;
@@ -118,21 +126,12 @@ class MongoProvider {
     /**
      * Создает схему валидации для коллекции facts на основе структуры JSON
      * Схема определяет структуру документов и типы полей
-     * @param {number} maxFieldCount - максимальное количество динамических полей f1, f2, ... (по умолчанию 23)
      * @returns {Promise<boolean>} результат создания схемы
      */
-    async createFactsCollectionSchema(maxFieldCount = 23) {
+    async createFactsCollectionSchema() {
         this.checkConnection();
 
         try {
-            // Создаем объект для динамических полей f1, f2, ..., fN
-            const dynamicFieldsProperties = {};
-            for (let i = 1; i <= maxFieldCount; i++) {
-                dynamicFieldsProperties[`f${i}`] = {
-                    bsonType: "string",
-                    description: `Динамическое поле f${i} - строка`
-                };
-            }
 
             // Определяем схему валидации JSON для коллекции facts
             const schema = {
@@ -173,12 +172,12 @@ class MongoProvider {
             };
 
             // Проверяем, существует ли коллекция
-            const collections = await this.factsDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
+            const collections = await this._counterDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
 
             if (collections.length > 0) {
                 // Коллекция существует, обновляем схему валидации
                 this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_COLLECTION_NAME}...`);
-                await this.factsDb.command({
+                await this._counterDb.command({
                     collMod: this.FACT_COLLECTION_NAME,
                     validator: schema,
                     validationLevel: "moderate", // moderate - валидация только для новых документов и обновлений
@@ -187,7 +186,7 @@ class MongoProvider {
             } else {
                 // Коллекция не существует, создаем с валидацией
                 this.logger.debug(`Создание новой коллекции ${this.FACT_COLLECTION_NAME} со схемой валидации...`);
-                await this.factsDb.createCollection(this.FACT_COLLECTION_NAME, {
+                await this._counterDb.createCollection(this.FACT_COLLECTION_NAME, {
                     validator: schema,
                     validationLevel: "moderate",
                     validationAction: "warn"
@@ -195,7 +194,6 @@ class MongoProvider {
             }
 
             this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_COLLECTION_NAME} успешно создана/обновлена`);
-            this.logger.debug(`✓ Поддерживается до ${maxFieldCount} динамических полей (f1-f${maxFieldCount})`);
 
             return true;
         } catch (error) {
@@ -257,12 +255,12 @@ class MongoProvider {
             };
 
             // Проверяем, существует ли коллекция
-            const collections = await this.factIndexDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
+            const collections = await this._counterDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
 
             if (collections.length > 0) {
                 // Коллекция существует, обновляем схему валидации
                 this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
-                await this.factIndexDb.command({
+                await this._counterDb.command({
                     collMod: this.FACT_INDEX_COLLECTION_NAME,
                     validator: schema,
                     validationLevel: "moderate",
@@ -271,7 +269,7 @@ class MongoProvider {
             } else {
                 // Коллекция не существует, создаем с валидацией
                 this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
-                await this.factIndexDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
+                await this._counterDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
                     validator: schema,
                     validationLevel: "moderate",
                     validationAction: "warn"
@@ -345,12 +343,12 @@ class MongoProvider {
             };
 
             // Проверяем, существует ли коллекция
-            const collections = await this.factIndexDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
+            const collections = await this._counterDb.listCollections({ name: this.FACT_INDEX_COLLECTION_NAME }).toArray();
 
             if (collections.length > 0) {
                 // Коллекция существует, обновляем схему валидации
                 this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.FACT_INDEX_COLLECTION_NAME}...`);
-                await this.factIndexDb.command({
+                await this._counterDb.command({
                     collMod: this.FACT_INDEX_COLLECTION_NAME,
                     validator: schema,
                     validationLevel: "moderate",
@@ -359,7 +357,7 @@ class MongoProvider {
             } else {
                 // Коллекция не существует, создаем с валидацией
                 this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
-                await this.factIndexDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
+                await this._counterDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
                     validator: schema,
                     validationLevel: "moderate",
                     validationAction: "warn"
@@ -383,7 +381,7 @@ class MongoProvider {
         this.checkConnection();
 
         try {
-            const collectionInfo = await this.factsDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
+            const collectionInfo = await this._counterDb.listCollections({ name: this.FACT_COLLECTION_NAME }).toArray();
 
             if (collectionInfo.length === 0) {
                 this.logger.debug(`Коллекция ${this.FACT_COLLECTION_NAME} не существует`);
@@ -410,12 +408,12 @@ class MongoProvider {
      * @returns {Promise<Object>} схема коллекции
      */
     async getFactIndexCollectionSchema() {
-        if (!this.isConnected) {
+        if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB');
         }
 
         try {
-            const sample = await this.factIndexCollection.findOne({});
+            const sample = await this._updateFactIndexCollection.findOne({});
 
             if (!sample) {
                 this.logger.debug(`В коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} пусто!`);
@@ -470,7 +468,7 @@ class MongoProvider {
      * @returns {Promise<Object>} результат сохранения
      */
     async saveFact(fact) {
-        if (!this.isConnected) {
+        if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB');
         }
 
@@ -483,10 +481,21 @@ class MongoProvider {
             const updateOperation = { $set: fact };
 
             // Используем updateOne с upsert для оптимальной производительности
-            const result = await this.factsCollection.updateOne(
+            const updateOptions = {
+                readConcern: { level: "local" },
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                comment: "saveFact",
+                upsert: true,
+            };
+            const result = await this._updateFactsCollection.updateOne(
                 filter,
                 updateOperation,
-                { upsert: true }
+                updateOptions
             );
 
             // Определяем тип операции на основе результата updateOne
@@ -501,7 +510,13 @@ class MongoProvider {
             } else if (wasUpdated || wasIgnored) {
                 // Для обновленных или проигнорированных документов получаем ID через дополнительный запрос
                 // Это единственный способ получить ID существующего документа
-                const doc = await this.factsCollection.findOne(filter, { projection: { _id: 1 } });
+                const findOptions = {
+                    readConcern: { level: "local" },
+                    readPreference: "primary",
+                    comment: "saveFact - find",
+                    projection: { _id: 1 }
+                };
+                const doc = await this._updateFactsCollection.findOne(filter, findOptions);
                 factId = doc?._id;
             }
 
@@ -543,7 +558,7 @@ class MongoProvider {
      * @returns {Promise<Object>} результат сохранения
      */
     async saveFactIndexList(factIndexValues) {
-        if (!this.isConnected) {
+        if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB');
         }
 
@@ -555,7 +570,19 @@ class MongoProvider {
             this.logger.debug(`Начинаем обработку ${factIndexValues.length} индексных значений...`);
 
             // Bulk вставка индексных значений с обработкой дубликатов
-            const indexBulk = this.factIndexCollection.initializeUnorderedBulkOp();
+            const bulkWriteOptions = {
+                readConcern: { level: "local" },
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                comment: "saveFactIndexList",
+                ordered: false,
+                upsert: true,
+            };
+            const indexBulk = this._updateFactIndexCollection.initializeUnorderedBulkOp(bulkWriteOptions);
 
             factIndexValues.forEach(indexValue => {
                 const indexFilter = {
@@ -565,7 +592,7 @@ class MongoProvider {
                 indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
             });
 
-            const indexResult = await indexBulk.execute();
+            const indexResult = await indexBulk.execute(bulkWriteOptions);
 
             const inserted = indexResult.upsertedCount || 0;
             const updated = indexResult.modifiedCount || 0;
@@ -613,11 +640,11 @@ class MongoProvider {
      * Создание зон шардирования
      * @returns {Promise<boolean>} результат создания зон шардирования  
      */
-    async createShardZones() {
+    async createShardZones(adminDb) {
         this.checkConnection();
         try {
             // Получение списка шардов
-            const result = await this.adminDb.command({ createShardZones: this.databaseName });
+            const result = await adminDb.command({ createShardZones: this.databaseName });
             this.logger.debug('✓ Зоны шардирования созданы: ' + result.ok);
             return result.ok;
         } catch (error) {
@@ -631,9 +658,9 @@ class MongoProvider {
      * Проверяет работает ли база в режиме шардирования
      * @returns {Promise<boolean>} результат проверки
      */
-    async isShardingMode() {
+    async isShardingMode(adminDb) {
         try {
-            var result = this.adminDb.command({ listShards: 1 });
+            var result = adminDb.command({ listShards: 1 });
             return result.ok == 1;
         } catch (e) {
             return false;
@@ -653,17 +680,17 @@ class MongoProvider {
      * Включает шардирование для базы данных
      * @returns {Promise<boolean>} результат включения шардирования
      */
-    async enableSharding(databaseName) {
+    async enableSharding(adminDb, databaseName) {
         /*
         if (this.isShardingEnabled(databaseName)) {
             return true;
         }
         */
         try {
-            if (!this.isConnected) {
+            if (!this._isConnected) {
                 throw new Error('Нет подключения к MongoDB');
             }
-            const result = await this.adminDb.command({ enableSharding: databaseName });
+            const result = await adminDb.command({ enableSharding: databaseName });
             this.logger.debug('✓ Включено шардирование для базы данных: ' + databaseName + ' ' + result.ok);
             return result.ok;
         } catch (error) {
@@ -682,10 +709,12 @@ class MongoProvider {
      * @returns {Promise<boolean>} результат создания индексов
      */
     async shardCollection(collectionName, shardKey, unique, options) {
+        let adminClient = null;
         try {
-            if (!this.isConnected) {
-                throw new Error('Нет подключения к MongoDB');
-            }
+            adminClient = new MongoClient(this.connectionString);
+            await adminClient.connect();
+            const adminDb = adminClient.db('admin');
+
             const shardCollectionCommand = {
                 shardCollection: `${this.databaseName}.${collectionName}`,
                 key: shardKey
@@ -698,13 +727,20 @@ class MongoProvider {
                 Object.assign(shardCollectionCommand, options);
             }
 
-            const result = await this.adminDb.command(shardCollectionCommand);
-
+            const result = await adminDb.command(shardCollectionCommand);
+            return true;
         } catch (error) {
             this.logger.error('✗ Ошибка при шардировании коллекции ${collectionName}: ', error.message);
             return false;
+        } finally {
+            if (adminClient) {
+                try {
+                    await adminClient.close();
+                } catch (closeError) {
+                    this.logger.error('✗ Ошибка при закрытии adminClient:', closeError.message);
+                }
+            }
         }
-        return true;
     }
 
     /**
@@ -713,7 +749,7 @@ class MongoProvider {
      */
     async createFactIndexIndexes() {
         try {
-            if (!this.isConnected) {
+            if (!this._isConnected) {
                 throw new Error('Нет подключения к MongoDB');
             }
 
@@ -745,7 +781,7 @@ class MongoProvider {
 
             for (const indexSpec of indexesToCreate) {
                 try {
-                    await this.factIndexCollection.createIndex(indexSpec.key, indexSpec.options);
+                    await this._updateFactIndexCollection.createIndex(indexSpec.key, indexSpec.options);
                     if (indexSpec.shardIndex) {
                         await this.shardCollection(this.FACT_INDEX_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
                         this.logger.info(`✓ Для коллекции ${this.FACT_INDEX_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
@@ -786,10 +822,9 @@ class MongoProvider {
      */
     async createFactIndexes() {
         try {
-            if (!this.isConnected) {
+            if (!this._isConnected) {
                 throw new Error('Нет подключения к MongoDB');
             }
-
             const indexesToCreate = [
                 // Уникальный индекс по полю i (GUID)
                 {
@@ -820,7 +855,7 @@ class MongoProvider {
 
             for (const indexSpec of indexesToCreate) {
                 try {
-                    await this.factsCollection.createIndex(indexSpec.key, indexSpec.options);
+                    await this._updateFactsCollection.createIndex(indexSpec.key, indexSpec.options);
                     if (indexSpec.shardIndex) {
                         await this.shardCollection(this.FACT_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
                         this.logger.info(`✓ Для коллекции ${this.FACT_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
@@ -867,7 +902,7 @@ class MongoProvider {
         this.checkConnection();
 
         try {
-            const stats = await this.factsDb.command({ collStats: this.FACT_COLLECTION_NAME });
+            const stats = await this._counterDb.command({ collStats: this.FACT_COLLECTION_NAME });
 
             const result = {
                 namespace: stats.ns,
@@ -900,13 +935,13 @@ class MongoProvider {
      * @returns {Promise<Object>} статистика коллекции
      */
     async getFactIndexStats() {
-        if (!this.isConnected) {
+        if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB');
         }
 
         try {
             // Используем один запрос collStats вместо двух отдельных запросов
-            const stats = await this.factIndexDb.command({ collStats: this.FACT_INDEX_COLLECTION_NAME });
+            const stats = await this._counterDb.command({ collStats: this.FACT_INDEX_COLLECTION_NAME });
 
             const result = {
                 collectionName: this.FACT_INDEX_COLLECTION_NAME,
@@ -942,12 +977,22 @@ class MongoProvider {
      * @returns {Promise<Object>} результат очистки
      */
     async clearFactsCollection() {
-        if (!this.isConnected) {
+        if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB');
         }
 
         try {
-            const result = await this.factsCollection.deleteMany({});
+            const deleteOptions = {
+                readConcern: { level: "local" },
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                comment: "clearFactCollection",
+            };
+            const result = await this._updateFactsCollection.deleteMany({}, deleteOptions);
             this.logger.debug(`✓ Удалено ${result.deletedCount} фактов из коллекции ${this.FACT_COLLECTION_NAME}`);
             return result;
         } catch (error) {
@@ -957,20 +1002,66 @@ class MongoProvider {
     }
 
     /**
-     * Очищает коллекцию индексных значений
-     * @returns {Promise<Object>} результат очистки
+     * Подсчитывает количество документов в коллекции фактов
+     * @returns {Promise<number>} количество документов
      */
-    async clearFactIndexCollection() {
-        if (!this.isConnected) {
+    async countFactsCollection() {
+        if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB');
         }
 
         try {
-            const result = await this.factIndexCollection.deleteMany({});
+            const result = await this._updateFactsCollection.countDocuments();
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при подсчете числа документов в коллекции фактов:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Очищает коллекцию индексных значений
+     * @returns {Promise<Object>} результат очистки
+     */
+    async clearFactIndexCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            const deleteOptions = {
+                readConcern: { level: "local" },
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                comment: "clearFactIndexCollection",
+            };
+            const result = await this._updateFactIndexCollection.deleteMany({}, deleteOptions);
             this.logger.debug(`✓ Удалено ${result.deletedCount} индексных значений из коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
             return result;
         } catch (error) {
             console.error('✗ Ошибка при очистке коллекции индексных значений:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Подсчитывает количество документов в коллекции фактов
+     * @returns {Promise<number>} количество документов
+     */
+    async countFactIndexCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            const result = await this._updateFactIndexCollection.countDocuments();
+            return result;
+        } catch (error) {
+            console.error('✗ Ошибка при подсчете числа документов в коллекции индексных значений:', error.message);
             throw error;
         }
     }
@@ -982,16 +1073,30 @@ class MongoProvider {
     async isDatabaseCreated(databaseName) {
         this.checkConnection();
 
+        let adminClient = null;
         try {
-            const listDatabases = await this.adminDb.command({ listDatabases: 1 });
+            adminClient = new MongoClient(this.connectionString);
+            await adminClient.connect();
+            const adminDb = adminClient.db('admin');
+
+            const listDatabases = await adminDb.command({ listDatabases: 1 });
             const database = listDatabases.databases.find(db => db.name === databaseName);
             // this.logger.debug(`База данных ${databaseName} ${database ? 'найдена' : 'не найдена'} ${database ? JSON.stringify(database) : ''}`);
             const result = database !== undefined;
             this.logger.debug(`База данных ${databaseName} ${result ? 'создана' : 'не создана'}`);
+
             return result;
         } catch (error) {
             this.logger.error('✗ Ошибка при проверке, что база данных создана:', error.message);
             return false;
+        } finally {
+            if (adminClient) {
+                try {
+                    await adminClient.close();
+                } catch (closeError) {
+                    this.logger.error('✗ Ошибка при закрытии adminClient:', closeError.message);
+                }
+            }
         }
     }
 
@@ -1028,7 +1133,7 @@ class MongoProvider {
             // 1. Создание схемы для коллекции facts
             this.logger.debug('\n1. Создание схемы для коллекции facts...');
             try {
-                results.factsSchema = await this.createFactsCollectionSchema(this.maxFieldCount);
+                results.factsSchema = await this.createFactsCollectionSchema();
                 if (results.factsSchema) {
                     this.logger.debug('✓ Схема для коллекции facts создана успешно');
                 } else {
@@ -1098,7 +1203,6 @@ class MongoProvider {
             }
 
             return results;
-
         } catch (error) {
             console.error('✗ Критическая ошибка при создании базы данных:', error.message);
             results.success = false;
@@ -1110,12 +1214,18 @@ class MongoProvider {
     /**
      * Поиск фактов по заданному фильтру (для тестов)
      * @param {Object} filter - фильтр для поиска
-     * @param {Object} options - опции поиска
      * @returns {Promise<Array>} найденные факты
      */
-    async findFacts(filter = {}, options = {}) {
+    async findFacts(filter = {}) {
         try {
-            const facts = await this.factsCollection.find(filter, options).toArray();
+            const findOptions = {
+                batchSize: 5000,
+                readConcern: { level: "local" },
+                readPreference: { mode: "secondaryPreferred" },
+                comment: "getRelevantFactCounters",
+                projection: { _id: 0, i: 1 }
+            };
+            const facts = await this._findFactsCollection.find(filter, findOptions).toArray();
             this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
             return facts;
         } catch (error) {
@@ -1151,7 +1261,14 @@ class MongoProvider {
                 "$gte": depthFromDate
             };
         }
-        const factIndexResult = await this.factIndexCollection.find(matchQuery, { projection: { _id: 0, i: 1 } }).sort({ d: -1 }).limit(depthLimit).toArray();
+        const findOptions = {
+            batchSize: 5000,
+            readConcern: { level: "local" },
+            readPreference: "secondaryPreferred",
+            comment: "getRelevantFactCounters",
+            projection: { _id: 0, i: 1 }
+        };
+        const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
         // Сформировать агрегирующий запрос к коллекции facts,
         const aggregateQuery = [
             {
@@ -1172,7 +1289,13 @@ class MongoProvider {
         // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
 
         // Выполнить агрегирующий запрос
-        const result = await this.factsCollection.aggregate(aggregateQuery).toArray();
+        const aggregateOptions = {
+            batchSize: 5000,
+            readConcern: { level: "local" },
+            readPreference: { mode: "secondaryPreferred" },
+            comment: "getRelevantFactCounters",
+        };
+        const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(5000).toArray();
         this.logger.debug(`✓ Получено ${result.length} фактов`);
         // this.logger.debug(JSON.stringify(result, null, 2));
         // Возвращаем массив фактов
@@ -1206,7 +1329,14 @@ class MongoProvider {
                 "$gte": depthFromDate
             };
         }
-        const factIndexResult = await this.factIndexCollection.find(matchQuery, { projection: { _id: 0, i: 1 } }).sort({ d: -1 }).limit(depthLimit).toArray();
+        const findOptions = {
+            batchSize: 5000,
+            readConcern: { level: "local" },
+            readPreference: { mode: "secondaryPreferred" },
+            comment: "getRelevantFactCounters",
+            projection: { _id: 0, i: 1 }
+        };
+        const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
         
         // Если нет релевантных индексных значений, возвращаем пустую статистику
         if (factIndexResult.length === 0) {
@@ -1314,7 +1444,13 @@ class MongoProvider {
         // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
 
         // Выполнить агрегирующий запрос
-        const result = await this.factsCollection.aggregate(aggregateQuery).toArray();
+        const aggregateOptions = {
+            batchSize: 5000,
+            readConcern: { level: "local" },
+            readPreference: { mode: "secondaryPreferred" },
+            comment: "getRelevantFactCounters",
+        };
+        const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
         this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
         
         // Если результат пустой, возвращаем пустую статистику
