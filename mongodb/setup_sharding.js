@@ -4,7 +4,7 @@
 print("=== Настройка шардирования для коллекций fact и factIndex ===");
 
 // Конфигурация
-const DATABASE_NAME = "CounterTest"; // Замените на нужное имя базы данных
+const DATABASE_NAME = "counters"; // Замените на нужное имя базы данных
 const FACTS_COLLECTION = "facts";
 const FACT_INDEX_COLLECTION = "factIndex";
 
@@ -116,7 +116,8 @@ try {
         validator: factsSchema,
         clusteredIndex: {
             key: { "_id": 1 },
-            unique: true
+            unique: true,
+            name: "facts clustered key" 
         },
         validationLevel: "off",
         validationAction: "warn"
@@ -175,6 +176,12 @@ try {
             print(`✓ Индекс ${indexSpec.options.name} уже существует`);
         }
     }
+
+    const lastFactsIndexes = factsCollection.getIndexes();
+    print(`Итоговые индексы для коллекции ${FACTS_COLLECTION}:`);
+    lastFactsIndexes.forEach(index => {
+        print(`  ${index.name}: ${JSON.stringify(index.key)}`);
+    });
 } catch (error) {
     print(`✗ Ошибка создания индексов для ${FACTS_COLLECTION}: ${error.message}`);
     hasError = true;
@@ -254,12 +261,11 @@ try {
     // Параметры создания коллекции для производственной среды
     const productionCreateOptions = {
         validator: factIndexSchema,
-        /*
         clusteredIndex: {
-            key: { "_id": 1, "d": 1 },
-            unique: true
+            key: { "_id": 1 },
+            unique: true,
+            name: "factIndex clustered key"
         },
-        */
         validationLevel: "off",
         validationAction: "warn"
     };
@@ -314,6 +320,12 @@ try {
             print(`✓ Индекс ${indexSpec.options.name} уже существует`);
         }
     }
+
+    const lastFactIndexIndexes = factIndexCollection.getIndexes();
+    print(`Итоговые индексы для коллекции ${FACT_INDEX_COLLECTION}:`);
+    lastFactIndexIndexes.forEach(index => {
+        print(`  ${index.name}: ${JSON.stringify(index.key)}`);
+    });
 } catch (error) {
     print(`✗ Ошибка создания индексов для ${FACT_INDEX_COLLECTION}: ${error.message}`);
     hasError = true;
@@ -324,10 +336,10 @@ print(`\n8. Настройка шардирования для коллекци�
 const factIndexShardingResult = executeCommand(
     {
         shardCollection: `${DATABASE_NAME}.${FACT_INDEX_COLLECTION}`,
-        key: { h: 1, f: 1 }, // Составной ключ: h (ascending) + f (ascending)
+        key: { "_id.h": 1 }, // Может быть до 64Мб записей для разных фактов примерно 600000 фактов
         unique: false
     },
-    `Настройка шардирования для коллекции ${FACT_INDEX_COLLECTION} по ключу {h: 1, i: 1}`
+    `Настройка шардирования для коллекции ${FACT_INDEX_COLLECTION} по ключу {_id.h: 1}`
 );
 
 if (!factIndexShardingResult.success) {
@@ -336,7 +348,7 @@ if (!factIndexShardingResult.success) {
 }
 
 // 9. Создание зон шардирования
-function CreateShardZones(databaseName = "CounterTest") {
+function CreateShardZones(databaseName) {
     sh.stopBalancer();
     print("Creating shard zones:");
     var listShards = adminDb.runCommand({
@@ -372,19 +384,19 @@ function CreateShardZones(databaseName = "CounterTest") {
         {
             namespace: databaseName + ".facts",
             keys: [
-                { i: MinKey },
-                { i: ObjectId("555555555555555555555555") },
-                { i: ObjectId("AAAAAAAAAAAAAAAAAAAAAAAA") },
-                { i: MaxKey }
+                { _id: MinKey },
+                { _id: ObjectId("555555555555555555555555") },
+                { _id: ObjectId("AAAAAAAAAAAAAAAAAAAAAAAA") },
+                { _id: MaxKey }
             ]
         },
         {
             namespace: databaseName + ".factIndex",
             keys: [
-                { h: MinKey, i: MinKey },
-                { h: "5555555555555555555555555555555555555555555555555555555555555555", i: MinKey },
-                { h: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", i: MinKey },
-                { h: MaxKey, i: MaxKey }
+                { "_id.h": MinKey},
+                { "_id.h": "5555555555555555555555555555555555555555555555555555555555555555"},
+                { "_id.h": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+                { "_id.h": MaxKey},
             ]
         },
     ];
@@ -413,7 +425,7 @@ function CreateShardZones(databaseName = "CounterTest") {
 }
 
 print("\n9. Создание зон шардирования...");
-if (CreateShardZones()) {
+if (CreateShardZones(DATABASE_NAME)) {
     print("✓ Зоны шардирования созданы");
 } else {
     print("✗ Не удалось создать зоны шардирования");

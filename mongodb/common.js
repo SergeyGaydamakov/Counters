@@ -28,7 +28,7 @@ function ShardingAnalysis() {
 }
 
 // Анализ для одной базы данных
-function ShardingAnalysisForDatabase( databaseName = "CounterTest" ){
+function ShardingAnalysisForDatabase( databaseName = "counters" ){
 	var config = db.getSiblingDB("config");
 	var dbShards = db.adminCommand({ listShards: 1 }).shards;
 	var pattern = databaseName + "\..*";
@@ -114,8 +114,8 @@ function ShardingAnalysisForDatabase( databaseName = "CounterTest" ){
     });
 }
 
-// Статистика для теста CounterTest
-function CounterStatistics(limit = 1000, hashIndex=10, databaseName = "CounterTest") {
+// Статистика для теста counters
+function CounterStatistics(limit = 1000, hashIndex=10, databaseName = "counters") {
     const dbStat = db.getSiblingDB(databaseName);
     print("***   Statistics for Counter Test");
     print("***   Total number of facts: " + dbStat.facts.estimatedDocumentCount());
@@ -486,7 +486,7 @@ function CounterStatistics(limit = 1000, hashIndex=10, databaseName = "CounterTe
 }
 
 // Создание зон шардирования
-function CreateShardZones(databaseName = "CounterTest") {
+function CreateShardZones(databaseName = "counters") {
     sh.stopBalancer();
     print("Creating shard zones:");
     var listShards = db.adminCommand({

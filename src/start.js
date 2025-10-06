@@ -11,7 +11,7 @@ const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
 // Параметры подключения к MongoDB из .env
 const connectionString = process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017';
-const databaseName = process.env.MONGODB_DATABASE_NAME || 'CounterTest';
+const databaseName = process.env.MONGODB_DATABASE_NAME || 'counters';
 
 // Параметры генерации фактов из .env
 const fieldConfigPath = process.env.FACT_FIELD_CONFIG_PATH || null;

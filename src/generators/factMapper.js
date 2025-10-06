@@ -130,7 +130,8 @@ class FactMapper {
         // Находим имя поле с уникальным идентификатором события и устанавливаем его значение в поле _id
         this._mappingConfig.forEach(rule => {
             if (rule.unique_key) {
-                fact._id = event.d[rule.src];
+                // Приводим к строке, чтобы избежать ошибки при создании индекса в MongoDB
+                fact._id = String(event.d[rule.src]);
             }
         });
         if (fact._id === null) {
