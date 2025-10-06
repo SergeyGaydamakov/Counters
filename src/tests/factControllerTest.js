@@ -1,4 +1,4 @@
-const { MongoProvider, FactController } = require('../index');
+const { MongoProvider, FactController} = require('../index');
 const Logger = require('../utils/logger');
 const EnvConfig = require('../utils/envConfig');
 
@@ -40,7 +40,8 @@ class FactControllerTest {
                 "max": 20,
                 "default_value": "1234567890",
                 "default_random": 0.1
-            }
+            },
+            "unique_key": true
         },
         {
             "src": "f2",
@@ -173,7 +174,7 @@ class FactControllerTest {
 
             // Проверяем структуру сгенерированного факта
             const fact = result.fact;
-            const requiredFields = ['i', 't', 'c', 'd'];
+            const requiredFields = ['_id', 't', 'c', 'd'];
             for (const field of requiredFields) {
                 if (!(field in fact)) {
                     throw new Error(`Сгенерированный факт должен содержать поле ${field}`);
@@ -210,7 +211,7 @@ class FactControllerTest {
             // Создаем несколько тестовых фактов с общими значениями полей
             const testFacts = [
                 {
-                    i: 'test-fact-001',
+                    _id: 'test-fact-001',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -221,7 +222,7 @@ class FactControllerTest {
                     }
                 },
                 {
-                    i: 'test-fact-002',
+                    _id: 'test-fact-002',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -242,7 +243,7 @@ class FactControllerTest {
 
             // Создаем факт с теми же значениями полей, что и тестовые факты
             const testFact = {
-                i: 'test-fact-query',
+                _id: 'test-fact-query',
                 t: 1,
                 c: new Date(),
                 d: {
@@ -255,9 +256,9 @@ class FactControllerTest {
 
             // Тестируем getRelevantFacts напрямую
             const testFactIndexValues = this.controller.factIndexer.index(testFact);
-            const testFactIndexHashValues = testFactIndexValues.map(index => index.h);
+            const testFactIndexHashValues = testFactIndexValues.map(index => index._id.h);
             const excludedFact = testFacts[1];
-            const relevantFacts = await this.provider.getRelevantFacts(testFactIndexHashValues, excludedFact.i);
+            const relevantFacts = await this.provider.getRelevantFacts(testFactIndexHashValues, excludedFact._id);
 
             // Проверяем, что relevantFacts содержит существующие факты
             if (relevantFacts.length === 0) {
@@ -266,8 +267,8 @@ class FactControllerTest {
 
             // Проверяем, что найденные факты содержат ожидаемые ID
             // relevantFacts содержит объекты с полем fact, поэтому извлекаем факты
-            const foundIds = relevantFacts.map(f => f.fact ? f.fact.i : f.i).filter(id => id); // Фильтруем пустые ID
-            const expectedIds = testFacts.map(f => f.i);
+            const foundIds = relevantFacts.map(f => f._id).filter(id => id); // Фильтруем пустые ID
+            const expectedIds = testFacts.map(f => f._id);
             const hasExpectedFact = expectedIds.some(id => foundIds.includes(id));
 
             if (!hasExpectedFact) {
@@ -321,7 +322,7 @@ class FactControllerTest {
             }
 
             // Проверяем, что все факты уникальны
-            const factIds = results.map(r => r.fact.i);
+            const factIds = results.map(r => r.fact._id);
             const uniqueIds = new Set(factIds);
             if (uniqueIds.size !== factIds.length) {
                 throw new Error('Все сгенерированные факты должны иметь уникальные ID');
@@ -329,7 +330,7 @@ class FactControllerTest {
 
             // Проверяем, что все факты сохранены в базе данных
             for (const result of results) {
-                const savedFacts = await this.provider.findFacts({ i: result.fact.i });
+                const savedFacts = await this.provider.findFacts({ _id: result.fact._id });
                 if (savedFacts.length === 0) {
                     throw new Error(`Факт ${result.fact.i} должен быть сохранен в базе данных`);
                 }

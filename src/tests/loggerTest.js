@@ -169,10 +169,10 @@ class LoggerTest {
             // Создаем логгер с уровнем INFO
             const logger = new Logger('INFO');
             
-            // Перехватываем console.log для проверки вывода
+            // Перехватываем console методы для проверки вывода
             const originalLog = console.log;
             const originalWarn = console.warn;
-            const originalError = this.logger.error;
+            const originalError = console.error;
             
             let debugCalled = false;
             let infoCalled = false;
@@ -186,7 +186,7 @@ class LoggerTest {
             console.warn = (message) => {
                 if (message.includes('[WARN]')) warnCalled = true;
             };
-            this.logger.error = (message) => {
+            console.error = (message) => {
                 if (message.includes('[ERROR]')) errorCalled = true;
             };
             
@@ -199,7 +199,7 @@ class LoggerTest {
             // Восстанавливаем оригинальные методы
             console.log = originalLog;
             console.warn = originalWarn;
-            this.logger.error = originalError;
+            console.error = originalError;
             
             // Проверяем результаты
             if (!debugCalled && infoCalled && warnCalled && errorCalled) {
@@ -228,7 +228,7 @@ class LoggerTest {
             // Перехватываем console методы
             const originalLog = console.log;
             const originalWarn = console.warn;
-            const originalError = this.logger.error;
+            const originalError = console.error;
             
             let logCalled = false;
             let warnCalled = false;
@@ -236,7 +236,7 @@ class LoggerTest {
             
             console.log = () => { logCalled = true; };
             console.warn = () => { warnCalled = true; };
-            this.logger.error = () => { errorCalled = true; };
+            console.error = () => { errorCalled = true; };
             
             // Тестируем методы
             logger.debug('Debug test');
@@ -247,7 +247,7 @@ class LoggerTest {
             // Восстанавливаем оригинальные методы
             console.log = originalLog;
             console.warn = originalWarn;
-            this.logger.error = originalError;
+            console.error = originalError;
             
             if (logCalled && warnCalled && errorCalled) {
                 this.logger.debug('   ✓ Все методы логирования работают');

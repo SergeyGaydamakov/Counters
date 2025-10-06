@@ -1,5 +1,6 @@
-const FactIndexer = require('../generators/factIndexer');
 const EventGenerator = require('../generators/eventGenerator');
+const FactIndexer = require('../generators/factIndexer');
+const FactMapper = require('../generators/factMapper');
 const Logger = require('../utils/logger');
 
 /**
@@ -27,6 +28,7 @@ class FactController {
         this.dbProvider = dbProvider;
         this.eventGenerator = new EventGenerator(fieldConfigPathOrMapArray, targetSize);
         this.factIndexer = new FactIndexer(indexConfigPathOrMapArray);
+        this.factMapper = new FactMapper(fieldConfigPathOrMapArray);
     }
 
 
@@ -40,22 +42,12 @@ class FactController {
             throw new Error('fact должен быть объектом');
         }
 
-        // Валидация обязательных полей факта
-        const requiredFields = ['_id', 't', 'c', 'd'];
-        for (const field of requiredFields) {
-            if (!(field in fact)) {
-                throw new Error(`Отсутствует обязательное поле факта: ${field}`);
-            }
-        }
-
         try {
             this.logger.debug(`\n=== Создание факта ===`);
-            this.logger.debug(`Факт ID: ${fact._id}, Тип: ${fact.t}, Дата факта: ${fact.d}, Количество: ${fact.a}, Дата создания: ${fact.c}`);
+            this.logger.debug(`Факт ID: ${fact._id}, Тип: ${fact.t}, Дата факта: ${fact.d}, Дата создания: ${fact.c}`);
 
             // Создаем индексные значения из факта
             const factIndexes = this.factIndexer.index(fact);
-            
-            this.logger.debug(`✓ Создано ${factIndexes.length} индексных значений`);
 
             // Выводим информацию о созданных индексных значениях
             if (!factIndexes.length) {
@@ -235,7 +227,7 @@ class FactController {
 
     async run() {
         // Генерация нового случайного факта
-        const fact = this.eventGenerator.generateRandomTypeEvent();
+        const fact = this.factMapper.mapEventToFact(this.eventGenerator.generateRandomTypeEvent());
         this.logger.debug(`*** Создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         const factIndexHashValues = factIndexes.map(index => index.h);
