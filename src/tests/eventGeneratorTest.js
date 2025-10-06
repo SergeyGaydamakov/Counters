@@ -138,6 +138,14 @@ const generatorTestConfig = [
         }
     },
     {
+        "src": "objectIdField",
+        "dst": "objectIdField",
+        "event_types": [1],
+        "generator": {
+            "type": "objectId"
+        }
+    },
+    {
         "src": "defaultField",
         "dst": "defaultField",
         "event_types": [1]
@@ -204,6 +212,16 @@ const defaultValueTestConfig = [
             "values": ["option1", "option2", "option3", "option4"],
             "default_value": "option2",
             "default_random": 0.4
+        }
+    },
+    {
+        "src": "objectIdField",
+        "dst": "objectIdField",
+        "event_types": [1],
+        "generator": {
+            "type": "objectId",
+            "default_value": "507f1f77bcf86cd799439011",
+            "default_random": 0.5
         }
     }
 ];
@@ -516,6 +534,7 @@ function testGeneratorTypes(testName) {
         console.log(`   integerField: ${data.integerField} (тип: ${typeof data.integerField})`);
         console.log(`   dateField: ${data.dateField} (тип: ${typeof data.dateField})`);
         console.log(`   enumField: "${data.enumField}" (тип: ${typeof data.enumField})`);
+        console.log(`   objectIdField: ${data.objectIdField} (тип: ${typeof data.objectIdField})`);
         console.log(`   defaultField: "${data.defaultField}" (тип: ${typeof data.defaultField})`);
 
         // Проверяем типы данных
@@ -539,6 +558,11 @@ function testGeneratorTypes(testName) {
             return false;
         }
 
+        if (typeof data.objectIdField !== 'object' || !data.objectIdField.constructor || data.objectIdField.constructor.name !== 'ObjectId') {
+            console.log('❌ objectIdField должен быть объектом ObjectId');
+            return false;
+        }
+
         if (typeof data.defaultField !== 'string') {
             console.log('❌ defaultField должен быть строкой (значение по умолчанию)');
             return false;
@@ -558,6 +582,12 @@ function testGeneratorTypes(testName) {
         const validEnumValues = ["option1", "option2", "option3", "option4"];
         if (!validEnumValues.includes(data.enumField)) {
             console.log('❌ enumField должен быть одним из допустимых значений');
+            return false;
+        }
+
+        // Проверяем, что objectIdField является валидным ObjectId
+        if (typeof data.objectIdField.toString !== 'function' || data.objectIdField.toString().length !== 24) {
+            console.log('❌ objectIdField должен быть валидным ObjectId (24 символа в hex)');
             return false;
         }
 
@@ -664,6 +694,7 @@ function testDefaultValueGeneration(testName) {
         console.log(`   integerField: ${data.integerField} (тип: ${typeof data.integerField})`);
         console.log(`   dateField: ${data.dateField} (тип: ${typeof data.dateField})`);
         console.log(`   enumField: "${data.enumField}" (тип: ${typeof data.enumField})`);
+        console.log(`   objectIdField: ${data.objectIdField} (тип: ${typeof data.objectIdField})`);
 
         // Проверяем типы данных
         if (typeof data.stringField !== 'string') {
@@ -686,7 +717,65 @@ function testDefaultValueGeneration(testName) {
             return false;
         }
 
+        if (typeof data.objectIdField !== 'object' || !data.objectIdField.constructor || data.objectIdField.constructor.name !== 'ObjectId') {
+            console.log('❌ objectIdField должен быть объектом ObjectId');
+            return false;
+        }
+
         console.log('✅ Все типы данных корректны');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест проверки уникальности ObjectId
+ */
+function testObjectIdUniqueness(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new EventGenerator(generatorTestConfig);
+        const objectIds = new Set();
+        const iterations = 100;
+
+        // Генерируем много фактов и собираем все ObjectId
+        for (let i = 0; i < iterations; i++) {
+            const fact = generator.generateEvent(1);
+            if (fact.d && fact.d.objectIdField) {
+                const objectIdString = fact.d.objectIdField.toString();
+                objectIds.add(objectIdString);
+            }
+        }
+
+        console.log(`✅ Сгенерировано ${iterations} фактов, получено ${objectIds.size} уникальных ObjectId`);
+
+        // Проверяем, что все ObjectId уникальны
+        if (objectIds.size === iterations) {
+            console.log('✅ Все ObjectId уникальны');
+        } else {
+            console.log('❌ Найдены дублирующиеся ObjectId');
+            return false;
+        }
+
+        // Проверяем формат ObjectId (24 символа hex)
+        let allValidFormat = true;
+        for (const objectIdString of objectIds) {
+            if (objectIdString.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(objectIdString)) {
+                console.log(`❌ Неверный формат ObjectId: ${objectIdString}`);
+                allValidFormat = false;
+            }
+        }
+
+        if (allValidFormat) {
+            console.log('✅ Все ObjectId имеют правильный формат (24 hex символа)');
+        } else {
+            console.log('❌ Некоторые ObjectId имеют неверный формат');
+            return false;
+        }
+
         return true;
     } catch (error) {
         console.log(`❌ Ошибка: ${error.message}`);
@@ -708,6 +797,7 @@ function testDefaultValueFrequency(testName) {
         let defaultIntegerCount = 0;
         let defaultDateCount = 0;
         let defaultEnumCount = 0;
+        let defaultObjectIdCount = 0;
 
         // Генерируем много фактов для статистики
         for (let i = 0; i < iterations; i++) {
@@ -718,6 +808,7 @@ function testDefaultValueFrequency(testName) {
                 if (fact.d.integerField === 999) defaultIntegerCount++;
                 if (fact.d.dateField && fact.d.dateField.toISOString().startsWith("2024-03-15")) defaultDateCount++;
                 if (fact.d.enumField === "option2") defaultEnumCount++;
+                if (fact.d.objectIdField && fact.d.objectIdField.toString() === "507f1f77bcf86cd799439011") defaultObjectIdCount++;
             }
         }
 
@@ -725,17 +816,19 @@ function testDefaultValueFrequency(testName) {
         const integerFrequency = defaultIntegerCount / iterations;
         const dateFrequency = defaultDateCount / iterations;
         const enumFrequency = defaultEnumCount / iterations;
+        const objectIdFrequency = defaultObjectIdCount / iterations;
 
         console.log(`✅ Статистика появления default_value за ${iterations} итераций:`);
         console.log(`   stringField (ожидается ~30%): ${(stringFrequency * 100).toFixed(1)}% (${defaultStringCount} раз)`);
         console.log(`   integerField (ожидается ~20%): ${(integerFrequency * 100).toFixed(1)}% (${defaultIntegerCount} раз)`);
         console.log(`   dateField (ожидается ~10%): ${(dateFrequency * 100).toFixed(1)}% (${defaultDateCount} раз)`);
         console.log(`   enumField (ожидается ~40%): ${(enumFrequency * 100).toFixed(1)}% (${defaultEnumCount} раз)`);
+        console.log(`   objectIdField (ожидается ~50%): ${(objectIdFrequency * 100).toFixed(1)}% (${defaultObjectIdCount} раз)`);
 
         // Проверяем, что частоты примерно соответствуют ожидаемым (с допуском ±10%)
         const tolerance = 0.1;
-        const expectedFrequencies = [0.3, 0.2, 0.1, 0.4];
-        const actualFrequencies = [stringFrequency, integerFrequency, dateFrequency, enumFrequency];
+        const expectedFrequencies = [0.3, 0.2, 0.1, 0.4, 0.5];
+        const actualFrequencies = [stringFrequency, integerFrequency, dateFrequency, enumFrequency, objectIdFrequency];
 
         let allWithinTolerance = true;
         for (let i = 0; i < expectedFrequencies.length; i++) {
@@ -779,9 +872,10 @@ function runAllTests() {
         { func: testGenerateFactForAllTypes, name: '13. Генерация фактов для всех типов' },
         { func: testGeneratorTypes, name: '14. Генерация факта с различными типами генераторов' },
         { func: testEnumRandomness, name: '15. Проверка случайности enum значений' },
-        { func: testDefaultValueGeneration, name: '16. Генерация факта с default_value и default_random' },
-        { func: testDefaultValueFrequency, name: '17. Проверка частоты появления default_value' },
-        { func: testPerformance, name: '18. Производительность генерации' }
+        { func: testObjectIdUniqueness, name: '16. Проверка уникальности ObjectId' },
+        { func: testDefaultValueGeneration, name: '17. Генерация факта с default_value и default_random' },
+        { func: testDefaultValueFrequency, name: '18. Проверка частоты появления default_value' },
+        { func: testPerformance, name: '19. Производительность генерации' }
     ];
 
     let passed = 0;
@@ -829,6 +923,7 @@ module.exports = {
     testGenerateFactForAllTypes,
     testGeneratorTypes,
     testEnumRandomness,
+    testObjectIdUniqueness,
     testDefaultValueGeneration,
     testDefaultValueFrequency,
     testPerformance

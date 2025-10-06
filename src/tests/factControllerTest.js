@@ -114,7 +114,7 @@ class FactControllerTest {
      * Запуск всех тестов
      */
     async runAllTests() {
-        this.logger.debug('=== Тестирование всех методов FactController (5 тестов) ===\n');
+        this.logger.debug('=== Тестирование всех методов FactController (7 тестов) ===\n');
 
         try {
             // Подключение к базе данных
@@ -124,9 +124,11 @@ class FactControllerTest {
             // Запуск тестов
             await this.testRunBasic('1. Тест базового выполнения метода run...');
             await this.testRunWithExistingFacts('2. Тест выполнения с существующими фактами...');
-            await this.testRunMultipleTimes('3. Тест многократного выполнения...');
-            await this.testRunWithEmptyDatabase('4. Тест выполнения с пустой базой данных...');
-            await this.testRunErrorHandling('5. Тест обработки ошибок...');
+            await this.testProcessEvent('3. Тест метода processEvent...');
+            await this.testProcessEventWithCounters('6. Тест метода processEventWithCounters...');
+            await this.testRunMultipleTimes('4. Тест многократного выполнения...');
+            await this.testRunWithEmptyDatabase('5. Тест выполнения с пустой базой данных...');
+            await this.testRunErrorHandling('6. Тест обработки ошибок...');
 
             // Отключение от базы данных
             await this.provider.disconnect();
@@ -168,8 +170,12 @@ class FactControllerTest {
                 throw new Error('Результат должен содержать поле relevantFacts');
             }
 
-            if (!result.result) {
-                throw new Error('Результат должен содержать поле result');
+            if (!result.factResult) {
+                throw new Error('Результат должен содержать поле factResult');
+            }
+
+            if (!result.indexResult) {
+                throw new Error('Результат должен содержать поле indexResult');
             }
 
             // Проверяем структуру сгенерированного факта
@@ -187,7 +193,7 @@ class FactControllerTest {
             }
 
             // Проверяем, что факт был сохранен в базе данных
-            const savedFacts = await this.provider.findFacts({ i: fact.i });
+            const savedFacts = await this.provider.findFacts({ _id: fact._id });
             if (savedFacts.length === 0) {
                 throw new Error('Факт должен быть сохранен в базе данных');
             }
@@ -316,7 +322,7 @@ class FactControllerTest {
             // Проверяем, что все результаты корректны
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
-                if (!result.fact || !result.relevantFacts || !result.result) {
+                if (!result.fact || !result.relevantFacts || !result.factResult || !result.indexResult) {
                     throw new Error(`Результат ${i + 1} должен содержать все обязательные поля`);
                 }
             }
@@ -384,7 +390,157 @@ class FactControllerTest {
     }
 
     /**
-     * Тест обработки ошибок в методе run
+     * Тест 5: Метод processEvent
+     */
+    async testProcessEvent(title) {
+        this.logger.debug(title);
+        
+        try {
+            // Очищаем базу данных перед тестом
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
+
+            // Создаем тестовое событие
+            const testEvent = {
+                t: 1,
+                d: {
+                    dt: new Date('2024-01-01T00:00:00.000Z'),
+                    a: 100,
+                    f1: 'test-fact-001',
+                    f2: 'value1'
+                }
+            };
+
+            // Вызываем метод processEvent
+            const result = await this.controller.processEvent(testEvent);
+
+            // Проверяем структуру результата
+            if (!result || typeof result !== 'object') {
+                throw new Error('processEvent должен возвращать объект');
+            }
+
+            // Проверяем наличие обязательных полей в результате
+            const requiredFields = ['fact', 'relevantFacts', 'factResult', 'indexResult'];
+            for (const field of requiredFields) {
+                if (!(field in result)) {
+                    throw new Error(`Отсутствует обязательное поле: ${field}`);
+                }
+            }
+
+            // Проверяем структуру факта
+            if (!result.fact || typeof result.fact !== 'object') {
+                throw new Error('Поле fact должно быть объектом');
+            }
+
+            // Проверяем обязательные поля факта
+            const factRequiredFields = ['_id', 't', 'c', 'd'];
+            for (const field of factRequiredFields) {
+                if (!(field in result.fact)) {
+                    throw new Error(`Отсутствует обязательное поле в факте: ${field}`);
+                }
+            }
+
+            // Проверяем, что relevantFacts является массивом
+            if (!Array.isArray(result.relevantFacts)) {
+                throw new Error('Поле relevantFacts должно быть массивом');
+            }
+
+            // Проверяем, что factResult содержит информацию о сохранении
+            if (!result.factResult || typeof result.factResult !== 'object') {
+                throw new Error('Поле factResult должно быть объектом');
+            }
+
+            // Проверяем, что indexResult содержит информацию о сохранении индексов
+            if (!result.indexResult || typeof result.indexResult !== 'object') {
+                throw new Error('Поле indexResult должно быть объектом');
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push({ test: 'testProcessEvent', error: error.message });
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест 6: Метод processEventWithCounters
+     */
+    async testProcessEventWithCounters(title) {
+        this.logger.debug(title);
+        
+        try {
+            // Очищаем базу данных перед тестом
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
+
+            // Создаем тестовое событие
+            const testEvent = {
+                t: 1,
+                d: {
+                    dt: new Date('2024-01-01T00:00:00.000Z'),
+                    a: 100,
+                    f1: 'test-fact-001',
+                    f2: 'value1'
+                }
+            };
+
+            // Вызываем метод processEventWithCounters
+            const result = await this.controller.processEventWithCounters(testEvent);
+
+            // Проверяем структуру результата
+            if (!result || typeof result !== 'object') {
+                throw new Error('processEventWithCounters должен возвращать объект');
+            }
+
+            // Проверяем наличие обязательных полей в результате
+            const requiredFields = ['fact', 'factCounters', 'factResult', 'indexResult'];
+            for (const field of requiredFields) {
+                if (!(field in result)) {
+                    throw new Error(`Отсутствует обязательное поле: ${field}`);
+                }
+            }
+
+            // Проверяем структуру факта
+            if (!result.fact || typeof result.fact !== 'object') {
+                throw new Error('Поле fact должно быть объектом');
+            }
+
+            // Проверяем обязательные поля факта
+            const factRequiredFields = ['_id', 't', 'c', 'd'];
+            for (const field of factRequiredFields) {
+                if (!(field in result.fact)) {
+                    throw new Error(`Отсутствует обязательное поле в факте: ${field}`);
+                }
+            }
+
+            // Проверяем, что factCounters является массивом
+            if (!Array.isArray(result.factCounters)) {
+                throw new Error('Поле factCounters должно быть массивом');
+            }
+
+            // Проверяем, что factResult содержит информацию о сохранении
+            if (!result.factResult || typeof result.factResult !== 'object') {
+                throw new Error('Поле factResult должно быть объектом');
+            }
+
+            // Проверяем, что indexResult содержит информацию о сохранении индексов
+            if (!result.indexResult || typeof result.indexResult !== 'object') {
+                throw new Error('Поле indexResult должно быть объектом');
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push({ test: 'testProcessEventWithCounters', error: error.message });
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест 6: Обработка ошибок в методе run
      */
     async testRunErrorHandling(title) {
         this.logger.debug(title);
@@ -393,6 +549,7 @@ class FactControllerTest {
             // Создаем контроллер с невалидным провайдером
             const invalidProvider = {
                 getRelevantFacts: () => { throw new Error('Тестовая ошибка getRelevantFacts'); },
+                getRelevantFactCounters: () => { throw new Error('Тестовая ошибка getRelevantFactCounters'); },
                 saveFact: () => { throw new Error('Тестовая ошибка saveFact'); },
                 saveFactIndexList: () => { throw new Error('Тестовая ошибка saveFactIndexList'); }
             };

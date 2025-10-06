@@ -226,8 +226,20 @@ class MongoProvider {
             throw new Error('Нет подключения к MongoDB');
         }
 
-        if (!Array.isArray(factIndexValues) || factIndexValues.length === 0) {
-            throw new Error('factIndexValues должен быть непустым массивом');
+        if (!Array.isArray(factIndexValues)) {
+            throw new Error('factIndexValues должен быть массивом');
+        }
+
+        if (factIndexValues.length === 0) {
+            return {
+                success: true,
+                totalProcessed: 0,
+                inserted: 0,
+                updated: 0,
+                duplicatesIgnored: 0,
+                errors: []
+            };
+
         }
 
         try {

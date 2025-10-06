@@ -73,7 +73,7 @@ async function main(){
         let startCycleTime = Date.now();
         // Функция с бесконечным циклом запуска run
         async function run(){
-            await factController.run();
+            await factController.runWithCounters();
             factCount++;
             if (factCount % CYCLE_OUTPUT === 0) {
                 logger.info(`✓ Создано ${factCount} фактов`);

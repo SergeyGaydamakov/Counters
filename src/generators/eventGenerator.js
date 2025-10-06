@@ -128,7 +128,7 @@ class EventGenerator {
             throw new Error(`Поле конфигурации ${fieldIndex}: generator.type должен быть строкой`);
         }
 
-        const validTypes = ['string', 'integer', 'date', 'enum'];
+        const validTypes = ['string', 'integer', 'date', 'enum', 'objectId'];
         if (!validTypes.includes(generator.type)) {
             throw new Error(`Поле конфигурации ${fieldIndex}: generator.type должен быть одним из: ${validTypes.join(', ')}`);
         }
@@ -224,6 +224,18 @@ class EventGenerator {
                 }
                 if (generator.default_value !== undefined && !generator.values.includes(generator.default_value)) {
                     throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для enum должен быть одним из значений в массиве values`);
+                }
+                break;
+
+            case 'objectId':
+                if (generator.default_value !== undefined) {
+                    if (typeof generator.default_value !== 'string') {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен быть строкой`);
+                    }
+                    // Проверяем, что default_value является валидным ObjectId (24 hex символа)
+                    if (!/^[0-9a-fA-F]{24}$/.test(generator.default_value)) {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен быть валидным ObjectId (24 hex символа)`);
+                    }
                 }
                 break;
         }
@@ -383,6 +395,10 @@ class EventGenerator {
                 return this._generateRandomEnumValue(generatorConfig.values, defaultValue, defaultRandom);
 
             case 'objectId':
+                // Проверяем, нужно ли использовать значение по умолчанию
+                if (defaultValue !== null && Math.random() < defaultRandom) {
+                    return new ObjectId(defaultValue);
+                }
                 return this._generateGuid();
 
             default:
