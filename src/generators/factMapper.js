@@ -101,6 +101,7 @@ class FactMapper {
             }
 
             if (!Array.isArray(rule.event_types) || rule.event_types.length === 0) {
+                this.logger.error(`Правило маппинга ${i} должно содержать непустой массив 'event_types': ${JSON.stringify(rule)}`);
                 throw new Error(`Правило маппинга ${i} должно содержать непустой массив 'event_types'`);
             }
 
