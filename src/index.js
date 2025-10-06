@@ -1,12 +1,14 @@
 // Основные экспорты проекта
-const FactGenerator = require('./generators/factGenerator');
+const EventGenerator = require('./generators/eventGenerator');
 const FactIndexer = require('./generators/factIndexer');
+const FactMapper = require('./generators/factMapper');
 const MongoProvider = require('./db-providers/mongoProvider');
 const FactController = require('./controllers/factController');
 
 module.exports = {
-    FactGenerator,
+    EventGenerator,
     FactIndexer,
+    FactMapper,
     MongoProvider,
     FactController
 };

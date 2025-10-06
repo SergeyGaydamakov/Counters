@@ -11,7 +11,7 @@ class FactControllerTest {
         {
             "src": "dt",
             "dst": "dt",
-            "fact_types": [1, 2, 3],
+            "event_types": [1, 2, 3],
             "generator": {
                 "type": "date",
                 "min": "2025-01-01",
@@ -21,7 +21,7 @@ class FactControllerTest {
         {
             "src": "a",
             "dst": "a",
-            "fact_types": [1, 2, 3],
+            "event_types": [1, 2, 3],
             "generator": {
                 "type": "integer",
                 "min": 1,
@@ -33,7 +33,7 @@ class FactControllerTest {
         {
             "src": "f1",
             "dst": "f1",
-            "fact_types": [1, 2, 3],
+            "event_types": [1, 2, 3],
             "generator": {
                 "type": "string",
                 "min": 3,
@@ -45,7 +45,7 @@ class FactControllerTest {
         {
             "src": "f2",
             "dst": "f2",
-            "fact_types": [1, 3],
+            "event_types": [1, 3],
             "generator": {
                 "type": "string",
                 "min": 3,
@@ -57,7 +57,7 @@ class FactControllerTest {
         {
             "src": "f3",
             "dst": "f3",
-            "fact_types": [2, 3],
+            "event_types": [2, 3],
             "generator": {
                 "type": "string",
                 "min": 3,

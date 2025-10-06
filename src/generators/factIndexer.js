@@ -19,7 +19,7 @@ const Logger = require('../utils/logger');
  * @property {string} h - Хеш значение типа + поля факта
  * @property {number} it - Номер индексируемого поля (из названия поля fN)
  * @property {string} v - Значение индексируемого поля
- * @property {string} i - Идентификатор факта
+ * @property {string} _id - Идентификатор факта
  * @property {number} t - Тип факта
  * @property {Date} d - Дата факта
  * @property {Date} c - Дата создания факта в базе данных
@@ -220,7 +220,7 @@ class FactIndexer {
         }
 
         // Проверяем наличие обязательных полей
-        const requiredFields = ['t', 'i', 'c'];
+        const requiredFields = ['_id', 't', 'c'];
         for (const field of requiredFields) {
             if (!(field in fact)) {
                 throw new Error(`Отсутствует обязательное поле: ${field}`);
@@ -246,6 +246,7 @@ class FactIndexer {
             
             // Проверяем, есть ли поле в факте
             if (fieldName in fact.d && fact.d[fieldName] !== null && fact.d[fieldName] !== undefined) {
+                this.logger.debug(`Поле ${fieldName} найдено в факте ${fact._id}`);
                 let indexValue;
                 
                 // Вычисляем значение индекса в зависимости от indexValue
@@ -265,27 +266,35 @@ class FactIndexer {
                     const convertedDate = this._convertToDate(fact.d[dateName]);
                     if (convertedDate !== null) {
                         indexDate = convertedDate;
+                    } else {
+                        this.logger.warn(`Ошибка конвертации поля ${dateName} со значением ${fact.d[dateName]}, в котором должна быть дата.`);
+                        return;
                     }
                 } else {
-                    this.logger.warn(`Поле ${dateName}, в котором должна быть дата, не найдено для факта ${fact.i}. Индексирование для ${configItem.indexTypeName} не будет производиться.`);
+                    this.logger.warn(`Поле ${dateName}, в котором должна быть дата, не найдено для факта ${fact._id}. Индексирование для ${configItem.indexTypeName} не будет производиться.`);
                     return;
                 }
                 if (indexDate === null) {
-                    this.logger.warn(`Поле ${dateName}, в котором должна быть дата, содержит невалидную дату для факта ${fact.i}. Индексирование для ${configItem.indexTypeName} не будет производиться.`);
+                    this.logger.warn(`Поле ${dateName}, в котором должна быть дата, содержит невалидную дату для факта ${fact._id}. Индексирование для ${configItem.indexTypeName} не будет производиться.`);
                     return;
                 }
 
                 indexValues.push({
-                    it: configItem.indexType,    // числовой тип индекса из конфигурации
-                    v: fact.d[fieldName],          // значение поля из факта
-                    h: indexValue,               // вычисленное значение индекса
-                    i: fact.i,                   // идентификатор факта
-                    t: fact.t,                   // тип факта
-                    d: indexDate,                // дата из поля dateName или значение по умолчанию
-                    c: fact.c                    // дата создания факта
+                    _id: {
+                        h: indexValue,          // вычисленное значение индекса
+                        f: fact._id             // идентификатор факта
+                    },               
+                    d: indexDate,               // дата из поля dateName или значение по умолчанию
+                    c: fact.c,                  // дата создания факта
+                    // @deprecated нужно удалить после отладки
+                    it: configItem.indexType,   // числовой тип индекса из конфигурации
+                    v: String(fact.d[fieldName]),       // значение поля из факта
+                    t: fact.t                   // тип факта
                 });
             }
         });
+
+        this.logger.debug(`Создано ${indexValues.length} индексных значений`);
 
         return indexValues;
     }
@@ -307,7 +316,7 @@ class FactIndexer {
                 const factIndexValues = this.index(fact);
                 allIndexValues.push(...factIndexValues);
             } catch (error) {
-                console.warn(`Ошибка при создании индексных значений для факта ${index}: ${error.message}`);
+                this.logger.warn(`Ошибка при создании индексных значений для факта ${index}: ${error.message}`);
             }
         });
 

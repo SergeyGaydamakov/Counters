@@ -1,4 +1,4 @@
-const { MongoProvider, FactGenerator, FactIndexer } = require('../index');
+const { MongoProvider, EventGenerator, FactIndexer, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
 const EnvConfig = require('../utils/envConfig');
 
@@ -19,7 +19,7 @@ class MongoProviderTest {
             {
                 src: "amount",
                 dst: "amount",
-                fact_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "integer",
                     min: 1,
@@ -31,7 +31,7 @@ class MongoProviderTest {
             {
                 src: "dt",
                 dst: "dt",
-                fact_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "date",
                     min: "2024-01-01 00:00:00",
@@ -41,19 +41,20 @@ class MongoProviderTest {
             {
                 src: "f1",
                 dst: "f1",
-                fact_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "string",
                     min: 2,
                     max: 20,
                     default_value: "1234567890",
                     default_random: 0.1
-                }
+                },
+                unique_key: true
             },
             {
                 src: "f2",
                 dst: "f2",
-                fact_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "enum",
                     values: ["value1", "value2", "value3", "value4", "value5", "value6", "value7", "value8", "value9", "value10"],
@@ -64,7 +65,7 @@ class MongoProviderTest {
             {
                 src: "f3",
                 dst: "f3",
-                fact_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "enum",
                     values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -75,11 +76,11 @@ class MongoProviderTest {
             {
                 src: "f4",
                 dst: "f4",
-                fact_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
             }
         ];
         
-        this.generator = new FactGenerator(this.fieldConfig);
+        this.generator = new EventGenerator(this.fieldConfig);
         
        
         // Минимальная конфигурация для FactIndexer (4 первых значения)
@@ -115,6 +116,7 @@ class MongoProviderTest {
         ];
         
         this.indexer = new FactIndexer(this.indexConfig);
+        this.mapper = new FactMapper(this.fieldConfig);
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -134,7 +136,7 @@ class MongoProviderTest {
             await this.testDisconnection('2. Тест отключения от MongoDB...');
             await this.testReconnection('3. Тест переподключения к MongoDB...');
             await this.testCheckConnection('4. Тест проверки подключения...');
-            
+
             // Тесты создания базы данных
             await this.testCreateDatabase('5. Тест создания базы данных...');
 
@@ -153,7 +155,7 @@ class MongoProviderTest {
             await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
             await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
             await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
-            
+
             // Тесты получения релевантных фактов
             await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
             await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
@@ -161,7 +163,7 @@ class MongoProviderTest {
             await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
             await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
             await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
-            
+
             // Тесты получения релевантных счетчиков фактов
             await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
             await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
@@ -174,7 +176,7 @@ class MongoProviderTest {
             await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
             await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
         } catch (error) {
-            console.error('Критическая ошибка:', error.message);
+            this.logger.error('Критическая ошибка:', error.message);
         } finally {
             try {
                 await this.provider.disconnect();
@@ -274,7 +276,7 @@ class MongoProviderTest {
                 throw new Error('Схема не содержит $jsonSchema');
             }
 
-            const requiredFields = ['i', 't', 'c', 'd'];
+            const requiredFields = ['_id', 't', 'c', 'd'];
             const schemaFields = Object.keys(schema.$jsonSchema.properties);
             
             for (const field of requiredFields) {
@@ -303,7 +305,7 @@ class MongoProviderTest {
             await this.provider.clearFactsCollection();
             
             // Генерируем тестовый факт
-            const testFact = this.generator.generateRandomTypeFact();
+            const testFact = this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent());
 
             // Тест первой вставки (должна создать новый документ)
             const insertResult = await this.provider.saveFact(testFact);
@@ -362,9 +364,7 @@ class MongoProviderTest {
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
-            const fromDate = new Date('2024-01-01');
-            const toDate = new Date('2024-12-31');
-            const testFact = this.generator.generateFact(1);
+            const testFact = this.mapper.mapEventToFact(this.generator.generateEvent(1));
             
             // Создаем индексные значения
             const indexValues = this.indexer.index(testFact);
@@ -441,7 +441,11 @@ class MongoProviderTest {
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
-            const facts = [this.generator.generateRandomTypeFact(), this.generator.generateRandomTypeFact(), this.generator.generateRandomTypeFact()];
+            const facts = [
+                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()), 
+                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()), 
+                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent())
+            ];
             const indexValues = this.indexer.index(facts[0]);
 
             const result = await this.provider.saveFactIndexList(indexValues);
@@ -508,7 +512,7 @@ class MongoProviderTest {
                 throw new Error('Схема индексных значений пуста или не получена');
             }
 
-            const requiredFields = ['h', 'i', 'd', 'c'];
+            const requiredFields = ['_id', 'd', 'c'];
             const schemaFields = schema.fields.map(f => f.name);
             
             for (const field of requiredFields) {
@@ -647,9 +651,7 @@ class MongoProviderTest {
             await this.provider.clearFactsCollection();
             
             // Генерируем тестовый факт
-            const fromDate = new Date('2024-01-01');
-            const toDate = new Date('2024-12-31');
-            const testFact = this.generator.generateRandomTypeFact();
+            const testFact = this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent());
 
             // Первая вставка в режиме insert
             const firstResult = await this.provider.saveFact(testFact);
@@ -701,9 +703,10 @@ class MongoProviderTest {
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
-            const fromDate = new Date('2024-01-01');
-            const toDate = new Date('2024-12-31');
-            const facts = [this.generator.generateRandomTypeFact(), this.generator.generateRandomTypeFact()];
+            const facts = [
+                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()), 
+                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent())
+            ];
             const indexValues = this.indexer.index(facts[0]);
 
             // Первая вставка
@@ -755,9 +758,7 @@ class MongoProviderTest {
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
-            const fromDate = new Date('2024-01-01');
-            const toDate = new Date('2024-12-31');
-            const testFact = this.generator.generateFact(1);
+            const testFact = this.mapper.mapEventToFact(this.generator.generateEvent(1));
             const indexValues = this.indexer.index(testFact);
 
             // Первая вставка
@@ -831,7 +832,7 @@ class MongoProviderTest {
             // Сначала добавляем тестовые данные
             const fromDate = new Date('2024-01-01');
             const toDate = new Date('2024-12-31');
-            const facts = Array.from({length: 5}, () => this.generator.generateRandomTypeFact());
+            const facts = Array.from({length: 5}, () => this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()));
             
             // Вставляем факты
             for (const fact of facts) {
@@ -877,10 +878,13 @@ class MongoProviderTest {
         this.logger.debug(title);
         
         try {
+            this.provider.clearFactsCollection();
+            this.provider.clearFactIndexCollection();
+
             // Создаем тестовые факты с известными значениями полей
             const testFacts = [
                 {
-                    i: 'test-fact-001',
+                    _id: 'test-fact-001',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -892,7 +896,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'test-fact-002',
+                    _id: 'test-fact-002',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -904,7 +908,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'test-fact-003',
+                    _id: 'test-fact-003',
                     t: 2,
                     c: new Date(),
                     d: {
@@ -916,14 +920,14 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'test-fact-004',
+                    _id: 'test-fact-004',
                     t: 3,
                     c: new Date(),
                     d: {
                         amount: 400,
                         dt: new Date('2024-01-04'),
-                        f1: 'different1', // Не совпадает
-                        f2: 'different2', // Не совпадает
+                        f1: '1', // Не совпадает
+                        f2: 'differedifferentnt2', // Не совпадает
                         f23: 'value9'
                     }
                 }
@@ -944,9 +948,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0]; // test-fact-001 с f1='value1', f2='value2', f5='value5'
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact.i);
-
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
+            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id);
             // Проверяем результаты
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -957,7 +960,7 @@ class MongoProviderTest {
             // test-fact-002 - f1='value1'
             // test-fact-003 - f2='value2'
             const expectedIds = ['test-fact-001', 'test-fact-002', 'test-fact-003'];
-            const foundIds = relevantFacts.map(f => f.i);
+            const foundIds = relevantFacts.map(f => f._id);
 
             if (relevantFacts.length < 2) {
                 throw new Error(`Ожидалось найти минимум 2 релевантных факта, найдено ${relevantFacts.length}`);
@@ -989,7 +992,7 @@ class MongoProviderTest {
             // Создаем факты с множественными совпадающими полями
             const testFacts = [
                 {
-                    i: 'multi-fact-001',
+                    _id: 'multi-fact-001',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -1002,7 +1005,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'multi-fact-002',
+                    _id: 'multi-fact-002',
                     t: 2,
                     c: new Date(),
                     d: {
@@ -1015,7 +1018,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'multi-fact-003',
+                    _id: 'multi-fact-003',
                     t: 3,
                     c: new Date(),
                     d: {
@@ -1027,7 +1030,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'multi-fact-004',
+                    _id: 'multi-fact-004',
                     t: 4,
                     c: new Date(),
                     d: {
@@ -1054,8 +1057,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact.i);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
+            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id);
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1065,7 +1068,7 @@ class MongoProviderTest {
             // multi-fact-001 (сам факт) - f1, f2, f3
             // multi-fact-002 - f1, f2, f3 (все три совпадают)
             // multi-fact-003 - f1 (только одно совпадает)
-            const foundIds = relevantFacts.map(f => f.i);
+            const foundIds = relevantFacts.map(f => f._id);
 
             if (relevantFacts.length < 2) {
                 throw new Error(`Ожидалось найти минимум 2 релевантных факта, найдено ${relevantFacts.length}`);
@@ -1098,7 +1101,7 @@ class MongoProviderTest {
             // Создаем факты с уникальными значениями полей
             const testFacts = [
                 {
-                    i: 'unique-fact-001',
+                    _id: 'unique-fact-001',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -1110,7 +1113,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'unique-fact-002',
+                    _id: 'unique-fact-002',
                     t: 2,
                     c: new Date(),
                     d: {
@@ -1135,7 +1138,7 @@ class MongoProviderTest {
 
             // Создаем факт с полностью уникальными значениями
             const searchFact = {
-                i: 'search-fact-001',
+                _id: 'search-fact-001',
                 t: 3,
                 c: new Date(),
                 d: {
@@ -1149,8 +1152,8 @@ class MongoProviderTest {
 
             // Тестируем поиск - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact.i);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
+            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact._id);
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1183,7 +1186,7 @@ class MongoProviderTest {
             const baseDate = new Date('2024-01-01');
             const testFacts = [
                 {
-                    i: 'depth-fact-001',
+                    _id: 'depth-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
                     d: {
@@ -1194,7 +1197,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'depth-fact-002',
+                    _id: 'depth-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
                     d: {
@@ -1205,7 +1208,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'depth-fact-003',
+                    _id: 'depth-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
                     d: {
@@ -1216,7 +1219,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'depth-fact-004',
+                    _id: 'depth-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
                     d: {
@@ -1233,6 +1236,7 @@ class MongoProviderTest {
                 await this.provider.saveFact(fact);
                 
                 const indexValues = this.indexer.index(fact);
+                // this.logger.debug("*** indexValues: "+JSON.stringify(indexValues));
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
                 }
@@ -1241,8 +1245,8 @@ class MongoProviderTest {
             // Тестируем поиск с ограничением по количеству
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact.i, 2);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
+            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact._id, 2);
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1283,7 +1287,7 @@ class MongoProviderTest {
             
             const testFacts = [
                 {
-                    i: 'date-fact-001',
+                    _id: 'date-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
                     d: {
@@ -1294,7 +1298,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'date-fact-002',
+                    _id: 'date-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
                     d: {
@@ -1305,7 +1309,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'date-fact-003',
+                    _id: 'date-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
                     d: {
@@ -1316,7 +1320,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'date-fact-004',
+                    _id: 'date-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
                     d: {
@@ -1342,15 +1346,15 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact.i, undefined, cutoffDate);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
+            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id, undefined, cutoffDate);
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
             }
 
             // Должны найтись только факты до cutoffDate
-            const foundIds = relevantFacts.map(f => f.i);
+            const foundIds = relevantFacts.map(f => f._id);
             const expectedIds = ['date-fact-001', 'date-fact-002']; // Только факты до cutoffDate
             
             // Проверяем, что найдены только ожидаемые факты
@@ -1392,7 +1396,7 @@ class MongoProviderTest {
             
             const testFacts = [
                 {
-                    i: 'both-fact-001',
+                    _id: 'both-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
                     d: {
@@ -1403,7 +1407,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'both-fact-002',
+                    _id: 'both-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
                     d: {
@@ -1414,7 +1418,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'both-fact-003',
+                    _id: 'both-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
                     d: {
@@ -1425,7 +1429,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'both-fact-004',
+                    _id: 'both-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
                     d: {
@@ -1451,8 +1455,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact.i, 1, cutoffDate);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
+            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id, 1, cutoffDate);
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1469,7 +1473,7 @@ class MongoProviderTest {
             }
 
             // Проверяем, что найденный факт соответствует критериям даты
-            const foundId = relevantFacts[0].i;
+            const foundId = relevantFacts[0]._id;
             const expectedIds = ['both-fact-001', 'both-fact-002']; // Только факты до cutoffDate
             
             if (!expectedIds.includes(foundId)) {
@@ -1495,7 +1499,7 @@ class MongoProviderTest {
             // Создаем тестовые факты с известными значениями полей
             const testFacts = [
                 {
-                    i: 'counter-fact-001',
+                    _id: 'counter-fact-001',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -1507,7 +1511,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'counter-fact-002',
+                    _id: 'counter-fact-002',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -1519,7 +1523,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'counter-fact-003',
+                    _id: 'counter-fact-003',
                     t: 2,
                     c: new Date(),
                     d: {
@@ -1531,7 +1535,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'counter-fact-004',
+                    _id: 'counter-fact-004',
                     t: 3,
                     c: new Date(),
                     d: {
@@ -1559,7 +1563,7 @@ class MongoProviderTest {
             const searchFact = testFacts[0]; // counter-fact-001 с f1='value1', f2='value2', f5='value5'
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
             const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
 
             // Проверяем результаты
@@ -1623,7 +1627,7 @@ class MongoProviderTest {
             // Создаем факты с множественными совпадающими полями
             const testFacts = [
                 {
-                    i: 'multi-counter-fact-001',
+                    _id: 'multi-counter-fact-001',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -1636,7 +1640,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'multi-counter-fact-002',
+                    _id: 'multi-counter-fact-002',
                     t: 2,
                     c: new Date(),
                     d: {
@@ -1649,7 +1653,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'multi-counter-fact-003',
+                    _id: 'multi-counter-fact-003',
                     t: 3,
                     c: new Date(),
                     d: {
@@ -1661,7 +1665,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'multi-counter-fact-004',
+                    _id: 'multi-counter-fact-004',
                     t: 4,
                     c: new Date(),
                     d: {
@@ -1688,7 +1692,7 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
             const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
 
             if (!Array.isArray(counters)) {
@@ -1749,7 +1753,7 @@ class MongoProviderTest {
             // Создаем факты с уникальными значениями полей
             const testFacts = [
                 {
-                    i: 'unique-counter-fact-001',
+                    _id: 'unique-counter-fact-001',
                     t: 1,
                     c: new Date(),
                     d: {
@@ -1761,7 +1765,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'unique-counter-fact-002',
+                    _id: 'unique-counter-fact-002',
                     t: 2,
                     c: new Date(),
                     d: {
@@ -1786,7 +1790,7 @@ class MongoProviderTest {
 
             // Создаем факт с полностью уникальными значениями
             const searchFact = {
-                i: 'search-counter-fact-001',
+                _id: 'search-counter-fact-001',
                 t: 3,
                 c: new Date(),
                 d: {
@@ -1800,7 +1804,7 @@ class MongoProviderTest {
 
             // Тестируем получение счетчиков - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
             const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i);
 
             if (!Array.isArray(counters)) {
@@ -1857,7 +1861,7 @@ class MongoProviderTest {
             const baseDate = new Date('2024-01-01');
             const testFacts = [
                 {
-                    i: 'depth-counter-fact-001',
+                    _id: 'depth-counter-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
                     d: {
@@ -1868,7 +1872,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'depth-counter-fact-002',
+                    _id: 'depth-counter-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
                     d: {
@@ -1879,7 +1883,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'depth-counter-fact-003',
+                    _id: 'depth-counter-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
                     d: {
@@ -1890,7 +1894,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'depth-counter-fact-004',
+                    _id: 'depth-counter-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
                     d: {
@@ -1915,7 +1919,7 @@ class MongoProviderTest {
             // Тестируем получение счетчиков с ограничением по количеству
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
             const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i, 2);
 
             if (!Array.isArray(counters)) {
@@ -1982,7 +1986,7 @@ class MongoProviderTest {
             
             const testFacts = [
                 {
-                    i: 'date-counter-fact-001',
+                    _id: 'date-counter-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
                     d: {
@@ -1993,7 +1997,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'date-counter-fact-002',
+                    _id: 'date-counter-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
                     d: {
@@ -2004,7 +2008,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'date-counter-fact-003',
+                    _id: 'date-counter-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
                     d: {
@@ -2015,7 +2019,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'date-counter-fact-004',
+                    _id: 'date-counter-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
                     d: {
@@ -2041,7 +2045,7 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
             const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, undefined, cutoffDate);
 
             if (!Array.isArray(counters)) {
@@ -2103,7 +2107,7 @@ class MongoProviderTest {
             
             const testFacts = [
                 {
-                    i: 'both-counter-fact-001',
+                    _id: 'both-counter-fact-001',
                     t: 1,
                     c: new Date(baseDate.getTime() + 1000),
                     d: {
@@ -2114,7 +2118,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'both-counter-fact-002',
+                    _id: 'both-counter-fact-002',
                     t: 1,
                     c: new Date(baseDate.getTime() + 2000),
                     d: {
@@ -2125,7 +2129,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'both-counter-fact-003',
+                    _id: 'both-counter-fact-003',
                     t: 1,
                     c: new Date(baseDate.getTime() + 3000),
                     d: {
@@ -2136,7 +2140,7 @@ class MongoProviderTest {
                     }
                 },
                 {
-                    i: 'both-counter-fact-004',
+                    _id: 'both-counter-fact-004',
                     t: 1,
                     c: new Date(baseDate.getTime() + 4000),
                     d: {
@@ -2162,7 +2166,7 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index.h);
+            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
             const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, 1, cutoffDate);
 
             if (!Array.isArray(counters)) {

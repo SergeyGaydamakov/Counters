@@ -48,7 +48,7 @@ const fromDate = new Date('2024-01-01');
 const toDate = new Date('2024-12-31');
 
 // Генерация одного факта
-const fact = generator.generateFact(1, fromDate, toDate);
+const fact = generator.generateEvent(1, fromDate, toDate);
 
 // Генерация множественных фактов одного типа
 const facts = generator.generateFacts(1000, 2, fromDate, toDate);

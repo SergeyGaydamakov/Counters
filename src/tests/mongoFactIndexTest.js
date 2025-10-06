@@ -1,4 +1,4 @@
-const { MongoProvider, FactIndexer, FactGenerator } = require('../index');
+const { MongoProvider, FactIndexer, EventGenerator, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
 const EnvConfig = require('../utils/envConfig');
 
@@ -72,7 +72,7 @@ class MongoFactIndexTest {
             {
                 "src": "d",
                 "dst": "d",
-                "fact_types": [1, 2, 3], // user_action, system_event, payment
+                "event_types": [1, 2, 3], // user_action, system_event, payment
                 "generator": {
                     "type": "date",
                     "min": "2024-01-01",
@@ -82,31 +82,34 @@ class MongoFactIndexTest {
             {
                 "src": "f1",
                 "dst": "f1",
-                "fact_types": [1, 2, 3] // user_action, system_event, payment
+                "event_types": [1, 2, 3],
+                "unique_key": true
             },
             {
                 "src": "f2",
                 "dst": "f2",
-                "fact_types": [1, 3] // user_action, payment
+                "event_types": [1, 3] // user_action, payment
             },
             {
                 "src": "f3",
                 "dst": "f3",
-                "fact_types": [2, 3] // system_event, payment
+                "event_types": [2, 3] // system_event, payment
             },
             {
                 "src": "f4",
                 "dst": "f4",
-                "fact_types": [1] // user_action
+                "event_types": [1] // user_action
             },
             {
                 "src": "f5",
                 "dst": "f5",
-                "fact_types": [2] // system_event
+                "event_types": [2] // system_event
             }
         ];
 
-        this.generator = new FactGenerator(testFieldConfig);
+        this.generator = new EventGenerator(testFieldConfig);
+        this.mapper = new FactMapper(testFieldConfig);
+
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -124,12 +127,11 @@ class MongoFactIndexTest {
         try {
             await this.testConnection('1. Тест подключения к MongoDB...');
             await this.testIndexValuesInsertion('2. Тест вставки индексных значений...');
-            await this.testIndexValuesIndexes('3. Тест создания индексов...');
             await this.testIndexValuesStats('4. Тест статистики индексных значений...');
             await this.testIndexValuesSchema('5. Тест схемы индексных значений...');
             await this.testClearIndexValues('6. Тест очистки индексных значений...');
         } catch (error) {
-            console.error('Критическая ошибка:', error.message);
+            this.logger.error('Критическая ошибка:', error.message);
         } finally {
             await this.provider.disconnect();
             this.printResults();
@@ -171,7 +173,7 @@ class MongoFactIndexTest {
             // Генерируем тестовые факты
             const facts = [];
             for (let i = 0; i < 5; i++) {
-                facts.push(this.generator.generateRandomTypeFact());
+                facts.push(this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()));
             }
             
             // Создаем индексные значения
@@ -220,28 +222,6 @@ class MongoFactIndexTest {
     }
 
     /**
-     * Тест создания индексов для индексных значений
-     */
-    async testIndexValuesIndexes(title) {
-        this.logger.debug(title);
-        
-        try {
-            const success = await this.provider.createFactIndexIndexes();
-            
-            if (!success) {
-                throw new Error('Не удалось создать индексы для индексных значений');
-            }
-
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-        } catch (error) {
-            this.testResults.failed++;
-            this.testResults.errors.push(`testIndexValuesIndexes: ${error.message}`);
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-        }
-    }
-
-    /**
      * Тест получения статистики индексных значений
      */
     async testIndexValuesStats(title) {
@@ -274,13 +254,13 @@ class MongoFactIndexTest {
         this.logger.debug(title);
         
         try {
-            const schema = await this.provider.getFactIndexCollectionSchema();
+            const schema = await this.provider._getFactIndexCollectionSchema();
             
             if (!schema || schema.isEmpty) {
                 throw new Error('Схема пуста или не получена');
             }
 
-            const requiredFields = ['h', 'i', 'v', 't', 'd', 'c'];
+            const requiredFields = ['_id', 'd', 'c', 'v', 'it', 't'];
             const schemaFields = schema.fields.map(f => f.name);
             
             for (const field of requiredFields) {

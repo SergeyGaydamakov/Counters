@@ -1,4 +1,4 @@
-const { FactIndexer, FactGenerator } = require('../index');
+const { FactIndexer, EventGenerator, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
 
 /**
@@ -64,11 +64,11 @@ class FactIndexerTest {
         this.indexer = new FactIndexer(this.testIndexConfig);
 
         // Тестовая конфигурация полей
-        const testFieldConfig = [
+        this.testFieldConfig = [
             {
                 "src": "dt",
                 "dst": "dt",
-                "fact_types": [1, 2, 3], // user_action, system_event, payment
+                "event_types": [1, 2, 3], // user_action, system_event, payment
                 "generator": {
                     "type": "date",
                     "min": "2024-01-01",
@@ -78,31 +78,33 @@ class FactIndexerTest {
             {
                 "src": "f1",
                 "dst": "f1",
-                "fact_types": [1, 2, 3] // user_action, system_event, payment
+                "event_types": [1, 2, 3], // user_action, system_event, payment
+                "unique_key": true
             },
             {
                 "src": "f2",
                 "dst": "f2",
-                "fact_types": [1, 3] // user_action, payment
+                "event_types": [1, 3] // user_action, payment
             },
             {
                 "src": "f3",
                 "dst": "f3",
-                "fact_types": [2, 3] // system_event, payment
+                "event_types": [2, 3] // system_event, payment
             },
             {
                 "src": "f4",
                 "dst": "f4",
-                "fact_types": [1] // user_action
+                "event_types": [1] // user_action
             },
             {
                 "src": "f5",
                 "dst": "f5",
-                "fact_types": [2] // system_event
+                "event_types": [2] // system_event
             }
         ];
 
-        this.generator = new FactGenerator(testFieldConfig);
+        this.generator = new EventGenerator(this.testFieldConfig);
+        this.mapper = new FactMapper(this.testFieldConfig);
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -137,7 +139,7 @@ class FactIndexerTest {
         this.logger.debug(title);
 
         const fact = {
-            i: 'test-id-123',
+            _id: 'test-id-123',
             t: 1,
             c: new Date('2024-01-01'),
             d: {
@@ -157,7 +159,7 @@ class FactIndexerTest {
             }
 
             // Проверяем структуру индексного значения
-            const requiredFields = ['it', 'v', 'h', 'i', 't', 'd', 'c'];
+            const requiredFields = ['_id', 'd', 'c', 'it', 'v', 't'];
             for (const field of requiredFields) {
                 if (!(field in indexValues[0])) {
                     throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -184,16 +186,16 @@ class FactIndexerTest {
             const f5Index = indexValues.find(iv => iv.v === 'value5');
 
             // f1 должен иметь хеш (indexValue = 1), f5 должен иметь само значение (indexValue = 2)
-            if (f1Index.h.length !== 64) {
-                throw new Error(`f1 должен иметь хеш длиной 64 символа, получено ${f1Index.h.length}`);
+            if (f1Index._id.h.length !== 64) {
+                throw new Error(`f1 должен иметь хеш длиной 64 символа, получено ${f1Index._id.h.length}`);
             }
-            if (f5Index.h !== 'value5') {
-                throw new Error(`f5 должен иметь само значение поля, получено ${f5Index.h}`);
+            if (f5Index._id.h !== 'value5') {
+                throw new Error(`f5 должен иметь само значение поля, получено ${f5Index._id.h}`);
             }
 
             // f2 должен иметь само значение поля (indexValue = 2)
-            if (f2Index.h !== 'value2') {
-                throw new Error(`f2 должен иметь само значение поля, получено ${f2Index.h}`);
+            if (f2Index._id.h !== 'value2') {
+                throw new Error(`f2 должен иметь само значение поля, получено ${f2Index._id.h}`);
             }
 
             this.testResults.passed++;
@@ -212,7 +214,7 @@ class FactIndexerTest {
         this.logger.debug(title);
 
         const fact = {
-            i: 'multi-field-test',
+            _id: 'multi-field-test',
             t: 2,
             c: new Date('2024-02-01'),
             d: {
@@ -237,12 +239,12 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильные поля
             indexValues.forEach(indexValue => {
-                if (indexValue.i !== 'multi-field-test') {
+                if (indexValue._id.f !== 'multi-field-test') {
                     throw new Error('Неправильный ID факта в индексном значении');
                 }
 
                 // Проверяем структуру
-                const requiredFields = ['it', 'v', 'h', 'i', 't', 'd', 'c'];
+                const requiredFields = ['_id', 'd', 'c', 'it', 'v', 't'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -270,15 +272,15 @@ class FactIndexerTest {
 
             hashFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.v === val);
-                if (indexValue.h.length !== 64) {
-                    throw new Error(`Поле ${val} должно иметь хеш длиной 64 символа, получено ${indexValue.h.length}`);
+                if (indexValue._id.h.length !== 64) {
+                    throw new Error(`Поле ${val} должно иметь хеш длиной 64 символа, получено ${indexValue._id.h.length}`);
                 }
             });
 
             valueFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.v === val);
-                if (indexValue.h !== val) {
-                    throw new Error(`Поле ${val} должно иметь само значение, получено ${indexValue.h}`);
+                if (indexValue._id.h !== val) {
+                    throw new Error(`Поле ${val} должно иметь само значение, получено ${indexValue._id.h}`);
                 }
             });
 
@@ -298,7 +300,7 @@ class FactIndexerTest {
         this.logger.debug(title);
 
         const fact = {
-            i: 'no-fields-test',
+            _id: 'no-fields-test',
             t: 3,
             c: new Date('2024-03-01'),
             d: {
@@ -368,7 +370,7 @@ class FactIndexerTest {
 
         const facts = [
             {
-                i: 'fact1',
+                _id: 'fact1',
                 t: 1,
                 c: new Date('2024-01-01'),
                 d: {
@@ -378,7 +380,7 @@ class FactIndexerTest {
                 }
             },
             {
-                i: 'fact2',
+                _id: 'fact2',
                 t: 2,
                 c: new Date('2024-02-01'),
                 d: {
@@ -397,7 +399,7 @@ class FactIndexerTest {
             }
 
             // Проверяем, что индексные значения содержат правильные ID фактов
-            const factIds = indexValues.map(idx => idx.i);
+            const factIds = indexValues.map(idx => idx._id.f);
             if (!factIds.includes('fact1') || !factIds.includes('fact2')) {
                 throw new Error('Неправильные ID фактов в индексных значениях');
             }
@@ -418,7 +420,7 @@ class FactIndexerTest {
         this.logger.debug(title);
 
         const fact = {
-            i: 'statistics-test',
+            _id: 'statistics-test',
             t: 1,
             c: new Date('2024-01-01'),
             d: {
@@ -438,7 +440,7 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильную структуру
             indexValues.forEach((indexValue, i) => {
-                const requiredFields = ['it', 'v', 'h', 'i', 't', 'd', 'c'];
+                const requiredFields = ['_id', 'd', 'c', 'it', 'v', 't'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении ${i}`);
@@ -448,14 +450,17 @@ class FactIndexerTest {
 
             // Проверяем типы данных
             indexValues.forEach((indexValue, i) => {
+                if (typeof indexValue._id.h !== 'string') {
+                    throw new Error(`Поле h должно быть строкой в индексном значении ${i}`);
+                }
+                if (typeof indexValue._id.f !== 'string') {
+                    throw new Error(`Поле f должно быть строкой в индексном значении ${i}`);
+                }
                 if (typeof indexValue.it !== 'number') {
                     throw new Error(`Поле it должно быть числом в индексном значении ${i}`);
                 }
                 if (typeof indexValue.v !== 'string') {
                     throw new Error(`Поле v должно быть строкой в индексном значении ${i}`);
-                }
-                if (typeof indexValue.h !== 'string') {
-                    throw new Error(`Поле h должно быть строкой в индексном значении ${i}`);
                 }
                 if (typeof indexValue.t !== 'number') {
                     throw new Error(`Поле t должно быть числом в индексном значении ${i}`);
@@ -487,7 +492,9 @@ class FactIndexerTest {
             // Генерируем несколько фактов
             const facts = [];
             for (let i = 0; i < 5; i++) {
-                facts.push(this.generator.generateRandomTypeFact());
+                const event = this.generator.generateRandomTypeEvent();
+                const fact = this.mapper.mapEventToFact(event);
+                facts.push(fact);
             }
 
             const indexValues = this.indexer.indexFacts(facts);
@@ -498,7 +505,7 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильную структуру
             indexValues.forEach(indexValue => {
-                const requiredFields = ['h', 'i', 'd', 'c'];
+                const requiredFields = ['_id', 'd', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -544,8 +551,8 @@ class FactIndexerTest {
 
             // Тестовый факт с разными полями дат
             const fact = {
+                _id: "test_id_123",
                 t: 1,
-                i: "test_id_123",
                 c: new Date('2024-01-02'),
                 d: {
                     f1: "test_value_1",
@@ -582,8 +589,8 @@ class FactIndexerTest {
 
             // Тест с невалидной датой
             const factWithInvalidDate = {
+                _id: "test_id_456",
                 t: 1,
-                i: "test_id_456",
                 c: new Date('2024-01-02'),
                 d: {
                     dt: new Date('2024-01-01'),
@@ -774,7 +781,7 @@ if (require.main === module) {
             process.exit(0);
         })
         .catch((error) => {
-            console.error('Критическая ошибка:', error.message);
+            this.logger.error('Критическая ошибка:', error.message);
             process.exit(1);
         });
 }

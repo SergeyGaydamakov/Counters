@@ -1,7 +1,7 @@
-const FactGenerator = require('../generators/factGenerator');
+const EventGenerator = require('../generators/eventGenerator');
 
 /**
- * Тесты для FactGenerator
+ * Тесты для EventGenerator
  * Использует конфигурацию полей в виде структуры (не файл)
  */
 
@@ -10,7 +10,7 @@ const testFieldConfig = [
     {
         "src": "dt",
         "dst": "dt",
-        "fact_types": [1, 2, 3], // user_action, system_event, payment
+        "event_types": [1, 2, 3], // user_action, system_event, payment
         "generator": {
             "type": "date",
             "min": "2024-01-01",
@@ -20,27 +20,27 @@ const testFieldConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "fact_types": [1, 2, 3] // user_action, system_event, payment
+        "event_types": [1, 2, 3] // user_action, system_event, payment
     },
     {
         "src": "f2",
         "dst": "f2",
-        "fact_types": [1, 3] // user_action, payment
+        "event_types": [1, 3] // user_action, payment
     },
     {
         "src": "f3",
         "dst": "f3",
-        "fact_types": [2, 3] // system_event, payment
+        "event_types": [2, 3] // system_event, payment
     },
     {
         "src": "f4",
         "dst": "f4",
-        "fact_types": [1] // user_action
+        "event_types": [1] // user_action
     },
     {
         "src": "f5",
         "dst": "f5",
-        "fact_types": [2] // system_event
+        "event_types": [2] // system_event
     }
 ];
 
@@ -49,32 +49,32 @@ const extendedFieldConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "fact_types": [1, 2, 3] // type1, type2, type3
+        "event_types": [1, 2, 3] // type1, type2, type3
     },
     {
         "src": "f2",
         "dst": "f2",
-        "fact_types": [1, 4] // type1, type4
+        "event_types": [1, 4] // type1, type4
     },
     {
         "src": "f3",
         "dst": "f3",
-        "fact_types": [2, 3, 4] // type2, type3, type4
+        "event_types": [2, 3, 4] // type2, type3, type4
     },
     {
         "src": "f4",
         "dst": "f4",
-        "fact_types": [1, 2] // type1, type2
+        "event_types": [1, 2] // type1, type2
     },
     {
         "src": "f5",
         "dst": "f5",
-        "fact_types": [3, 4] // type3, type4
+        "event_types": [3, 4] // type3, type4
     },
     {
         "src": "f6",
         "dst": "f6",
-        "fact_types": [1] // type1
+        "event_types": [1] // type1
     }
 ];
 
@@ -83,7 +83,7 @@ const invalidFieldConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "fact_types": "not_an_array" // Ошибка: должно быть массивом
+        "event_types": "not_an_array" // Ошибка: должно быть массивом
     }
 ];
 
@@ -92,7 +92,7 @@ const incompleteFieldConfig = [
     {
         "src": "f1",
         // Отсутствует dst
-        "fact_types": [1]
+        "event_types": [1]
     }
 ];
 
@@ -101,7 +101,7 @@ const generatorTestConfig = [
     {
         "src": "stringField",
         "dst": "stringField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "string",
             "min": 5,
@@ -111,7 +111,7 @@ const generatorTestConfig = [
     {
         "src": "integerField",
         "dst": "integerField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "integer",
             "min": 100,
@@ -121,7 +121,7 @@ const generatorTestConfig = [
     {
         "src": "dateField",
         "dst": "dateField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "date",
             "min": "2024-01-01",
@@ -131,7 +131,7 @@ const generatorTestConfig = [
     {
         "src": "enumField",
         "dst": "enumField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "enum",
             "values": ["option1", "option2", "option3", "option4"]
@@ -140,7 +140,7 @@ const generatorTestConfig = [
     {
         "src": "defaultField",
         "dst": "defaultField",
-        "fact_types": [1]
+        "event_types": [1]
         // Без generator - должно использовать значение по умолчанию
     }
 ];
@@ -150,7 +150,7 @@ const invalidGeneratorConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "invalid_type" // Неверный тип
         }
@@ -162,7 +162,7 @@ const defaultValueTestConfig = [
     {
         "src": "stringField",
         "dst": "stringField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "string",
             "min": 5,
@@ -174,7 +174,7 @@ const defaultValueTestConfig = [
     {
         "src": "integerField",
         "dst": "integerField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "integer",
             "min": 100,
@@ -186,7 +186,7 @@ const defaultValueTestConfig = [
     {
         "src": "dateField",
         "dst": "dateField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "date",
             "min": "2024-01-01",
@@ -198,7 +198,7 @@ const defaultValueTestConfig = [
     {
         "src": "enumField",
         "dst": "enumField",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "enum",
             "values": ["option1", "option2", "option3", "option4"],
@@ -213,7 +213,7 @@ const invalidDefaultValueConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "string",
             "default_value": 123, // Неверный тип для string
@@ -226,7 +226,7 @@ const invalidDefaultRandomConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "fact_types": [1],
+        "event_types": [1],
         "generator": {
             "type": "integer",
             "default_value": 100,
@@ -242,19 +242,29 @@ function testValidConstructor(testName) {
     console.log(`=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(testFieldConfig);
+        const generator = new EventGenerator(testFieldConfig);
 
         // Проверяем, что генератор создался успешно
         console.log('✅ Генератор создан успешно');
 
         // Проверяем доступные поля
-        const expectedFields = ['f1', 'f2', 'f3', 'f4', 'f5'];
+        const expectedFields = ['dt','f1', 'f2', 'f3', 'f4', 'f5'];
         const actualFields = generator._availableFields;
+        // Проверяем наличие всех полей в expectedFields
+        const hasAllFields = expectedFields.every(field => actualFields.includes(field));
+        if (!hasAllFields) {
+            throw new Error('❌ Не все поля присутствуют');
+        }
         console.log(`✅ Доступные поля: [${actualFields.join(', ')}]`);
 
         // Проверяем доступные типы
         const expectedTypes = [1, 2, 3]; // user_action, system_event, payment
         const actualTypes = generator._availableTypes;
+        // Проверяем наличие всех типов в expectedTypes
+        const hasAllTypes = expectedTypes.every(type => actualTypes.includes(type));
+        if (!hasAllTypes) {
+            throw new Error('❌ Не все типы присутствуют');
+        }
         console.log(`✅ Доступные типы: [${actualTypes.join(', ')}]`);
 
         // Проверяем карту полей по типам
@@ -278,7 +288,7 @@ function testInvalidConstructor(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(invalidFieldConfig);
+        const generator = new EventGenerator(invalidFieldConfig);
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -294,7 +304,7 @@ function testIncompleteConstructor(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(incompleteFieldConfig);
+        const generator = new EventGenerator(incompleteFieldConfig);
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -310,7 +320,7 @@ function testNullConstructor(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(null);
+        const generator = new EventGenerator(null);
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -322,24 +332,22 @@ function testNullConstructor(testName) {
 /**
  * Тест генерации факта конкретного типа
  */
-function testGenerateFact(testName) {
+function testGenerateEvent(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(testFieldConfig);
+        const generator = new EventGenerator(testFieldConfig);
 
         // Генерируем факт типа user_action (тип 1)
-        const fact = generator.generateFact(1);
+        const event = generator.generateEvent(1);
 
         // Проверяем структуру факта
-        console.log('✅ Факт сгенерирован успешно');
-        console.log(`   ID: ${fact.i}`);
-        console.log(`   Тип: ${fact.t}`);
-        console.log(`   Дата создания: ${fact.c.toISOString()}`);
+        console.log('✅ Событие сгенерировано успешно');
+        console.log(`   Тип: ${event.t}`);
 
         // Проверяем поля факта
-        const expectedTopLevelFields = ['i', 't', 'c', 'd']; // Основные поля факта
-        const actualFields = Object.keys(fact);
+        const expectedTopLevelFields = ['t', 'd']; // Основные поля события
+        const actualFields = Object.keys(event);
         console.log(`   Поля: [${actualFields.join(', ')}]`);
 
         // Проверяем, что все основные поля присутствуют
@@ -352,9 +360,9 @@ function testGenerateFact(testName) {
         }
 
         // Проверяем, что объект d содержит поля типа
-        if (fact.d && typeof fact.d === 'object') {
+        if (event.d && typeof event.d === 'object') {
             const expectedDataFields = ['dt','f1', 'f2', 'f4']; // Поля для user_action (тип 1) в объекте d
-            const actualDataFields = Object.keys(fact.d);
+            const actualDataFields = Object.keys(event.d);
             console.log(`   Поля в d: [${actualDataFields.join(', ')}]`);
             
             const hasAllDataFields = expectedDataFields.every(field => actualDataFields.includes(field));
@@ -383,8 +391,8 @@ function testGenerateFactInvalidType(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(testFieldConfig);
-        const fact = generator.generateFact(999); // Несуществующий тип
+        const generator = new EventGenerator(testFieldConfig);
+        const fact = generator.generateEvent(999); // Несуществующий тип
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -400,79 +408,15 @@ function testGenerateRandomTypeFact(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(testFieldConfig);
+        const generator = new EventGenerator(testFieldConfig);
 
         // Генерируем несколько случайных фактов
         for (let i = 0; i < 5; i++) {
-            const fact = generator.generateRandomTypeFact();
+            const fact = generator.generateRandomTypeEvent();
             console.log(`   Случайный факт ${i + 1}: тип=${fact.t}, поля=[${Object.keys(fact).filter(k => k.startsWith('f')).join(', ')}]`);
         }
 
         console.log('✅ Случайные факты генерируются успешно');
-        return true;
-    } catch (error) {
-        console.log(`❌ Ошибка: ${error.message}`);
-        return false;
-    }
-}
-
-/**
- * Тест генерации фактов с целевым размером
- */
-function testGenerateFactWithTargetSize(testName) {
-    console.log(`\n=== Тест: ${testName} ===`);
-
-    try {
-        const targetSize = 500; // 500 байт
-        const generator = new FactGenerator(testFieldConfig, new Date(), new Date(), targetSize);
-
-        const fact = generator.generateFact(1); // user_action
-        const actualSize = Buffer.byteLength(JSON.stringify(fact), 'utf8');
-
-        console.log(`✅ Факт сгенерирован с целевым размером ${targetSize} байт`);
-        console.log(`   Фактический размер: ${actualSize} байт`);
-        console.log(`   Поле z: ${fact.z ? `длина ${fact.z.length}` : 'отсутствует'}`);
-
-        // Проверяем, что размер близок к целевому (допуск ±50 байт)
-        if (Math.abs(actualSize - targetSize) <= 50) {
-            console.log('✅ Размер факта соответствует целевому');
-        } else {
-            console.log('⚠️ Размер факта не соответствует целевому');
-        }
-
-        return true;
-    } catch (error) {
-        console.log(`❌ Ошибка: ${error.message}`);
-        return false;
-    }
-}
-
-/**
- * Тест генерации фактов с разными датами
- */
-function testGenerateFactWithCustomDates(testName) {
-    console.log(`\n=== Тест: ${testName} ===`);
-
-    try {
-        const dateFieldConfig = testFieldConfig.find(field => field.src === 'dt');
-        const fromDate = new Date(dateFieldConfig.generator.min);
-        const toDate = new Date(dateFieldConfig.generator.max);
-        const generator = new FactGenerator(testFieldConfig, fromDate, toDate);
-
-        const fact = generator.generateFact(1); // user_action
-
-        console.log(`✅ Факт сгенерирован с пользовательскими датами`);
-        console.log(`   Диапазон дат: ${fromDate.toISOString()} - ${toDate.toISOString()}`);
-        console.log(`   Дата создания: ${fact.c.toISOString()}`);
-
-        // Проверяем, что дата факта в заданном диапазоне
-        if (fact.d.dt >= fromDate && fact.d.dt <= toDate) {
-            console.log('✅ Дата факта находится в заданном диапазоне');
-        } else {
-            console.log('❌ Дата факта выходит за заданный диапазон');
-            return false;
-        }
-
         return true;
     } catch (error) {
         console.log(`❌ Ошибка: ${error.message}`);
@@ -487,11 +431,11 @@ function testGenerateFactForAllTypes(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(extendedFieldConfig);
+        const generator = new EventGenerator(extendedFieldConfig);
 
         console.log('✅ Генерация фактов для всех типов:');
         generator._availableTypes.forEach(type => {
-            const fact = generator.generateFact(type);
+            const fact = generator.generateEvent(type);
             const dataFields = fact.d ? Object.keys(fact.d) : [];
             console.log(`   Тип ${type}: ${dataFields.length} полей [${dataFields.join(', ')}]`);
         });
@@ -510,13 +454,13 @@ function testPerformance(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(testFieldConfig);
+        const generator = new EventGenerator(testFieldConfig);
         const iterations = 1000;
 
         const startTime = Date.now();
 
         for (let i = 0; i < iterations; i++) {
-            generator.generateRandomTypeFact();
+            generator.generateRandomTypeEvent();
         }
 
         const endTime = Date.now();
@@ -540,7 +484,7 @@ function testInvalidGeneratorConstructor(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(invalidGeneratorConfig);
+        const generator = new EventGenerator(invalidGeneratorConfig);
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -556,8 +500,8 @@ function testGeneratorTypes(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(generatorTestConfig);
-        const fact = generator.generateFact(1);
+        const generator = new EventGenerator(generatorTestConfig);
+        const fact = generator.generateEvent(1);
 
         console.log('✅ Факт сгенерирован с различными типами генераторов');
         
@@ -637,12 +581,12 @@ function testEnumRandomness(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(generatorTestConfig);
+        const generator = new EventGenerator(generatorTestConfig);
         const enumValues = new Set();
 
         // Генерируем 50 фактов и собираем все enum значения
         for (let i = 0; i < 50; i++) {
-            const fact = generator.generateFact(1);
+            const fact = generator.generateEvent(1);
             if (fact.d && fact.d.enumField) {
                 enumValues.add(fact.d.enumField);
             }
@@ -672,7 +616,7 @@ function testInvalidDefaultValueConstructor(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(invalidDefaultValueConfig);
+        const generator = new EventGenerator(invalidDefaultValueConfig);
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -688,7 +632,7 @@ function testInvalidDefaultRandomConstructor(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(invalidDefaultRandomConfig);
+        const generator = new EventGenerator(invalidDefaultRandomConfig);
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -704,8 +648,8 @@ function testDefaultValueGeneration(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(defaultValueTestConfig);
-        const fact = generator.generateFact(1);
+        const generator = new EventGenerator(defaultValueTestConfig);
+        const fact = generator.generateEvent(1);
 
         console.log('✅ Факт сгенерирован с default_value и default_random');
         
@@ -757,7 +701,7 @@ function testDefaultValueFrequency(testName) {
     console.log(`\n=== Тест: ${testName} ===`);
 
     try {
-        const generator = new FactGenerator(defaultValueTestConfig);
+        const generator = new EventGenerator(defaultValueTestConfig);
         const iterations = 1000;
 
         let defaultStringCount = 0;
@@ -767,7 +711,7 @@ function testDefaultValueFrequency(testName) {
 
         // Генерируем много фактов для статистики
         for (let i = 0; i < iterations; i++) {
-            const fact = generator.generateFact(1);
+            const fact = generator.generateEvent(1);
             
             if (fact.d) {
                 if (fact.d.stringField === "DEFAULT_STRING") defaultStringCount++;
@@ -819,7 +763,7 @@ function testDefaultValueFrequency(testName) {
  * Запуск всех тестов
  */
 function runAllTests() {
-    console.log('🧪 Запуск тестов FactGenerator\n');
+    console.log('🧪 Запуск тестов EventGenerator\n');
 
     const tests = [
         { func: testValidConstructor, name: '1. Создание генератора с валидной конфигурацией' },
@@ -829,11 +773,9 @@ function runAllTests() {
         { func: testInvalidGeneratorConstructor, name: '5. Создание генератора с неверной конфигурацией генератора' },
         { func: testInvalidDefaultValueConstructor, name: '6. Создание генератора с неверной конфигурацией default_value' },
         { func: testInvalidDefaultRandomConstructor, name: '7. Создание генератора с неверной конфигурацией default_random' },
-        { func: testGenerateFact, name: '8. Генерация факта конкретного типа' },
+        { func: testGenerateEvent, name: '8. Генерация факта конкретного типа' },
         { func: testGenerateFactInvalidType, name: '9. Генерация факта несуществующего типа' },
         { func: testGenerateRandomTypeFact, name: '10. Генерация случайного факта' },
-        { func: testGenerateFactWithTargetSize, name: '11. Генерация факта с целевым размером' },
-        { func: testGenerateFactWithCustomDates, name: '12. Генерация факта с пользовательскими датами' },
         { func: testGenerateFactForAllTypes, name: '13. Генерация фактов для всех типов' },
         { func: testGeneratorTypes, name: '14. Генерация факта с различными типами генераторов' },
         { func: testEnumRandomness, name: '15. Проверка случайности enum значений' },
@@ -881,11 +823,9 @@ module.exports = {
     testInvalidGeneratorConstructor,
     testInvalidDefaultValueConstructor,
     testInvalidDefaultRandomConstructor,
-    testGenerateFact,
+    testGenerateFact: testGenerateEvent,
     testGenerateFactInvalidType,
     testGenerateRandomTypeFact,
-    testGenerateFactWithTargetSize,
-    testGenerateFactWithCustomDates,
     testGenerateFactForAllTypes,
     testGeneratorTypes,
     testEnumRandomness,

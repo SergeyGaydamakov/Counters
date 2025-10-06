@@ -172,7 +172,7 @@ class LoggerTest {
             // Перехватываем console.log для проверки вывода
             const originalLog = console.log;
             const originalWarn = console.warn;
-            const originalError = console.error;
+            const originalError = this.logger.error;
             
             let debugCalled = false;
             let infoCalled = false;
@@ -186,7 +186,7 @@ class LoggerTest {
             console.warn = (message) => {
                 if (message.includes('[WARN]')) warnCalled = true;
             };
-            console.error = (message) => {
+            this.logger.error = (message) => {
                 if (message.includes('[ERROR]')) errorCalled = true;
             };
             
@@ -199,7 +199,7 @@ class LoggerTest {
             // Восстанавливаем оригинальные методы
             console.log = originalLog;
             console.warn = originalWarn;
-            console.error = originalError;
+            this.logger.error = originalError;
             
             // Проверяем результаты
             if (!debugCalled && infoCalled && warnCalled && errorCalled) {
@@ -228,7 +228,7 @@ class LoggerTest {
             // Перехватываем console методы
             const originalLog = console.log;
             const originalWarn = console.warn;
-            const originalError = console.error;
+            const originalError = this.logger.error;
             
             let logCalled = false;
             let warnCalled = false;
@@ -236,7 +236,7 @@ class LoggerTest {
             
             console.log = () => { logCalled = true; };
             console.warn = () => { warnCalled = true; };
-            console.error = () => { errorCalled = true; };
+            this.logger.error = () => { errorCalled = true; };
             
             // Тестируем методы
             logger.debug('Debug test');
@@ -247,7 +247,7 @@ class LoggerTest {
             // Восстанавливаем оригинальные методы
             console.log = originalLog;
             console.warn = originalWarn;
-            console.error = originalError;
+            this.logger.error = originalError;
             
             if (logCalled && warnCalled && errorCalled) {
                 this.logger.debug('   ✓ Все методы логирования работают');
@@ -488,7 +488,7 @@ if (require.main === module) {
             process.exit(0);
         })
         .catch((error) => {
-            console.error('Критическая ошибка:', error.message);
+            this.logger.error('Критическая ошибка:', error.message);
             process.exit(1);
         });
 }

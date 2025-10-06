@@ -141,7 +141,7 @@ class MongoProvider {
         }
 
         try {
-            const filter = { i: fact.i };
+            const filter = { _id: fact._id };
             const updateOperation = { $set: fact };
 
             // Используем updateOne с upsert для оптимальной производительности
@@ -202,7 +202,7 @@ class MongoProvider {
             };
 
         } catch (error) {
-            console.error('✗ Ошибка при upsert операции факта:', error.message);
+            this.logger.error('✗ Ошибка при upsert операции факта:', error.message);
 
             return {
                 success: false,
@@ -250,10 +250,10 @@ class MongoProvider {
 
             factIndexValues.forEach(indexValue => {
                 const indexFilter = {
-                    h: indexValue.h,
-                    i: indexValue.i
+                    _id: indexValue._id 
                 };
                 indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
+                this.logger.debug("   indexValue: "+JSON.stringify(indexValue));
             });
 
             const indexResult = await indexBulk.execute(bulkWriteOptions);
@@ -277,22 +277,12 @@ class MongoProvider {
                 inserted: inserted,
                 updated: updated,
                 duplicatesIgnored: duplicatesIgnored,
-                errors: indexResult.writeErrors || [],
-                uniqueFields: ['h', 'i']
+                errors: indexResult.writeErrors || []
             };
 
         } catch (error) {
-            console.error('✗ Критическая ошибка при вставке индексных значений:', error.message);
-
-            return {
-                success: false,
-                totalProcessed: factIndexValues.length,
-                inserted: 0,
-                updated: 0,
-                duplicatesIgnored: 0,
-                errors: [{ error: error.message }],
-                error: error.message
-            };
+            this.logger.error('✗ Критическая ошибка при вставке индексных значений:', error.message);
+            throw error;
         }
     }
 
@@ -306,15 +296,15 @@ class MongoProvider {
 
         this.logger.debug(`Получение релевантных фактов для факта ${factId} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
         // Сформировать агрегирующий запрос к коллекции factIndex,
-        // получить уникальные значения поля i
+        // получить уникальные значения поля _id
         // и результат объединить с фактом из коллекции facts
         const matchQuery = {
-            "h": {
+            "_id.h": {
                 "$in": indexHashValues
             }
         };
         if (factId) {
-            matchQuery.i = {
+            matchQuery["_id.f"] = {
                 "$ne": factId
             };
         }
@@ -328,22 +318,17 @@ class MongoProvider {
             readConcern: { level: "local" },
             readPreference: "secondaryPreferred",
             comment: "getRelevantFactCounters - find",
-            projection: { _id: 0, i: 1 }
+            projection: { "_id": 1 }
         };
+        // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
         const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
         // Сформировать агрегирующий запрос к коллекции facts,
         const aggregateQuery = [
             {
                 "$match": {
-                    "i": {
-                        "$in": factIndexResult.map(item => item.i)
+                    "_id": {
+                        "$in": factIndexResult.map(item => item._id.f)
                     }
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "i": 1
                 }
             }
         ];
@@ -374,15 +359,15 @@ class MongoProvider {
 
         this.logger.debug(`Получение релевантных фактов для факта ${factId} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
         // Сформировать агрегирующий запрос к коллекции factIndex,
-        // получить уникальные значения поля i
+        // получить уникальные значения поля _id
         // и результат объединить с фактом из коллекции facts
         const matchQuery = {
-            "h": {
+            "_id.h": {
                 "$in": indexHashValues
             }
         };
         if (factId) {
-            matchQuery.i = {
+            matchQuery._id = {
                 "$ne": factId
             };
         }
@@ -396,7 +381,7 @@ class MongoProvider {
             readConcern: { level: "local" },
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - find",
-            projection: { _id: 0, i: 1 }
+            projection: { "_id": 1 }
         };
         const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
 
@@ -414,8 +399,8 @@ class MongoProvider {
         // Сформировать агрегирующий запрос к коллекции facts,
         const queryFacts = {
             "$match": {
-                "i": {
-                    "$in": factIndexResult.map(item => item.i)
+                "_id": {
+                    "$in": factIndexResult.map(item => item._id.f)
                 }
             }
         };
@@ -560,7 +545,7 @@ class MongoProvider {
             this.logger.debug(`✓ Удалено ${result.deletedCount} фактов из коллекции ${this.FACT_COLLECTION_NAME}`);
             return result;
         } catch (error) {
-            console.error('✗ Ошибка при очистке коллекции фактов:', error.message);
+            this.logger.error('✗ Ошибка при очистке коллекции фактов:', error.message);
             throw error;
         }
     }
@@ -578,7 +563,7 @@ class MongoProvider {
             const result = await this._updateFactsCollection.countDocuments();
             return result;
         } catch (error) {
-            console.error('✗ Ошибка при подсчете числа документов в коллекции фактов:', error.message);
+            this.logger.error('✗ Ошибка при подсчете числа документов в коллекции фактов:', error.message);
             throw error;
         }
     }
@@ -629,7 +614,7 @@ class MongoProvider {
             this.logger.debug(`✓ Удалено ${result.deletedCount} индексных значений из коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
             return result;
         } catch (error) {
-            console.error('✗ Ошибка при очистке коллекции индексных значений:', error.message);
+            this.logger.error('✗ Ошибка при очистке коллекции индексных значений:', error.message);
             throw error;
         }
     }
@@ -647,7 +632,7 @@ class MongoProvider {
             const result = await this._updateFactIndexCollection.countDocuments();
             return result;
         } catch (error) {
-            console.error('✗ Ошибка при подсчете числа документов в коллекции индексных значений:', error.message);
+            this.logger.error('✗ Ошибка при подсчете числа документов в коллекции индексных значений:', error.message);
             throw error;
         }
     }
@@ -743,17 +728,13 @@ class MongoProvider {
             const schema = {
                 $jsonSchema: {
                     bsonType: "object",
-                    title: "Facts Collection Schema",
-                    description: "Схема для коллекции фактов с автоматически генерируемой структурой",
-                    required: ["i", "t", "c", "d"],
+                    title: "Схема для коллекции фактов",
+                    description: "Схема для коллекции фактов",
+                    required: ["_id", "t", "c", "d"],
                     properties: {
                         _id: {
-                            bsonType: "objectId",
-                            description: "MongoDB ObjectId (автоматически генерируется)"
-                        },
-                        i: {
-                            bsonType: "objectId",
-                            description: "Уникальный идентификатор факта (преобразованный из GUID)"
+                            bsonType: "string",
+                            description: "Хеш функция уникального идентификатора факта"
                         },
                         t: {
                             bsonType: "int",
@@ -767,10 +748,6 @@ class MongoProvider {
                         d: {
                             bsonType: "object",
                             description: "JSON объект с данными факта"
-                        },
-                        z: {
-                            bsonType: "string",
-                            description: "Поле заполнения для достижения целевого размера JSON (необязательное)"
                         }
                     },
                     additionalProperties: false
@@ -792,18 +769,30 @@ class MongoProvider {
             } else {
                 // Коллекция не существует, создаем с валидацией
                 this.logger.debug(`Создание новой коллекции ${this.FACT_COLLECTION_NAME} со схемой валидации...`);
-                await this._counterDb.createCollection(this.FACT_COLLECTION_NAME, {
+                // Параметры создания коллекции для производственной среды
+                const productionCreateOptions = {
                     validator: schema,
-                    validationLevel: "moderate",
+                    clusteredIndex: {
+                        key: { "_id": 1 },
+                        unique: true
+                    },
+                    validationLevel: "off",
                     validationAction: "warn"
-                });
+                };
+                // Тестовая среда
+                const testCreateOptions = {
+                    validator: schema,
+                    validationLevel: "strict",
+                    validationAction: "error"
+                };
+                await this._counterDb.createCollection(this.FACT_COLLECTION_NAME, testCreateOptions);
             }
 
             this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_COLLECTION_NAME} успешно создана/обновлена`);
 
             return true;
         } catch (error) {
-            console.error('✗ Ошибка при создании схемы коллекции:', error.message);
+            this.logger.error('✗ Ошибка при создании схемы коллекции:', error.message);
             return false;
         }
     }
@@ -817,17 +806,8 @@ class MongoProvider {
             if (!this._isConnected) {
                 throw new Error('Нет подключения к MongoDB');
             }
+
             const indexesToCreate = [
-                // Уникальный индекс по полю i (GUID)
-                {
-                    key: { i: 1 },
-                    options: {
-                        name: 'idx_i_unique',
-                        background: true,
-                        unique: true
-                    },
-                    shardIndex: true
-                },
                 // Вспомогательный индекс для подсчета статистики
                 {
                     key: { c: -1 },
@@ -848,12 +828,7 @@ class MongoProvider {
             for (const indexSpec of indexesToCreate) {
                 try {
                     await this._updateFactsCollection.createIndex(indexSpec.key, indexSpec.options);
-                    if (indexSpec.shardIndex) {
-                        await this._shardCollection(adminDb, this.FACT_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
-                        this.logger.info(`✓ Для коллекции ${this.FACT_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
-                    } else {
-                        this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
-                    }
+                    this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
                     successCount++;
                 } catch (error) {
                     // Если индекс уже существует, это не ошибка
@@ -861,11 +836,14 @@ class MongoProvider {
                         this.logger.warn(`⚠ Индекс ${indexSpec.options.name} уже существует`);
                         successCount++;
                     } else {
-                        console.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
+                        this.logger.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
                         errors.push({ index: indexSpec.options.name, error: error.message });
                     }
                 }
             }
+
+            await this._shardCollection(adminDb, this.FACT_COLLECTION_NAME, { _id: 1 }, true);
+            this.logger.info(`✓ Выполнено шардирование коллекции ${this.FACT_COLLECTION_NAME}`);
 
             this.logger.debug(`\n=== Результат создания индексов для фактов ===`);
             this.logger.debug(`✓ Успешно создано/проверено: ${successCount}/${indexesToCreate.length} индексов`);
@@ -877,7 +855,7 @@ class MongoProvider {
 
             return errors.length === 0;
         } catch (error) {
-            console.error('✗ Ошибка при создании индексов для фактов:', error.message);
+            this.logger.error('✗ Ошибка при создании индексов для фактов:', error.message);
             return false;
         }
     }
@@ -906,13 +884,13 @@ class MongoProvider {
                 return null;
             }
         } catch (error) {
-            console.error('✗ Ошибка при получении схемы коллекции:', error.message);
+            this.logger.error('✗ Ошибка при получении схемы коллекции:', error.message);
             throw error;
         }
     }
 
-   
- 
+
+
     /**
      * Создает схему валидации для коллекции индексных значений
      * @returns {Promise<boolean>} результат создания схемы
@@ -925,26 +903,22 @@ class MongoProvider {
             const schema = {
                 $jsonSchema: {
                     bsonType: "object",
-                    title: "FactIndex Collection Schema",
+                    title: "Схема для коллекции индексных значений фактов",
                     description: "Схема для коллекции индексных значений фактов",
-                    required: ["h", "i", "t", "d", "c"],
+                    required: ["_id", "d", "c"],
                     properties: {
                         _id: {
-                            bsonType: "objectId",
-                            description: "MongoDB ObjectId (автоматически генерируется)"
-                        },
-                        h: {
-                            bsonType: "string",
-                            description: "Хеш значение типа + поля факта"
-                        },
-                        i: {
-                            bsonType: "string",
-                            description: "Уникальный идентификатор факта (GUID)"
-                        },
-                        t: {
-                            bsonType: "int",
-                            minimum: 1,
-                            description: "Тип факта - целое число >= 1"
+                            bsonType: "object",
+                            properties: {
+                                h: {
+                                    bsonType: "string",
+                                    description: "Хеш значение <тип индексного значения>:<значение поля факта>"
+                                },
+                                f: {
+                                    bsonType: "string",
+                                    description: "Уникальный идентификатор факта в коллекции facts._id"
+                                },
+                            }
                         },
                         d: {
                             bsonType: "date",
@@ -955,6 +929,11 @@ class MongoProvider {
                             description: "Дата и время создания индексного значения"
                         },
                         // @deprecated нужно удалить после отладки
+                        t: {
+                            bsonType: "int",
+                            minimum: 1,
+                            description: "Тип факта - целое число >= 1"
+                        },
                         v: {
                             bsonType: "string",
                             description: "Индексное значение поля факта"
@@ -962,8 +941,7 @@ class MongoProvider {
                         it: {
                             bsonType: "int",
                             minimum: 1,
-                            maximum: 100,
-                            description: "Тип индекса - целое число от 1 до 100"
+                            description: "Тип индексного значения - целое число >= 1"
                         }
                     },
                     additionalProperties: false
@@ -985,18 +963,30 @@ class MongoProvider {
             } else {
                 // Коллекция не существует, создаем с валидацией
                 this.logger.debug(`Создание новой коллекции ${this.FACT_INDEX_COLLECTION_NAME} со схемой валидации...`);
-                await this._counterDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, {
+                // Параметры создания коллекции для производственной среды
+                const productionCreateOptions = {
                     validator: schema,
-                    validationLevel: "moderate",
+                    clusteredIndex: {
+                        key: { "_id": 1, "d": 1 },
+                        unique: true
+                    },
+                    validationLevel: "off",
                     validationAction: "warn"
-                });
+                };
+                // Тестовая среда
+                const testCreateOptions = {
+                    validator: schema,
+                    validationLevel: "strict",
+                    validationAction: "error"
+                };
+                await this._counterDb.createCollection(this.FACT_INDEX_COLLECTION_NAME, testCreateOptions);
             }
 
             this.logger.debug(`✓ Схема валидации для коллекции ${this.FACT_INDEX_COLLECTION_NAME} успешно создана/обновлена`);
 
             return true;
         } catch (error) {
-            console.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
+            this.logger.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
             return false;
         }
     }
@@ -1012,21 +1002,10 @@ class MongoProvider {
             }
 
             const indexesToCreate = [
-                // Уникальный составной индекс по h, i
                 {
-                    key: { h: 1, i: 1 },
+                    key: { "_id.h": 1, "d": -1 },
                     options: {
-                        name: 'idx_h_i_unique',
-                        background: true,
-                        unique: true
-                    },
-                    shardIndex: true
-                },
-                // Составной индекс по h (хешированный), -d, i (для всех основных запросов)
-                {
-                    key: { h: 1, d: -1, i: 1 },
-                    options: {
-                        name: 'idx_h_d_i',
+                        name: 'idx_id_h_d',
                         background: true
                     }
                 }
@@ -1040,12 +1019,7 @@ class MongoProvider {
             for (const indexSpec of indexesToCreate) {
                 try {
                     await this._updateFactIndexCollection.createIndex(indexSpec.key, indexSpec.options);
-                    if (indexSpec.shardIndex) {
-                        await this._shardCollection(adminDb, this.FACT_INDEX_COLLECTION_NAME, indexSpec.key, indexSpec.options.unique);
-                        this.logger.info(`✓ Для коллекции ${this.FACT_INDEX_COLLECTION_NAME} создан шардированный индекс: ${indexSpec.options.name}`);
-                    } else {
-                        this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
-                    }
+                    this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
                     successCount++;
                 } catch (error) {
                     // Если индекс уже существует, это не ошибка
@@ -1053,11 +1027,14 @@ class MongoProvider {
                         this.logger.warn(`⚠ Индекс ${indexSpec.options.name} уже существует`);
                         successCount++;
                     } else {
-                        console.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
+                        this.logger.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
                         errors.push({ index: indexSpec.options.name, error: error.message });
                     }
                 }
             }
+            // Шардирование после создания индексов, чтобы не создавался шардированный индекс
+            await this._shardCollection(adminDb, this.FACT_INDEX_COLLECTION_NAME, { "_id.h": 1 }, false);
+            this.logger.info(`✓ Выполнено шардирование коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
 
             this.logger.debug(`\n=== Результат создания индексов для индексных значений ===`);
             this.logger.debug(`✓ Успешно создано/проверено: ${successCount}/${indexesToCreate.length} индексов`);
@@ -1069,7 +1046,7 @@ class MongoProvider {
 
             return errors.length === 0;
         } catch (error) {
-            console.error('✗ Ошибка при создании индексов для индексных значений:', error.message);
+            this.logger.error('✗ Ошибка при создании индексов для индексных значений:', error.message);
             return false;
         }
     }
@@ -1124,7 +1101,7 @@ class MongoProvider {
 
             return schema;
         } catch (error) {
-            console.error('✗ Ошибка при получении схемы коллекции индексных значений:', error.message);
+            this.logger.error('✗ Ошибка при получении схемы коллекции индексных значений:', error.message);
             throw error;
         }
     }
@@ -1199,7 +1176,7 @@ class MongoProvider {
                 }
             } catch (error) {
                 results.errors.push(`Ошибка создания схемы facts: ${error.message}`);
-                console.error('✗ Ошибка создания схемы facts:', error.message);
+                this.logger.error('✗ Ошибка создания схемы facts:', error.message);
             }
 
             // 2. Создание схемы для коллекции factIndex
@@ -1213,7 +1190,7 @@ class MongoProvider {
                 }
             } catch (error) {
                 results.errors.push(`Ошибка создания схемы factIndex: ${error.message}`);
-                console.error('✗ Ошибка создания схемы factIndex:', error.message);
+                this.logger.error('✗ Ошибка создания схемы factIndex:', error.message);
             }
 
             // 3. Создание индексов для коллекции facts
@@ -1227,7 +1204,7 @@ class MongoProvider {
                 }
             } catch (error) {
                 results.errors.push(`Ошибка создания индексов facts: ${error.message}`);
-                console.error('✗ Ошибка создания индексов facts:', error.message);
+                this.logger.error('✗ Ошибка создания индексов facts:', error.message);
             }
 
             // 4. Создание индексов для коллекции factIndex
@@ -1241,7 +1218,7 @@ class MongoProvider {
                 }
             } catch (error) {
                 results.errors.push(`Ошибка создания индексов factIndex: ${error.message}`);
-                console.error('✗ Ошибка создания индексов factIndex:', error.message);
+                this.logger.error('✗ Ошибка создания индексов factIndex:', error.message);
             }
 
             // Определяем общий успех
@@ -1262,7 +1239,7 @@ class MongoProvider {
 
             return results;
         } catch (error) {
-            console.error('✗ Критическая ошибка при создании базы данных:', error.message);
+            this.logger.error('✗ Критическая ошибка при создании базы данных:', error.message);
             results.success = false;
             results.errors.push(`Критическая ошибка: ${error.message}`);
             return results;
@@ -1312,7 +1289,7 @@ class MongoProvider {
 
             return result;
         } catch (error) {
-            console.error('✗ Ошибка при получении статистики коллекции:', error.message);
+            this.logger.error('✗ Ошибка при получении статистики коллекции:', error.message);
             throw error;
         }
     }
@@ -1350,7 +1327,7 @@ class MongoProvider {
 
             return result;
         } catch (error) {
-            console.error('✗ Ошибка при получении статистики коллекции индексных значений:', error.message);
+            this.logger.error('✗ Ошибка при получении статистики коллекции индексных значений:', error.message);
             throw error;
         }
     }

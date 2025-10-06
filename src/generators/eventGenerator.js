@@ -5,17 +5,14 @@ const path = require('path');
 /**
  * Класс для генерации случайных тестовых данных
  * 
- * Структура факта (fact):
- * @property {string} i - Идентификатор факта uuidv4
- * @property {number} t - Тип факта (число)
- * @property {Date} c - Дата и время создания факта в базе данных
- * @property {string} z - Дополнительное поле для достижения нужного размера JSON в байтах
- * @property {string} f1 - Значение случайногенерированного поля f1
- * @property {string} f2 - Значение случайногенерированного поля f2
- * @property {string} fN - Значение случайногенерированного поля fN
+ * Структура события (event):
+ * @property {string} _id - Идентификатор события uuidv4
+ * @property {number} t - Тип события (число)
+ * @property {Date} c - Дата и время создания события в базе данных
+ * @property {object} d - данные события
  * 
  */
-class FactGenerator {
+class EventGenerator {
     constructor(fieldConfigPathOrArray = null, targetSize = null) {
         // Загружаем конфигурацию полей
         this._fieldConfig = this._loadFieldConfig(fieldConfigPathOrArray);
@@ -26,7 +23,7 @@ class FactGenerator {
         this._typeFieldsMap = this._buildTypeFieldsMap();
         this._fieldGeneratorsMap = this._buildFieldGeneratorsMap();
         
-        // Сохраняем даты для генерации фактов
+        // Сохраняем даты для генерации событий
         this._targetSize = targetSize;
     }
 
@@ -99,12 +96,12 @@ class FactGenerator {
                 throw new Error(`Поле конфигурации ${i} должно содержать поле 'dst' типа string`);
             }
 
-            if (!Array.isArray(field.fact_types) || field.fact_types.length === 0) {
-                throw new Error(`Поле конфигурации ${i} должно содержать непустой массив 'fact_types'`);
+            if (!Array.isArray(field.event_types) || field.event_types.length === 0) {
+                throw new Error(`Поле конфигурации ${i} должно содержать непустой массив 'event_types'`);
             }
 
-            for (let j = 0; j < field.fact_types.length; j++) {
-                if (typeof field.fact_types[j] !== 'number' || !Number.isInteger(field.fact_types[j])) {
+            for (let j = 0; j < field.event_types.length; j++) {
+                if (typeof field.event_types[j] !== 'number' || !Number.isInteger(field.event_types[j])) {
                     throw new Error(`Поле конфигурации ${i}, тип ${j} должен быть целым числом`);
                 }
             }
@@ -239,7 +236,7 @@ class FactGenerator {
     _extractAvailableTypes() {
         const types = new Set();
         this._fieldConfig.forEach(field => {
-            field.fact_types.forEach(type => types.add(type));
+            field.event_types.forEach(type => types.add(type));
         });
         return Array.from(types);
     }
@@ -252,7 +249,7 @@ class FactGenerator {
         const typeFieldsMap = {};
         this._availableTypes.forEach(type => {
             typeFieldsMap[type] = this._fieldConfig
-                .filter(field => field.fact_types.includes(type))
+                .filter(field => field.event_types.includes(type))
                 .map(field => field.src);
         });
         return typeFieldsMap;
@@ -385,6 +382,9 @@ class FactGenerator {
             case 'enum':
                 return this._generateRandomEnumValue(generatorConfig.values, defaultValue, defaultRandom);
 
+            case 'objectId':
+                return this._generateGuid();
+
             default:
                 // Fallback к значению по умолчанию
                 return this._generateRandomString(6, 20);
@@ -440,18 +440,16 @@ class FactGenerator {
     }
 
     /**
-     * Генерирует один факт с заданными параметрами
-     * @param {number} type - тип факта (t) - число
-     * @returns {Object} объект с данными факта
+     * Генерирует одно событие с указанным типом
+     * @param {number} type - тип события (t) - число
+     * @returns {Object} объект с данными события
      */
-    generateFact(type) {
+    generateEvent(type) {
         if (!this._availableTypes.includes(type)) {
-            throw new Error(`Тип факта "${type}" не найден в конфигурации. Доступные типы: ${this._availableTypes.join(', ')}`);
+            throw new Error(`Тип события "${type}" не найден в конфигурации. Доступные типы: ${this._availableTypes.join(', ')}`);
         }
-        const fact = {
-            i: this._generateGuid(),
-            t: type,
-            c: new Date() // дата и время создания объекта
+        const event = {
+            t: type
         };
 
         // Создаем объект "d" для группировки полей типа
@@ -468,51 +466,21 @@ class FactGenerator {
             dataFields[fieldName] = this._generateFieldValue(generatorConfig);
         });
         
-        // Добавляем объект "d" с полями типа в факт
-        fact.d = dataFields;
-
-        // Если задан целевой размер, добавляем поле z для достижения нужного размера
-        if (this._targetSize && this._targetSize > 0) {
-            fact.z = ''; // Временное значение для расчета
-            
-            const currentSize = this._calculateJsonSize(fact);
-            
-            if (currentSize < this._targetSize) {
-                // Вычисляем нужную длину строки для поля z
-                // Учитываем что поле z уже добавлено как пустая строка: ,"z":""
-                // Нужно добавить символы только в значение строки z
-                const additionalCharsNeeded = this._targetSize - currentSize;
-                
-                if (additionalCharsNeeded > 0) {
-                    fact.z = this._generatePaddingString(additionalCharsNeeded);
-                    
-                    // Проверяем финальный размер и корректируем если нужно
-                    const finalSize = this._calculateJsonSize(fact);
-                    if (finalSize > this._targetSize) {
-                        // Если превысили, уменьшаем длину строки z
-                        const excess = finalSize - this._targetSize;
-                        const newLength = Math.max(0, fact.z.length - excess);
-                        fact.z = fact.z.substring(0, newLength);
-                    }
-                }
-            } else {
-                // Если уже превышаем целевой размер, оставляем пустое поле z
-                fact.z = '';
-            }
-        }
-
-        return fact;
+        // Добавляем объект "d" с полями типа в событие
+        event.d = dataFields;
+        
+        return event;
     }
 
     /**
-     * Генерирует факт случайного типа
-     * @returns {Object} объект с данными факта
+     * Генерирует событие случайного типа
+     * @returns {Object} объект с данными события
      */
-    generateRandomTypeFact() {
+    generateRandomTypeEvent() {
         const randomType = this._availableTypes[Math.floor(Math.random() * this._availableTypes.length)];
-        return this.generateFact(randomType);
+        return this.generateEvent(randomType);
     }
 
 }
 
-module.exports = FactGenerator;
+module.exports = EventGenerator;

@@ -29,11 +29,9 @@ class FactMapperTest {
         this.testMapFactKeepUnmappedFieldsFalse('5. Тест маппинга с keepUnmappedFields=false...');
         this.testMapFactKeepUnmappedFieldsTrue('6. Тест маппинга с keepUnmappedFields=true...');
         this.testMapFactWithoutConfig('7. Тест маппинга без конфигурации...');
-        this.testMapFacts('8. Тест маппинга массива фактов...');
-        this.testMapFactWithMultipleFields('9. Тест маппинга факта с множественными полями...');
-        this.testMapFactsWithMultipleFields('10. Тест маппинга массива фактов с множественными полями...');
-        this.testGetMappingRulesForType('11. Тест получения правил маппинга для типа...');
-        this.testErrorHandling('12. Тест обработки ошибок...');
+        this.testMapFactWithMultipleFields('8. Тест маппинга факта с множественными полями...');
+        this.testGetMappingRulesForType('9. Тест получения правил маппинга для типа...');
+        this.testErrorHandling('10. Тест обработки ошибок...');
         
         this.printResults();
     }
@@ -137,19 +135,19 @@ class FactMapperTest {
             ];
 
             const mapper = new FactMapper(testConfig);
-            const inputFact = {
+            const inputEvent = {
                 field1: 'test_value',
                 field2: 'another_value',
                 otherField: 'ignored'
             };
 
-            const mappedFact = mapper.mapFact(inputFact, 'test_type');
+            const mappedEventData = mapper.mapEventData(inputEvent, 'test_type');
             
-            this.assert(typeof mappedFact === 'object', 'mapFact возвращает объект');
-            this.assert(mappedFact.mapped_field1 === 'test_value', 'Поле field1 корректно маппится в mapped_field1');
-            this.assert('field2' in mappedFact, 'Поле field2 сохраняется');
-            this.assert('otherField' in mappedFact, 'Другие поля сохраняются');
-            this.assert(!('field1' in mappedFact), 'Исходное поле field1 удалено после маппинга');
+            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(mappedEventData.mapped_field1 === 'test_value', 'Поле field1 корректно маппится в mapped_field1');
+            this.assert('field2' in mappedEventData, 'Поле field2 сохраняется');
+            this.assert('otherField' in mappedEventData, 'Другие поля сохраняются');
+            this.assert(!('field1' in mappedEventData), 'Исходное поле field1 удалено после маппинга');
         } catch (error) {
             this.assert(false, 'Маппинг факта', `Ошибка: ${error.message}`);
         }
@@ -175,20 +173,20 @@ class FactMapperTest {
             ];
 
             const mapper = new FactMapper(testConfig);
-            const inputFact = {
+            const inputEvent = {
                 field1: 'test_value',
                 field2: 'another_value',
                 otherField: 'ignored'
             };
 
-            const mappedFact = mapper.mapFact(inputFact, 'test_type', false);
+            const mappedEventData = mapper.mapEventData(inputEvent, 'test_type', false);
             
-            this.assert(typeof mappedFact === 'object', 'mapFact возвращает объект');
-            this.assert(mappedFact.mapped_field1 === 'test_value', 'Поле field1 корректно маппится');
-            this.assert(!('field2' in mappedFact), 'Поле field2 удалено при keepUnmappedFields=false');
-            this.assert(!('otherField' in mappedFact), 'Другие поля удалены при keepUnmappedFields=false');
-            this.assert(!('field1' in mappedFact), 'Исходное поле field1 удалено после маппинга');
-            this.assert(!('nonexistent_field' in mappedFact), 'Несуществующее поле удалено при keepUnmappedFields=false');
+            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(mappedEventData.mapped_field1 === 'test_value', 'Поле field1 корректно маппится');
+            this.assert(!('field2' in mappedEventData), 'Поле field2 удалено при keepUnmappedFields=false');
+            this.assert(!('otherField' in mappedEventData), 'Другие поля удалены при keepUnmappedFields=false');
+            this.assert(!('field1' in mappedEventData), 'Исходное поле field1 удалено после маппинга');
+            this.assert(!('nonexistent_field' in mappedEventData), 'Несуществующее поле удалено при keepUnmappedFields=false');
         } catch (error) {
             this.assert(false, 'Маппинг факта с keepUnmappedFields=false', `Ошибка: ${error.message}`);
         }
@@ -214,22 +212,22 @@ class FactMapperTest {
             ];
 
             const mapper = new FactMapper(testConfig);
-            const inputFact = {
+            const inputEvent = {
                 field1: 'test_value',
                 field2: 'another_value',
                 otherField: 'ignored'
             };
 
-            const mappedFact = mapper.mapFact(inputFact, 'test_type', true);
+            const mappedEventData = mapper.mapEventData(inputEvent, 'test_type', true);
             
-            this.assert(typeof mappedFact === 'object', 'mapFact возвращает объект');
-            this.assert(mappedFact.mapped_field1 === 'test_value', 'Поле field1 корректно маппится');
-            this.assert('field2' in mappedFact, 'Поле field2 сохраняется');
-            this.assert('otherField' in mappedFact, 'Другие поля сохраняются');
-            this.assert(!('field1' in mappedFact), 'Исходное поле field1 удалено после маппинга');
+            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(mappedEventData.mapped_field1 === 'test_value', 'Поле field1 корректно маппится');
+            this.assert('field2' in mappedEventData, 'Поле field2 сохраняется');
+            this.assert('otherField' in mappedEventData, 'Другие поля сохраняются');
+            this.assert(!('field1' in mappedEventData), 'Исходное поле field1 удалено после маппинга');
             // При keepUnmappedFields=true несуществующие поля не добавляются в результат
-            this.assert(!('nonexistent_field' in mappedFact), 'Несуществующее поле не добавляется в результат');
-            this.assert(!('mapped_nonexistent' in mappedFact), 'Целевое поле для несуществующего поля не создается');
+            this.assert(!('nonexistent_field' in mappedEventData), 'Несуществующее поле не добавляется в результат');
+            this.assert(!('mapped_nonexistent' in mappedEventData), 'Целевое поле для несуществующего поля не создается');
         } catch (error) {
             this.assert(false, 'Маппинг факта с keepUnmappedFields=true', `Ошибка: ${error.message}`);
         }
@@ -242,55 +240,22 @@ class FactMapperTest {
         this.logger.info(title);
         try {
             const mapper = new FactMapper(); // Без конфигурации
-            const inputFact = {
+            const inputEvent = {
                 field1: 'test_value',
                 field2: 'another_value',
                 otherField: 'ignored'
             };
 
-            const mappedFact = mapper.mapFact(inputFact, 'any_type');
+            const mappedEventData = mapper.mapEventData(inputEvent, 'any_type');
             
-            this.assert(typeof mappedFact === 'object', 'mapFact возвращает объект');
-            this.assert(mappedFact.field1 === 'test_value', 'Поле field1 сохраняется без изменений');
-            this.assert(mappedFact.field2 === 'another_value', 'Поле field2 сохраняется без изменений');
-            this.assert(mappedFact.otherField === 'ignored', 'Поле otherField сохраняется без изменений');
+            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(mappedEventData.field1 === 'test_value', 'Поле field1 сохраняется без изменений');
+            this.assert(mappedEventData.field2 === 'another_value', 'Поле field2 сохраняется без изменений');
+            this.assert(mappedEventData.otherField === 'ignored', 'Поле otherField сохраняется без изменений');
             // Факт должен вернуться без изменений, так как нет правил маппинга
-            this.assert(JSON.stringify(mappedFact) === JSON.stringify(inputFact), 'Факт возвращается без изменений');
+            this.assert(JSON.stringify(mappedEventData) === JSON.stringify(inputEvent), 'Факт возвращается без изменений');
         } catch (error) {
             this.assert(false, 'Маппинг факта без конфигурации', `Ошибка: ${error.message}`);
-        }
-    }
-
-    /**
-     * Тест маппинга массива фактов
-     */
-    testMapFacts(title) {
-        this.logger.info(title);
-        try {
-            const testConfig = [
-                {
-                    src: 'field1',
-                    dst: 'mapped_field1',
-                    types: ['test_type']
-                }
-            ];
-
-            const mapper = new FactMapper(testConfig);
-            const inputFacts = [
-                { field1: 'value1' },
-                { field1: 'value2' },
-                { field1: 'value3' }
-            ];
-
-            const mappedFacts = mapper.mapFacts(inputFacts, 'test_type');
-            
-            this.assert(Array.isArray(mappedFacts), 'mapFacts возвращает массив');
-            this.assert(mappedFacts.length === 3, 'Количество фактов сохраняется');
-            this.assert(mappedFacts[0].mapped_field1 === 'value1', 'Первый факт корректно маппится');
-            this.assert(mappedFacts[1].mapped_field1 === 'value2', 'Второй факт корректно маппится');
-            this.assert(mappedFacts[2].mapped_field1 === 'value3', 'Третий факт корректно маппится');
-        } catch (error) {
-            this.assert(false, 'Маппинг массива фактов', `Ошибка: ${error.message}`);
         }
     }
 
@@ -324,7 +289,7 @@ class FactMapperTest {
             ];
 
             const mapper = new FactMapper(testConfig);
-            const inputFact = {
+            const inputEvent = {
                 field1: 'value1',
                 field2: 'value2',
                 field3: 'value3',
@@ -333,94 +298,21 @@ class FactMapperTest {
                 otherField: 'ignored'
             };
 
-            const mappedFact = mapper.mapFact(inputFact, 'test_type');
+            const mappedEventData = mapper.mapEventData(inputEvent, 'test_type');
             
-            this.assert(typeof mappedFact === 'object', 'mapFact возвращает объект');
-            this.assert(mappedFact.mapped_field1 === 'value1', 'Поле field1 корректно маппится в mapped_field1');
-            this.assert(mappedFact.mapped_field2 === 'value2', 'Поле field2 корректно маппится в mapped_field2');
-            this.assert(mappedFact.mapped_field3 === 'value3', 'Поле field3 корректно маппится в mapped_field3');
-            this.assert(mappedFact.mapped_field4 === 'value4', 'Поле field4 корректно маппится в mapped_field4');
-            this.assert('field5' in mappedFact, 'Немаппированное поле field5 сохраняется');
-            this.assert('otherField' in mappedFact, 'Другие поля сохраняются');
-            this.assert(!('field1' in mappedFact), 'Исходное поле field1 удалено после маппинга');
-            this.assert(!('field2' in mappedFact), 'Исходное поле field2 удалено после маппинга');
-            this.assert(!('field3' in mappedFact), 'Исходное поле field3 удалено после маппинга');
-            this.assert(!('field4' in mappedFact), 'Исходное поле field4 удалено после маппинга');
+            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(mappedEventData.mapped_field1 === 'value1', 'Поле field1 корректно маппится в mapped_field1');
+            this.assert(mappedEventData.mapped_field2 === 'value2', 'Поле field2 корректно маппится в mapped_field2');
+            this.assert(mappedEventData.mapped_field3 === 'value3', 'Поле field3 корректно маппится в mapped_field3');
+            this.assert(mappedEventData.mapped_field4 === 'value4', 'Поле field4 корректно маппится в mapped_field4');
+            this.assert('field5' in mappedEventData, 'Немаппированное поле field5 сохраняется');
+            this.assert('otherField' in mappedEventData, 'Другие поля сохраняются');
+            this.assert(!('field1' in mappedEventData), 'Исходное поле field1 удалено после маппинга');
+            this.assert(!('field2' in mappedEventData), 'Исходное поле field2 удалено после маппинга');
+            this.assert(!('field3' in mappedEventData), 'Исходное поле field3 удалено после маппинга');
+            this.assert(!('field4' in mappedEventData), 'Исходное поле field4 удалено после маппинга');
         } catch (error) {
             this.assert(false, 'Маппинг факта с несколькими полями', `Ошибка: ${error.message}`);
-        }
-    }
-
-    /**
-     * Тест маппинга массива фактов с несколькими полями
-     */
-    testMapFactsWithMultipleFields(title) {
-        this.logger.info(title);
-        try {
-            const testConfig = [
-                {
-                    src: 'field1',
-                    dst: 'mapped_field1',
-                    types: ['test_type']
-                },
-                {
-                    src: 'field2',
-                    dst: 'mapped_field2',
-                    types: ['test_type']
-                },
-                {
-                    src: 'field3',
-                    dst: 'mapped_field3',
-                    types: ['test_type']
-                }
-            ];
-
-            const mapper = new FactMapper(testConfig);
-            const inputFacts = [
-                { 
-                    field1: 'value1_1', 
-                    field2: 'value1_2', 
-                    field3: 'value1_3',
-                    field4: 'unmapped1'
-                },
-                { 
-                    field1: 'value2_1', 
-                    field2: 'value2_2', 
-                    field3: 'value2_3',
-                    field4: 'unmapped2'
-                },
-                { 
-                    field1: 'value3_1', 
-                    field2: 'value3_2', 
-                    field3: 'value3_3',
-                    field4: 'unmapped3'
-                }
-            ];
-
-            const mappedFacts = mapper.mapFacts(inputFacts, 'test_type');
-            
-            this.assert(Array.isArray(mappedFacts), 'mapFacts возвращает массив');
-            this.assert(mappedFacts.length === 3, 'Количество фактов сохраняется');
-            
-            // Проверяем первый факт
-            this.assert(mappedFacts[0].mapped_field1 === 'value1_1', 'Первый факт: field1 корректно маппится');
-            this.assert(mappedFacts[0].mapped_field2 === 'value1_2', 'Первый факт: field2 корректно маппится');
-            this.assert(mappedFacts[0].mapped_field3 === 'value1_3', 'Первый факт: field3 корректно маппится');
-            this.assert(mappedFacts[0].field4 === 'unmapped1', 'Первый факт: немаппированное поле сохраняется');
-            
-            // Проверяем второй факт
-            this.assert(mappedFacts[1].mapped_field1 === 'value2_1', 'Второй факт: field1 корректно маппится');
-            this.assert(mappedFacts[1].mapped_field2 === 'value2_2', 'Второй факт: field2 корректно маппится');
-            this.assert(mappedFacts[1].mapped_field3 === 'value2_3', 'Второй факт: field3 корректно маппится');
-            this.assert(mappedFacts[1].field4 === 'unmapped2', 'Второй факт: немаппированное поле сохраняется');
-            
-            // Проверяем третий факт
-            this.assert(mappedFacts[2].mapped_field1 === 'value3_1', 'Третий факт: field1 корректно маппится');
-            this.assert(mappedFacts[2].mapped_field2 === 'value3_2', 'Третий факт: field2 корректно маппится');
-            this.assert(mappedFacts[2].mapped_field3 === 'value3_3', 'Третий факт: field3 корректно маппится');
-            this.assert(mappedFacts[2].field4 === 'unmapped3', 'Третий факт: немаппированное поле сохраняется');
-        } catch (error) {
-            this.assert(false, 'Маппинг массива фактов с несколькими полями', `Ошибка: ${error.message}`);
         }
     }
 
@@ -477,7 +369,7 @@ class FactMapperTest {
             
             // Тест с невалидным входным фактом
             try {
-                mapper.mapFact(null, 'type1');
+                mapper.mapEventData(null, 'type1');
                 this.assert(false, 'Обработка null факта', 'Должна была быть выброшена ошибка');
             } catch (error) {
                 this.assert(true, 'Обработка null факта', 'Ошибка корректно обработана');
@@ -485,18 +377,18 @@ class FactMapperTest {
 
             // Тест с невалидным типом факта
             try {
-                mapper.mapFact({ field1: 'test' }, null);
+                mapper.mapEventData({ field1: 'test' }, null);
                 this.assert(false, 'Обработка null типа', 'Должна была быть выброшена ошибка');
             } catch (error) {
                 this.assert(true, 'Обработка null типа', 'Ошибка корректно обработана');
             }
 
-            // Тест с невалидным массивом фактов
+            // Тест с невалидным массивом фактов (теперь проверяем mapEventData с невалидными данными)
             try {
-                mapper.mapFacts('not an array', 'type1');
-                this.assert(false, 'Обработка невалидного массива', 'Должна была быть выброшена ошибка');
+                mapper.mapEventData('not an object', 'type1');
+                this.assert(false, 'Обработка невалидного объекта', 'Должна была быть выброшена ошибка');
             } catch (error) {
-                this.assert(true, 'Обработка невалидного массива', 'Ошибка корректно обработана');
+                this.assert(true, 'Обработка невалидного объекта', 'Ошибка корректно обработана');
             }
 
             // Тест с невалидной конфигурацией при инициализации

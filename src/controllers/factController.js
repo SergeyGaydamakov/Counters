@@ -1,5 +1,5 @@
 const FactIndexer = require('../generators/factIndexer');
-const FactGenerator = require('../generators/factGenerator');
+const EventGenerator = require('../generators/eventGenerator');
 const Logger = require('../utils/logger');
 
 /**
@@ -25,7 +25,7 @@ class FactController {
         }
         
         this.dbProvider = dbProvider;
-        this.factGenerator = new FactGenerator(fieldConfigPathOrMapArray, targetSize);
+        this.eventGenerator = new EventGenerator(fieldConfigPathOrMapArray, targetSize);
         this.factIndexer = new FactIndexer(indexConfigPathOrMapArray);
     }
 
@@ -41,7 +41,7 @@ class FactController {
         }
 
         // Валидация обязательных полей факта
-        const requiredFields = ['i', 't', 'c', 'd'];
+        const requiredFields = ['_id', 't', 'c', 'd'];
         for (const field of requiredFields) {
             if (!(field in fact)) {
                 throw new Error(`Отсутствует обязательное поле факта: ${field}`);
@@ -50,7 +50,7 @@ class FactController {
 
         try {
             this.logger.debug(`\n=== Создание факта ===`);
-            this.logger.debug(`Факт ID: ${fact.i}, Тип: ${fact.t}, Дата факта: ${fact.d}, Количество: ${fact.a}, Дата создания: ${fact.c}`);
+            this.logger.debug(`Факт ID: ${fact._id}, Тип: ${fact.t}, Дата факта: ${fact.d}, Количество: ${fact.a}, Дата создания: ${fact.c}`);
 
             // Создаем индексные значения из факта
             const factIndexes = this.factIndexer.index(fact);
@@ -81,7 +81,7 @@ class FactController {
             
             // Проверяем результат сохранения факта
             if (!factResult.success) {
-                console.error('✗ Ошибка при сохранении факта:', factResult.error);
+                this.logger.error('✗ Ошибка при сохранении факта:', factResult.error);
                 return {
                     success: false,
                     factId: null,
@@ -98,7 +98,7 @@ class FactController {
 
             // Проверяем результат сохранения индексных значений
             if (!indexResult.success) {
-                console.error('✗ Ошибка при сохранении индексных значений:', indexResult.error);
+                this.logger.error('✗ Ошибка при сохранении индексных значений:', indexResult.error);
                 return {
                     success: false,
                     factId: factResult.factId,
@@ -135,7 +135,7 @@ class FactController {
             };
 
         } catch (error) {
-            console.error('✗ Критическая ошибка при создании факта:', error.message);
+            this.logger.error('✗ Критическая ошибка при создании факта:', error.message);
             
             return {
                 success: false,
@@ -193,7 +193,7 @@ class FactController {
                     results.failedFacts++;
                     results.errors.push({
                         factIndex: i,
-                        factId: fact.i,
+                        factId: fact._id,
                         error: result.error
                     });
                 }
@@ -204,7 +204,7 @@ class FactController {
                     factId: fact.i,
                     error: error.message
                 });
-                console.error(`✗ Ошибка при обработке факта ${i + 1}:`, error.message);
+                this.logger.error(`✗ Ошибка при обработке факта ${i + 1}:`, error.message);
             }
         }
 
@@ -235,18 +235,18 @@ class FactController {
 
     async run() {
         // Генерация нового случайного факта
-        const fact = this.factGenerator.generateRandomTypeFact();
-        this.logger.debug(`*** Создан новый факт ${fact.t}: ${fact.i}`);
+        const fact = this.eventGenerator.generateRandomTypeEvent();
+        this.logger.debug(`*** Создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         const factIndexHashValues = factIndexes.map(index => index.h);
 
         // Получение из базы данных релевантных фактов для вычисления счетчиков
         // и сохранение нового факта и индексных значений в базу данных
         const [relevantFacts, result] = await Promise.all([
-            this.dbProvider.getRelevantFacts(factIndexHashValues, fact.i, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
+            this.dbProvider.getRelevantFacts(factIndexHashValues, fact._id, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
             this.saveFact(fact)
         ]);
-        this.logger.debug(`*** Обработан новый факт ${fact.t}: ${fact.i}`);
+        this.logger.debug(`*** Обработан новый факт ${fact.t}: ${fact._id}`);
         
         // this.factGenerator.printFactStatistics(relevantFacts);
         // this.logger.debug(result);
