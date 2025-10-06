@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 // const path = require('path');
 const Logger = require('../utils/logger');
@@ -10,7 +11,7 @@ const Logger = require('../utils/logger');
  * @property {Object} generator - Конфигурация генератора значений для атрибута события
  * @property {string} generator.type - Тип генератора значений
  * @property {Object} generator.params - Параметры генератора значений
- * @property {boolean} unique_key - Если true, то атрибут является уникальным ключом и будет использоваться как _id в факте
+ * @property {number} key_type - Если 1 или 2, то атрибут является уникальным ключом и будет использоваться как _id в факте
  */
 
 /**
@@ -27,6 +28,11 @@ const Logger = require('../utils/logger');
  * 
  */
 class FactMapper {
+    KEY_TYPE_NONE = 0;  // Поле не является ключом (значение по умолчанию, если отсутствует)
+    KEY_TYPE_HASH = 1;  // Тип ключа факта является хешом от типа и значения поля
+    KEY_TYPE_VALUE = 2; // Тип ключа факта является конкатенацией типа и значения поля
+    HASH_ALGORITHM = 'sha1';    // Алгоритм хеширования
+
     constructor(configPathOrMapArray = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this._mappingConfig = [];
@@ -115,6 +121,33 @@ class FactMapper {
     }
 
     /**
+     * Хеш функция для создания уникального индекса из типа и значения поля
+     * @param {number|string} factType - тип факта
+     * @param {string} factValue - значение факта
+     * @returns {string} SHA-256 хеш в hex формате
+     */
+    _hash(factType, keyValue) {
+        const input = `${factType}:${keyValue}`;
+        return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('hex');
+    }
+
+    /**
+     * Получение идентификатора факта
+     * 
+     */
+    getFactId(event) {
+        let factId = null;
+        this._mappingConfig.filter(rule => rule.event_types.includes(event.t)).forEach(rule => {
+            if (rule.key_type === this.KEY_TYPE_HASH) {
+                factId = this._hash(event.t, event.d[rule.src]);
+            } else if (rule.key_type === this.KEY_TYPE_VALUE) {
+                factId = `${event.t}:${String(event.d[rule.src])}`;
+            }
+        });
+        return factId;
+    }
+
+    /**
      * Преобразует входное событие во внутреннюю сохраняемую структуру факта
      * @param {Object} event - Входное событие для преобразования
      * @param {boolean} keepUnmappedFields - Если true, поля, не найденные в правилах маппинга, сохраняются в результате. Если false, такие поля удаляются из результата. По умолчанию true.
@@ -122,20 +155,13 @@ class FactMapper {
      */
     mapEventToFact(event, keepUnmappedFields=true){
         const fact = {
-            _id: null,
+            _id: this.getFactId(event),
             t: event.t,
             c: new Date(), // дата и время создания объекта
             d: this.mapEventData(event.d, event.t, keepUnmappedFields),
         };
-        // Находим имя поле с уникальным идентификатором события и устанавливаем его значение в поле _id
-        this._mappingConfig.forEach(rule => {
-            if (rule.unique_key) {
-                // Приводим к строке, чтобы избежать ошибки при создании индекса в MongoDB
-                fact._id = String(event.d[rule.src]);
-            }
-        });
         if (fact._id === null) {
-            throw new Error(`В описании полей события с типом ${event.t} не указан уникальный ключ (поле с атрибутом unique_key: true). \n${JSON.stringify(this._mappingConfig)}`);
+            throw new Error(`В описании полей события с типом ${event.t} не указан ключ (поле с атрибутом key_type: 1 или key_type: 2). \n${JSON.stringify(this._mappingConfig)}`);
         }
         return fact;
     }

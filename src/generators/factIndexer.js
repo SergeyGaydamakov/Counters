@@ -26,6 +26,10 @@ const Logger = require('../utils/logger');
  * 
  */
 class FactIndexer {
+    INDEX_VALUE_HASH = 1;       // Значение индекса является хешом от типа индекса и значения поля
+    INDEX_VALUE_VALUE = 2;      // Значение индекса является само значением поля индекса
+    HASH_ALGORITHM = 'sha1';    // Алгоритм хеширования
+
     constructor(configPathOrMapArray = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         try {
@@ -184,9 +188,9 @@ class FactIndexer {
      * @param {string} indexValue - значение поля (f)
      * @returns {string} SHA-256 хеш в hex формате
      */
-    hash(indexType, indexValue) {
+    _hash(indexType, indexValue) {
         const input = `${indexType}:${indexValue}`;
-        return crypto.createHash('sha256').update(input).digest('hex');
+        return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('hex');
     }
 
     /**
@@ -250,12 +254,12 @@ class FactIndexer {
                 let indexValue;
                 
                 // Вычисляем значение индекса в зависимости от indexValue
-                if (configItem.indexValue === 1) {
+                if (configItem.indexValue === this.INDEX_VALUE_HASH) {
                     // Хеш от типа индекса и значения поля
-                    indexValue = this.hash(configItem.indexTypeName, fact.d[fieldName]);
-                } else if (configItem.indexValue === 2) {
+                    indexValue = this._hash(configItem.indexType, fact.d[fieldName]);
+                } else if (configItem.indexValue === this.INDEX_VALUE_VALUE) {
                     // Само значение поля
-                    indexValue = fact.d[fieldName];
+                    indexValue = `${configItem.indexType}:${String(fact.d[fieldName])}`;
                 } else {
                     throw new Error(`Неподдерживаемое значение indexValue: ${configItem.indexValue}`);
                 }

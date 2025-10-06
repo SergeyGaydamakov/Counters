@@ -114,11 +114,13 @@ try {
     // Параметры создания коллекции для производственной среды
     const productionCreateOptions = {
         validator: factsSchema,
+        /* Замедляет работу
         clusteredIndex: {
             key: { "_id": 1 },
             unique: true,
             name: "facts clustered key" 
         },
+        */
         validationLevel: "off",
         validationAction: "warn"
     };
@@ -261,11 +263,13 @@ try {
     // Параметры создания коллекции для производственной среды
     const productionCreateOptions = {
         validator: factIndexSchema,
+        /* Замедляет работу
         clusteredIndex: {
             key: { "_id": 1 },
             unique: true,
             name: "factIndex clustered key"
         },
+        */
         validationLevel: "off",
         validationAction: "warn"
     };
@@ -385,8 +389,8 @@ function CreateShardZones(databaseName) {
             namespace: databaseName + ".facts",
             keys: [
                 { _id: MinKey },
-                { _id: ObjectId("555555555555555555555555") },
-                { _id: ObjectId("AAAAAAAAAAAAAAAAAAAAAAAA") },
+                { _id: "5555555555555555555555555555555555555555" },
+                { _id: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
                 { _id: MaxKey }
             ]
         },

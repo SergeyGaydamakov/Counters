@@ -49,7 +49,7 @@ class MongoProviderTest {
                     default_value: "1234567890",
                     default_random: 0.1
                 },
-                unique_key: true
+                key_type: 1
             },
             {
                 src: "f2",

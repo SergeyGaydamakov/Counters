@@ -79,7 +79,7 @@ class FactIndexerTest {
                 "src": "f1",
                 "dst": "f1",
                 "event_types": [1, 2, 3], // user_action, system_event, payment
-                "unique_key": true
+                "key_type": 1
             },
             {
                 "src": "f2",
@@ -186,15 +186,15 @@ class FactIndexerTest {
             const f5Index = indexValues.find(iv => iv.v === 'value5');
 
             // f1 должен иметь хеш (indexValue = 1), f5 должен иметь само значение (indexValue = 2)
-            if (f1Index._id.h.length !== 64) {
-                throw new Error(`f1 должен иметь хеш длиной 64 символа, получено ${f1Index._id.h.length}`);
+            if (f1Index._id.h.length !== 40) {
+                throw new Error(`f1 должен иметь хеш длиной 40 символов, получено ${f1Index._id.h.length}`);
             }
-            if (f5Index._id.h !== 'value5') {
+            if (f5Index._id.h !== '5:value5') {
                 throw new Error(`f5 должен иметь само значение поля, получено ${f5Index._id.h}`);
             }
 
             // f2 должен иметь само значение поля (indexValue = 2)
-            if (f2Index._id.h !== 'value2') {
+            if (f2Index._id.h !== '2:value2') {
                 throw new Error(`f2 должен иметь само значение поля, получено ${f2Index._id.h}`);
             }
 
@@ -272,14 +272,14 @@ class FactIndexerTest {
 
             hashFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.v === val);
-                if (indexValue._id.h.length !== 64) {
-                    throw new Error(`Поле ${val} должно иметь хеш длиной 64 символа, получено ${indexValue._id.h.length}`);
+                if (indexValue._id.h.length !== 40) {
+                    throw new Error(`Поле ${val} должно иметь хеш длиной 40 символов, получено ${indexValue._id.h.length}`);
                 }
             });
 
             valueFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.v === val);
-                if (indexValue._id.h !== val) {
+                if (indexValue._id.h !== `${indexValue.it}:${val}`) {
                     throw new Error(`Поле ${val} должно иметь само значение, получено ${indexValue._id.h}`);
                 }
             });

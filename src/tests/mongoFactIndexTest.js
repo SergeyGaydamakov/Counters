@@ -83,7 +83,7 @@ class MongoFactIndexTest {
                 "src": "f1",
                 "dst": "f1",
                 "event_types": [1, 2, 3],
-                "unique_key": true
+                "key_type": 1
             },
             {
                 "src": "f2",
