@@ -77,19 +77,26 @@ class FactController {
         this.logger.debug(`*** Для события ${event.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         const factIndexHashValues = factIndexes.map(index => index.h);
-        const [relevantFacts, factResult, indexResult] = await Promise.all([
+        const startTime = Date.now();
+        const [relevantFactsResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFacts(factIndexHashValues, fact._id, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
             this.dbProvider.saveFact(fact),
             this.dbProvider.saveFactIndexList(factIndexes)
         ]);
         return {
             fact,
-            relevantFacts,
-            factResult,
-            indexResult
+            relevantFacts: relevantFactsResult.result,
+            saveFactResult: factResult.result,
+            saveIndexResult: indexResult.result,
+            processingTime: {
+                total: Date.now() - startTime,
+                relevantFacts: relevantFactsResult.processingTime,
+                saveFact: factResult.processingTime,
+                saveIndex: indexResult.processingTime,
+            }
         };
     }
-    
+
     /**
      * Обрабатывает событие: получает релевантные факты, сохраняет факт и индексные значения в базу данных
      * @param {Object} event - событие
@@ -100,19 +107,25 @@ class FactController {
         this.logger.debug(`*** Для события ${event.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         const factIndexHashValues = factIndexes.map(index => index.h);
-        const [factCounters, factResult, indexResult] = await Promise.all([
+        const startTime = Date.now();
+        const [factCountersResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFactCounters(factIndexHashValues, fact._id, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
             this.dbProvider.saveFact(fact),
             this.dbProvider.saveFactIndexList(factIndexes)
         ]);
         return {
             fact,
-            factCounters,
-            factResult,
-            indexResult
+            counters: factCountersResult.result,
+            saveFactResult: factResult.result,
+            saveIndexResult: indexResult.result,
+            processingTime: {
+                total: Date.now() - startTime,
+                counters: factCountersResult.processingTime,
+                saveFact: factResult.processingTime,
+                saveIndex: indexResult.processingTime,
+            }
         };
     }
-
 }
 
 module.exports = FactController;

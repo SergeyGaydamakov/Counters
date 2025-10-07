@@ -61,6 +61,62 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 async function main(){
+    function initProcessingTime(){
+        return {
+            total: {
+                min: 1000000,
+                max: 0,
+                total: 0
+            },
+            relevantFacts: {
+                min: 1000000,
+                max: 0,
+                total: 0
+            },
+            counters: {
+                min: 1000000,
+                max: 0,
+                total: 0
+            },
+            saveFact: {
+                min: 1000000,
+                max: 0,
+                total: 0
+            },
+            saveIndex: {
+                min: 1000000,
+                max: 0,
+                total: 0
+            },
+            count: 0
+        };
+    }
+    function updateProcessingTime(processingTime, result){
+        processingTime.total.total += result.processingTime.total;
+        processingTime.total.min = Math.min(processingTime.total.min, result.processingTime.total);
+        processingTime.total.max = Math.max(processingTime.total.max, result.processingTime.total);
+        processingTime.relevantFacts.total += result.processingTime.relevantFacts;
+        processingTime.relevantFacts.min = Math.min(processingTime.relevantFacts.min, result.processingTime.relevantFacts);
+        processingTime.relevantFacts.max = Math.max(processingTime.relevantFacts.max, result.processingTime.relevantFacts);
+        processingTime.counters.total += result.processingTime.counters;
+        processingTime.counters.min = Math.min(processingTime.counters.min, result.processingTime.counters);
+        processingTime.counters.max = Math.max(processingTime.counters.max, result.processingTime.counters);
+        processingTime.saveFact.total += result.processingTime.saveFact;
+        processingTime.saveFact.min = Math.min(processingTime.saveFact.min, result.processingTime.saveFact);
+        processingTime.saveFact.max = Math.max(processingTime.saveFact.max, result.processingTime.saveFact);
+        processingTime.saveIndex.total += result.processingTime.saveIndex;
+        processingTime.saveIndex.min = Math.min(processingTime.saveIndex.min, result.processingTime.saveIndex);
+        processingTime.saveIndex.max = Math.max(processingTime.saveIndex.max, result.processingTime.saveIndex);
+        processingTime.count++;
+        return processingTime;
+    }
+    function printProcessingTime(processingTime){
+        logger.info(`✓ Время обработки ${processingTime.count} фактов (avg / min / max): ${Math.round(processingTime.total.total/ processingTime.count)} мсек / ${processingTime.total.min} мсек / ${processingTime.total.max} мсек`);
+        // logger.info(`✓ Время обработки релевантных фактов: ${Math.round(processingTime.relevantFacts.total/ processingTime.count)} миллисекунд`);
+        logger.info(`✓ Время расчета счетчиков (avg / min / max): ${Math.round(processingTime.counters.total/ processingTime.count)} мсек / ${processingTime.counters.min} мсек / ${processingTime.counters.max} мсек`);
+        logger.info(`✓ Время сохранения факта (avg / min / max): ${Math.round(processingTime.saveFact.total/ processingTime.count)} мсек / ${processingTime.saveFact.min} мсек / ${processingTime.saveFact.max} мсек`);
+        logger.info(`✓ Время сохранения индекса (avg / min / max): ${Math.round(processingTime.saveIndex.total/ processingTime.count)} мсек / ${processingTime.saveIndex.min} мсек / ${processingTime.saveIndex.max} мсек`);
+    }
     try {
         let factCount = 0;
         // Создаем провайдер данных
@@ -71,15 +127,22 @@ async function main(){
         const factController = new FactController(mongoProvider, fieldConfigPath, indexConfigPath, targetSize);
         const CYCLE_OUTPUT = 100;
         let startCycleTime = Date.now();
+        let processingTime = initProcessingTime();
         // Функция с бесконечным циклом запуска run
         async function run(){
-            await factController.runWithCounters();
+            const result = await factController.runWithCounters();
+            // Подсчитываем минимальное, максимальное и среднее время обработки фактов
+            processingTime = updateProcessingTime(processingTime, result);
+
             factCount++;
             if (factCount % CYCLE_OUTPUT === 0) {
                 logger.info(`✓ Создано ${factCount} фактов`);
                 logger.info(`✓ Скорость создания фактов: ${Math.round(CYCLE_OUTPUT / (Date.now() - startCycleTime) * 1000)} фактов в секунду`);
                 logger.info(`✓ Время обработки 1 факта: ${Math.round((Date.now() - startCycleTime)/ CYCLE_OUTPUT)} миллисекунд`);
                 logger.info("");
+                printProcessingTime(processingTime);
+                logger.info("");
+                processingTime = initProcessingTime();
                 startCycleTime = Date.now();
             }
             setTimeout(async () => {

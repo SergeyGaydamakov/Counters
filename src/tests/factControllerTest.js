@@ -264,7 +264,8 @@ class FactControllerTest {
             const testFactIndexValues = this.controller.factIndexer.index(testFact);
             const testFactIndexHashValues = testFactIndexValues.map(index => index._id.h);
             const excludedFact = testFacts[1];
-            const relevantFacts = await this.provider.getRelevantFacts(testFactIndexHashValues, excludedFact._id);
+            const factsResult = await this.provider.getRelevantFacts(testFactIndexHashValues, excludedFact._id);
+            const relevantFacts = factsResult.result;
 
             // Проверяем, что relevantFacts содержит существующие факты
             if (relevantFacts.length === 0) {

@@ -140,6 +140,7 @@ class MongoProvider {
             throw new Error('fact должен быть объектом');
         }
 
+        const startTime = Date.now();
         try {
             const filter = { _id: fact._id };
             const updateOperation = { $set: fact };
@@ -198,21 +199,13 @@ class MongoProvider {
                 factInserted: wasInserted ? 1 : 0,
                 factUpdated: wasUpdated ? 1 : 0,
                 factIgnored: wasIgnored ? 1 : 0,
+                processingTime: Date.now() - startTime,
                 result: result
             };
 
         } catch (error) {
             this.logger.error('✗ Ошибка при upsert операции факта:', error.message);
-
-            return {
-                success: false,
-                factId: null,
-                factInserted: 0,
-                factUpdated: 0,
-                factIgnored: 0,
-                error: error.message,
-                result: null
-            };
+            throw error;
         }
     }
 
@@ -242,6 +235,7 @@ class MongoProvider {
 
         }
 
+        const startTime = Date.now();
         try {
             this.logger.debug(`Начинаем обработку ${factIndexValues.length} индексных значений...`);
 
@@ -262,10 +256,10 @@ class MongoProvider {
 
             factIndexValues.forEach(indexValue => {
                 const indexFilter = {
-                    _id: indexValue._id 
+                    _id: indexValue._id
                 };
                 indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
-                this.logger.debug("   indexValue: "+JSON.stringify(indexValue));
+                this.logger.debug("   indexValue: " + JSON.stringify(indexValue));
             });
 
             const indexResult = await indexBulk.execute(bulkWriteOptions);
@@ -289,7 +283,8 @@ class MongoProvider {
                 inserted: inserted,
                 updated: updated,
                 duplicatesIgnored: duplicatesIgnored,
-                errors: indexResult.writeErrors || []
+                errors: indexResult.writeErrors || [],
+                processingTime: Date.now() - startTime,
             };
 
         } catch (error) {
@@ -305,7 +300,8 @@ class MongoProvider {
      */
     async getRelevantFacts(indexHashValues, factId = undefined, depthLimit = 1000, depthFromDate = undefined) {
         this.checkConnection();
-
+        const startTime = Date.now();
+        
         this.logger.debug(`Получение релевантных фактов для факта ${factId} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id
@@ -358,7 +354,10 @@ class MongoProvider {
         this.logger.debug(`✓ Получено ${result.length} фактов`);
         // this.logger.debug(JSON.stringify(result, null, 2));
         // Возвращаем массив фактов
-        return result;
+        return {
+            result: result,
+            processingTime: Date.now() - startTime,
+        };
     }
 
     /**
@@ -368,6 +367,7 @@ class MongoProvider {
      */
     async getRelevantFactCounters(indexHashValues, factId = undefined, depthLimit = 1000, depthFromDate = undefined) {
         this.checkConnection();
+        const startTime = Date.now();
 
         this.logger.debug(`Получение релевантных фактов для факта ${factId} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
         // Сформировать агрегирующий запрос к коллекции factIndex,
@@ -399,13 +399,16 @@ class MongoProvider {
 
         // Если нет релевантных индексных значений, возвращаем пустую статистику
         if (factIndexResult.length === 0) {
-            return [{
-                total: [{ count: 0, sumA: 0 }],
-                lastWeek: [{ count: 0, sumA: 0 }],
-                lastHour: [{ count: 0, sumA: 0 }],
-                lastDay: [{ count: 0, sumA: 0 }],
-                conditionLastHour: [{ totalSum: 0 }]
-            }];
+            return {
+                result: [{
+                    total: [{ count: 0, sumA: 0 }],
+                    lastWeek: [{ count: 0, sumA: 0 }],
+                    lastHour: [{ count: 0, sumA: 0 }],
+                    lastDay: [{ count: 0, sumA: 0 }],
+                    conditionLastHour: [{ totalSum: 0 }]
+                }],
+                processingTime: Date.now() - startTime,
+            };
         }
 
         // Сформировать агрегирующий запрос к коллекции facts,
@@ -514,17 +517,23 @@ class MongoProvider {
 
         // Если результат пустой, возвращаем пустую статистику
         if (result.length === 0) {
-            return [{
-                total: [{ count: 0, sumA: 0 }],
-                lastWeek: [{ count: 0, sumA: 0 }],
-                lastHour: [{ count: 0, sumA: 0 }],
-                lastDay: [{ count: 0, sumA: 0 }],
-                conditionLastHour: [{ totalSum: 0 }]
-            }];
+            return {
+                result: [{
+                    total: [{ count: 0, sumA: 0 }],
+                    lastWeek: [{ count: 0, sumA: 0 }],
+                    lastHour: [{ count: 0, sumA: 0 }],
+                    lastDay: [{ count: 0, sumA: 0 }],
+                    conditionLastHour: [{ totalSum: 0 }],
+                }],
+                processingTime: Date.now() - startTime,
+            };
         }
 
         // Возвращаем массив статистики
-        return result;
+        return {
+            result: result,
+            processingTime: Date.now() - startTime,
+        };
     }
 
 
@@ -784,10 +793,12 @@ class MongoProvider {
                 // Параметры создания коллекции для производственной среды
                 const productionCreateOptions = {
                     validator: schema,
+                    /* Замедляет работу
                     clusteredIndex: {
                         key: { "_id": 1 },
                         unique: true
                     },
+                    */
                     validationLevel: "off",
                     validationAction: "warn"
                 };
@@ -978,10 +989,12 @@ class MongoProvider {
                 // Параметры создания коллекции для производственной среды
                 const productionCreateOptions = {
                     validator: schema,
+                    /* Замедляет работу
                     clusteredIndex: {
                         key: { "_id": 1, "d": 1 },
                         unique: true
                     },
+                    */
                     validationLevel: "off",
                     validationAction: "warn"
                 };

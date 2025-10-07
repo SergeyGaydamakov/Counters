@@ -949,7 +949,9 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id);
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id);
+            const relevantFacts = factsResult.result;
+            
             // Проверяем результаты
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1058,7 +1060,8 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id);
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id);
+            const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1153,7 +1156,8 @@ class MongoProviderTest {
             // Тестируем поиск - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact._id);
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact._id);
+            const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1246,7 +1250,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact._id, 2);
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact._id, 2);
+            const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1347,7 +1352,8 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id, undefined, cutoffDate);
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id, undefined, cutoffDate);
+            const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1456,7 +1462,8 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const relevantFacts = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id, 1, cutoffDate);
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact._id, 1, cutoffDate);
+            const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1564,7 +1571,8 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
+            const counters = countersResult.result;
 
             // Проверяем результаты
             if (!Array.isArray(counters)) {
@@ -1693,7 +1701,8 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i);
+            const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1920,7 +1929,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i, 2);
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i, 2);
+            const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
                 throw new Error('Метод должен возвращать массив');
@@ -2046,7 +2056,8 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, undefined, cutoffDate);
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, undefined, cutoffDate);
+            const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
                 throw new Error('Метод должен возвращать массив');
@@ -2167,7 +2178,8 @@ class MongoProviderTest {
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, 1, cutoffDate);
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact.i, 1, cutoffDate);
+            const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
                 throw new Error('Метод должен возвращать массив');
