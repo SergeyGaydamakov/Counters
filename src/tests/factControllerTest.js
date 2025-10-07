@@ -1,6 +1,6 @@
 const { MongoProvider, FactController} = require('../index');
 const Logger = require('../utils/logger');
-const EnvConfig = require('../utils/envConfig');
+const config = require('../utils/config');
 
 /**
  * Тесты для всех методов FactController
@@ -95,9 +95,8 @@ class FactControllerTest {
     ];
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
-        const mongoConfig = EnvConfig.getMongoConfig();
         this.provider = new MongoProvider(
-            mongoConfig.connectionString,
+            config.database.connectionString,
             'factControllerTestDB'
         );
 
@@ -170,12 +169,12 @@ class FactControllerTest {
                 throw new Error('Результат должен содержать поле relevantFacts');
             }
 
-            if (!result.factResult) {
-                throw new Error('Результат должен содержать поле factResult');
+            if (!result.saveFactResult) {
+                throw new Error('Результат должен содержать поле saveFactResult');
             }
 
-            if (!result.indexResult) {
-                throw new Error('Результат должен содержать поле indexResult');
+            if (!result.saveIndexResult) {
+                throw new Error('Результат должен содержать поле saveIndexResult');
             }
 
             // Проверяем структуру сгенерированного факта
@@ -323,8 +322,8 @@ class FactControllerTest {
             // Проверяем, что все результаты корректны
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
-                if (!result.fact || !result.relevantFacts || !result.factResult || !result.indexResult) {
-                    throw new Error(`Результат ${i + 1} должен содержать все обязательные поля`);
+                if (!result.fact || !result.relevantFacts || !result.saveFactResult || !result.saveIndexResult) {
+                    throw new Error(`Результат ${i + 1} должен содержать все обязательные поля: ${JSON.stringify(result)}`);
                 }
             }
 
@@ -421,7 +420,7 @@ class FactControllerTest {
             }
 
             // Проверяем наличие обязательных полей в результате
-            const requiredFields = ['fact', 'relevantFacts', 'factResult', 'indexResult'];
+            const requiredFields = ['fact', 'relevantFacts', 'saveFactResult', 'saveIndexResult'];
             for (const field of requiredFields) {
                 if (!(field in result)) {
                     throw new Error(`Отсутствует обязательное поле: ${field}`);
@@ -446,14 +445,14 @@ class FactControllerTest {
                 throw new Error('Поле relevantFacts должно быть массивом');
             }
 
-            // Проверяем, что factResult содержит информацию о сохранении
-            if (!result.factResult || typeof result.factResult !== 'object') {
-                throw new Error('Поле factResult должно быть объектом');
+            // Проверяем, что saveFactResult содержит информацию о сохранении
+            if (!result.saveFactResult || typeof result.saveFactResult !== 'object') {
+                throw new Error('Поле saveFactResult должно быть объектом');
             }
 
-            // Проверяем, что indexResult содержит информацию о сохранении индексов
-            if (!result.indexResult || typeof result.indexResult !== 'object') {
-                throw new Error('Поле indexResult должно быть объектом');
+            // Проверяем, что saveIndexResult содержит информацию о сохранении индексов
+            if (!result.saveIndexResult || typeof result.saveIndexResult !== 'object') {
+                throw new Error('Поле saveIndexResult должно быть объектом');
             }
 
             this.testResults.passed++;
@@ -496,7 +495,7 @@ class FactControllerTest {
             }
 
             // Проверяем наличие обязательных полей в результате
-            const requiredFields = ['fact', 'factCounters', 'factResult', 'indexResult'];
+            const requiredFields = ['fact', 'counters', 'saveFactResult', 'saveIndexResult'];
             for (const field of requiredFields) {
                 if (!(field in result)) {
                     throw new Error(`Отсутствует обязательное поле: ${field}`);
@@ -516,19 +515,19 @@ class FactControllerTest {
                 }
             }
 
-            // Проверяем, что factCounters является массивом
-            if (!Array.isArray(result.factCounters)) {
-                throw new Error('Поле factCounters должно быть массивом');
+            // Проверяем, что counters является массивом
+            if (!Array.isArray(result.counters)) {
+                throw new Error('Поле counters должно быть массивом');
             }
 
-            // Проверяем, что factResult содержит информацию о сохранении
-            if (!result.factResult || typeof result.factResult !== 'object') {
-                throw new Error('Поле factResult должно быть объектом');
+            // Проверяем, что saveFactResult содержит информацию о сохранении
+            if (!result.saveFactResult || typeof result.saveFactResult !== 'object') {
+                throw new Error('Поле saveFactResult должно быть объектом');
             }
 
-            // Проверяем, что indexResult содержит информацию о сохранении индексов
-            if (!result.indexResult || typeof result.indexResult !== 'object') {
-                throw new Error('Поле indexResult должно быть объектом');
+            // Проверяем, что saveIndexResult содержит информацию о сохранении индексов
+            if (!result.saveIndexResult || typeof result.saveIndexResult !== 'object') {
+                throw new Error('Поле saveIndexResult должно быть объектом');
             }
 
             this.testResults.passed++;

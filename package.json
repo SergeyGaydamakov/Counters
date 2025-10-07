@@ -4,8 +4,7 @@
   "description": "MongoDB performance testing with fact generation",
   "main": "src/index.js",
   "scripts": {
-    "test": "set LOG_LEVEL=DEBUG && node src/tests/testEnvConfig.js && node src/tests/loggerTest.js && node src/tests/factIndexerTest.js && node src/tests/mongoProviderTest.js && node src/tests/factControllerTest.js && node src/tests/mongoFactIndexTest.js && node src/tests/factMapperTest.js && node src/tests/factGeneratorTest.js",
-    "test:env": "set LOG_LEVEL=DEBUG && node src/tests/testEnvConfig.js",
+    "test": "set LOG_LEVEL=DEBUG && node src/tests/loggerTest.js && node src/tests/factIndexerTest.js && node src/tests/mongoProviderTest.js && node src/tests/factControllerTest.js && node src/tests/mongoFactIndexTest.js && node src/tests/factMapperTest.js && node src/tests/factGeneratorTest.js",
     "test:logger": "set LOG_LEVEL=DEBUG && node src/tests/loggerTest.js",
     "test:mongo": "set LOG_LEVEL=DEBUG && node src/tests/mongoProviderTest.js",
     "test:controller": "set LOG_LEVEL=DEBUG && node src/tests/factControllerTest.js",
@@ -13,17 +12,27 @@
     "test:mongo-index": "set LOG_LEVEL=DEBUG && node src/tests/mongoFactIndexTest.js",
     "test:mapper": "set LOG_LEVEL=DEBUG && node src/tests/factMapperTest.js",
     "test:generator": "set LOG_LEVEL=DEBUG && node src/tests/eventGeneratorTest.js",
-    "start": "set LOG_LEVEL=INFO && node src/start.js"
+    "start": "set LOG_LEVEL=INFO && node src/start.js",
+    "start:web": "set LOG_LEVEL=INFO && node src/web/cluster.js",
+    "start:worker": "set LOG_LEVEL=INFO && node src/web/worker.js",
+    "test:api": "set LOG_LEVEL=INFO && node src/tests/webTest.js"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
     "mongodb": "^6.0.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^7.1.5"
   },
   "keywords": [
     "mongodb",
     "performance",
-    "testing"
+    "testing",
+    "web-service",
+    "cluster"
   ],
   "author": "",
   "license": "MIT"

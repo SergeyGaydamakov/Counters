@@ -1,6 +1,6 @@
 const { MongoProvider, EventGenerator, FactIndexer, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
-const EnvConfig = require('../utils/envConfig');
+const config = require('../utils/config');
 
 /**
  * Тесты для всех методов MongoProvider
@@ -8,9 +8,8 @@ const EnvConfig = require('../utils/envConfig');
 class MongoProviderTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
-        const mongoConfig = EnvConfig.getMongoConfig();
         this.provider = new MongoProvider(
-            mongoConfig.connectionString,
+            config.database.connectionString,
             'mongoProviderTestDB'
         );
         
@@ -1814,7 +1813,8 @@ class MongoProviderTest {
             // Тестируем получение счетчиков - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const counters = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i);
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact.i);
+            const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
                 throw new Error('Метод должен возвращать массив');

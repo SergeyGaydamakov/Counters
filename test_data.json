@@ -1,0 +1,10 @@
+{
+  "userId": "user123",
+  "productId": "prod456",
+  "amount": 99.99,
+  "currency": "USD",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "metadata": {
+    "source": "api_test"
+  }
+}

@@ -223,6 +223,7 @@ class MongoProvider {
             throw new Error('factIndexValues должен быть массивом');
         }
 
+        const startTime = Date.now();
         if (factIndexValues.length === 0) {
             return {
                 success: true,
@@ -230,12 +231,12 @@ class MongoProvider {
                 inserted: 0,
                 updated: 0,
                 duplicatesIgnored: 0,
-                errors: []
+                errors: [],
+                processingTime: Date.now() - startTime,
             };
 
         }
 
-        const startTime = Date.now();
         try {
             this.logger.debug(`Начинаем обработку ${factIndexValues.length} индексных значений...`);
 
@@ -301,7 +302,7 @@ class MongoProvider {
     async getRelevantFacts(indexHashValues, factId = undefined, depthLimit = 1000, depthFromDate = undefined) {
         this.checkConnection();
         const startTime = Date.now();
-        
+
         this.logger.debug(`Получение релевантных фактов для факта ${factId} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id

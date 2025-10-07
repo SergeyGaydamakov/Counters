@@ -87,7 +87,7 @@ class FactController {
             fact,
             relevantFacts: relevantFactsResult.result,
             saveFactResult: factResult.result,
-            saveIndexResult: indexResult.result,
+            saveIndexResult: indexResult,
             processingTime: {
                 total: Date.now() - startTime,
                 relevantFacts: relevantFactsResult.processingTime,
@@ -117,7 +117,7 @@ class FactController {
             fact,
             counters: factCountersResult.result,
             saveFactResult: factResult.result,
-            saveIndexResult: indexResult.result,
+            saveIndexResult: indexResult,
             processingTime: {
                 total: Date.now() - startTime,
                 counters: factCountersResult.processingTime,

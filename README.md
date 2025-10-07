@@ -1,6 +1,6 @@
 # MongoDB Performance Testing with FactGenerate
 
-Проект для тестирования производительности MongoDB с использованием генерации случайных тестовых данных.
+Проект для тестирования производительности MongoDB с использованием генерации случайных тестовых данных и высоконагруженного Web сервиса.
 
 ## Структура проекта
 
@@ -8,22 +8,30 @@
 src/
 ├── index.js                    # Главный файл экспорта модулей
 ├── generators/                 # Классы генерации данных
-│   ├── FactGenerate.js        # Класс для генерации случайных фактов
-│   ├── FactIndexer.js         # Класс для создания индексов из фактов
-│   └── MongoFactGenerate.js   # Класс для работы с MongoDB и массовой генерации данных
-├── providers/                  # Провайдеры для работы с базами данных
-│   └── MongoProvider.js       # Провайдер для работы с MongoDB
+│   ├── eventGenerator.js      # Генератор событий
+│   ├── factIndexer.js         # Класс для создания индексов из фактов
+│   └── factMapper.js          # Маппер событий в факты
+├── controllers/                # Контроллеры
+│   └── factController.js      # Контроллер для обработки фактов
+├── db-providers/              # Провайдеры для работы с базами данных
+│   └── mongoProvider.js       # Провайдер для работы с MongoDB
+├── web/                       # Web сервис
+│   ├── cluster.js             # Master процесс кластера
+│   ├── worker.js              # Worker процесс
+│   ├── config.js              # Конфигурация
+│   ├── routes.js              # API маршруты
+│   ├── middleware.js          # Express middleware
+│   ├── test-api.js            # Тестирование API
+│   └── examples.js            # Примеры использования API
 ├── tests/                      # Тестовые файлы
-│   ├── factTest.js            # Тесты для FactGenerate
+│   ├── factControllerTest.js  # Тесты для FactController
 │   ├── factIndexerTest.js     # Тесты для FactIndexer
-│   ├── mongoFactTest.js       # Тесты для MongoFactGenerate
-│   ├── mongoFactIndexTest.js # Тесты для работы с индексными значениями в MongoDB
+│   ├── mongoProviderTest.js   # Тесты для MongoProvider
+│   ├── mongoFactIndexTest.js  # Тесты для работы с индексными значениями в MongoDB
 │   └── loggerTest.js          # Тесты для системы логирования Logger
-└── examples/                   # Примеры использования
-    ├── factControllerQuickExample.js # Быстрый пример использования FactController
-    ├── factIndexerExample.js   # Пример использования FactIndexer
-    ├── mongoProviderExample.js # Пример использования MongoProvider
-    └── mongoFactIndexExample.js # Пример работы с индексными значениями в MongoDB
+└── utils/                      # Утилиты
+    ├── logger.js              # Система логирования
+    └── envConfig.js           # Конфигурация окружения
 ```
 
 ## Установка
@@ -124,15 +132,81 @@ async function example() {
 }
 ```
 
+## Web сервис
+
+Высоконагруженный Web сервис для обработки событий с использованием Node.js cluster.
+
+### Запуск Web сервиса
+
+```bash
+# Запуск кластера (рекомендуется)
+npm run start:web
+
+# Запуск одного воркера (для разработки)
+npm run start:worker
+
+# Тестирование API
+npm run test:api
+```
+
+### API Endpoints
+
+#### Health Check
+```
+GET /health
+```
+
+#### Обработка JSON событий
+```
+POST /api/v1/event/{eventType}/json
+```
+
+**Пример запроса:**
+```bash
+curl -X POST http://localhost:3000/api/v1/event/purchase/json \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user123",
+    "productId": "prod456",
+    "amount": 99.99,
+    "currency": "USD"
+  }'
+```
+
+#### Обработка IRIS событий (заглушка)
+```
+POST /api/v1/event/{eventType}/iris
+```
+
+### Конфигурация Web сервиса
+
+Создайте файл `.env` на основе `src/web/env.example`:
+
+```bash
+# Основные настройки
+WEB_PORT=3000
+CLUSTER_WORKERS=4
+LOG_LEVEL=INFO
+
+# MongoDB настройки
+MONGODB_CONNECTION_STRING=mongodb://localhost:27017
+MONGODB_DATABASE_NAME=counters
+
+# Настройки фактов
+FACT_FIELD_CONFIG_PATH=../fieldConfig.json
+INDEX_CONFIG_PATH=../indexConfig.json
+FACT_TARGET_SIZE=500
+```
+
 ## Запуск тестов
 
 ### Использование npm скриптов (рекомендуется)
 ```bash
-npm test                # Тесты FactGenerate
+npm test                # Тесты FactController
 npm run test:mongo      # Тесты MongoDB (требует запущенный MongoDB)
 npm run test:logger     # Тесты системы логирования Logger
-npm run example:mongo   # Пример использования MongoProvider
-npm run example:controller # Быстрый пример FactController
+npm run test:api        # Тесты Web API
+npm run start:web       # Запуск Web сервиса
 ```
 
 ### Прямой запуск

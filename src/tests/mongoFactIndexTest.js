@@ -1,6 +1,6 @@
 const { MongoProvider, FactIndexer, EventGenerator, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
-const EnvConfig = require('../utils/envConfig');
+const config = require('../utils/config');
 
 /**
  * Тесты для работы с индексными значениями фактов в MongoDB
@@ -8,9 +8,8 @@ const EnvConfig = require('../utils/envConfig');
 class MongoFactIndexTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
-        const mongoConfig = EnvConfig.getMongoConfig();
         this.provider = new MongoProvider(
-            mongoConfig.connectionString,
+            config.database.connectionString,
             'factTestDB'
         );
 
