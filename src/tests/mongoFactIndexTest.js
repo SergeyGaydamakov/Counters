@@ -1,6 +1,6 @@
 const { MongoProvider, FactIndexer, MessageGenerator, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
-const config = require('../utils/config');
+const config = require('../common/config');
 
 /**
  * Тесты для работы с индексными значениями фактов в MongoDB
@@ -8,9 +8,11 @@ const config = require('../utils/config');
 class MongoFactIndexTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
+        const DATABASE_NAME = 'factTestDB';
+        this.logger.info(`Starting MongoFactIndex tests... ${config.database.connectionString} ${DATABASE_NAME}`);
         this.provider = new MongoProvider(
             config.database.connectionString,
-            'factTestDB'
+            DATABASE_NAME
         );
 
         this.testIndexConfig = [
@@ -304,20 +306,20 @@ class MongoFactIndexTest {
      * Вывод результатов тестирования
      */
     printResults() {
-        this.logger.debug('\n=== Результаты тестирования индексных значений фактов в MongoDB ===');
-        this.logger.debug(`Пройдено: ${this.testResults.passed}`);
-        this.logger.debug(`Провалено: ${this.testResults.failed}`);
+        this.logger.info('\n=== Результаты тестирования индексных значений фактов в MongoDB ===');
+        this.logger.info(`Пройдено: ${this.testResults.passed}`);
+        this.logger.info(`Провалено: ${this.testResults.failed}`);
         
         if (this.testResults.errors.length > 0) {
-            this.logger.debug('\nОшибки:');
+            this.logger.error('\nОшибки:');
             this.testResults.errors.forEach(error => {
-                this.logger.debug(`  - ${error}`);
+                this.logger.error(`  - ${error}`);
             });
         }
         
         const total = this.testResults.passed + this.testResults.failed;
         const successRate = total > 0 ? (this.testResults.passed / total * 100).toFixed(1) : 0;
-        this.logger.debug(`\nПроцент успеха: ${successRate}%`);
+        this.logger.info(`\nПроцент успеха: ${successRate}%`);
     }
 }
 

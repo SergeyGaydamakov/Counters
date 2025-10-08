@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
+const {ERROR_WRONG_MESSAGE_TYPE} = require('../common/errors')
 
 /**
  * Класс для генерации случайных тестовых данных
@@ -485,7 +486,9 @@ class MessageGenerator {
      */
     generateMessage(type) {
         if (!this._availableTypes.includes(type)) {
-            throw new Error(`Тип сообщения "${type}" не найден в конфигурации. Доступные типы: ${this._availableTypes.join(', ')}`);
+            const error = new Error(`Тип сообщения "${type}" не найден в конфигурации. Доступные типы сообщений: ${this._availableTypes.join(', ')}`);
+            error.code = ERROR_WRONG_MESSAGE_TYPE;
+            throw error;
         }
         const message = {
             t: type

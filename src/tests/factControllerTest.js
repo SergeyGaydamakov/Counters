@@ -1,6 +1,6 @@
-const { MongoProvider, FactController} = require('../index');
+const { MongoProvider, FactController } = require('../index');
 const Logger = require('../utils/logger');
-const config = require('../utils/config');
+const config = require('../common/config');
 
 /**
  * Тесты для всех методов FactController
@@ -128,6 +128,8 @@ class FactControllerTest {
             await this.testRunMultipleTimes('4. Тест многократного выполнения...');
             await this.testRunWithEmptyDatabase('5. Тест выполнения с пустой базой данных...');
             await this.testRunErrorHandling('6. Тест обработки ошибок...');
+
+            await this.testRunProcessMessage('7. Тест обработки реального сообщения...');
 
             // Отключение от базы данных
             await this.provider.disconnect();
@@ -394,7 +396,7 @@ class FactControllerTest {
      */
     async testProcessMessage(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем базу данных перед тестом
             await this.provider.clearFactsCollection();
@@ -469,7 +471,7 @@ class FactControllerTest {
      */
     async testProcessMessageWithCounters(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем базу данных перед тестом
             await this.provider.clearFactsCollection();
@@ -577,23 +579,127 @@ class FactControllerTest {
     }
 
     /**
+      * Тест 7: Обработка ошибок в методе processMessage
+      */
+    async testRunProcessMessage(title) {
+        this.logger.debug(title);
+
+        try {
+            const realController = new FactController(this.provider, config.facts.fieldConfigPath, config.facts.indexConfigPath, config.facts.targetSize);
+            const message = {
+                "t": 1,
+                "d": {
+                    "MessageId": "b9dfef143335323448e67f44",
+                    "acc_identification_flag": 6268268,
+                    "acc_prepaid": false,
+                    "agreement": 5041469,
+                    "custom_auth_limit": 859138,
+                    "dst_client_id": "11111111111111111111",
+                    "fid_md": 2310595,
+                    "from_ros": 2905896,
+                    "grade": 2650440,
+                    "inn": "TXZzGzSh",
+                    "INN_recepient": "VAQSeHtsVigH",
+                    "insurance_activity": 9573280,
+                    "ip_address": "GNQgmvnMpiUyxr",
+                    "kir_flg": 4819562,
+                    "md_agreement_rosbank_flag": 1000,
+                    "md_fid01": 5565295,
+                    "md_fid01.2": 6896493,
+                    "md_fid02": 6064396,
+                    "md_fid02.2": 7076603,
+                    "md_fid03": 1000,
+                    "md_fid04": 1000,
+                    "md_fid08.1": 7733285,
+                    "md_fid08.2": 1076386,
+                    "md_fid08.3": 3899740,
+                    "md_fid09": 6142205,
+                    "md_fid10": 1000,
+                    "md_fid11": 3976599,
+                    "md_fid15": 603956,
+                    "md_fid15.2": 7102240,
+                    "md_fid16": 8643628,
+                    "md_fid16.2": 4360033,
+                    "md_rosbank_userAgent": "KZWsPlfQVjPyORbBDwyYxX",
+                    "monthly_limit": 7427157,
+                    "msgMode": "GMymyrafEqGLZFTcdDb",
+                    "organization_id": "bXjrtPERrjEd",
+                    "p_dstCardNumber": "IttFD",
+                    "p_dstClientId": "MZagaxbeIf",
+                    "p_dstOrganisationID": "gLKSTshxppWRtdy",
+                    "pan": "XSjPwSsCYQiHitFwiwDFlYFgi",
+                    "PAN": "yISacfuHuQL",
+                    "pe_aml_status": 7375493,
+                    "pe_birthdate_dst": "2024-12-07T11:51:13.717Z",
+                    "pe_child_flag": 3428079,
+                    "pe_drop_flag": 558231,
+                    "pe_dst_aml_status": 3670127,
+                    "pe_parent_flag": 9302796,
+                    "pe_phone_dst": "ZOVKGWK",
+                    "pe_pm_client_id": "ifIl",
+                    "pe_pm_flag_num": 3238726,
+                    "pe_rosbank_private_flag": 7125692,
+                    "pe_vip_flag_2_phone": 5181013,
+                    "ph_segment": 9114887,
+                    "phone": "YgKTFlAPVlqM",
+                    "receiver_acc_and_bik": "YtaWLbVtGlLMvZiD",
+                    "rosbank_risk_flag1": 461762,
+                    "rosbank_risk_flag2": 7425118,
+                    "rosbank_risk_flag3": 1000,
+                    "s_client_id": "zjGpcWcIxLrbYSrGxN",
+                    "s_organization_id": "oIHKySHianxOTuWJei",
+                    "subscription": 5318922,
+                    "subscription_date": "2024-03-03T15:23:42.090Z",
+                    "sum_credlimit": 369334,
+                    "timestamp": "2024-06-21T22:59:54.182Z",
+                    "vul_flg": false
+                }
+            };
+
+            const processResult = await realController.processMessage(message);
+            if (!processResult || typeof processResult !== 'object') {
+                throw new Error('processMessage должен возвращать объект: ' + processResult);
+            }
+            if (!processResult.saveFactResult || typeof processResult.saveFactResult !== 'object') {
+                throw new Error('Поле saveFactResult должно быть объектом: ' + processResult.saveFactResult);
+            }
+            if (!processResult.saveIndexResult || typeof processResult.saveIndexResult !== 'object') {
+                throw new Error('Поле saveIndexResult должно быть объектом: ' + processResult.saveIndexResult);
+            }
+            if (!processResult.saveFactResult) {
+                throw new Error('Ошибка при сохранении факта: ' + JSON.stringify(processResult.saveFactResult));
+            }
+            if (!processResult.saveIndexResult) {
+                throw new Error('Ошибка при сохранении индексных значений: ' + JSON.stringify(processResult.saveIndexResult));
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push({ test: 'testRunErrorHandling', error: error.message });
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
      * Вывод результатов тестирования
      */
     printResults() {
-        this.logger.debug('\n=== Результаты тестирования FactController ===');
-        this.logger.debug(`Пройдено: ${this.testResults.passed}`);
-        this.logger.debug(`Провалено: ${this.testResults.failed}`);
+        this.logger.info('\n=== Результаты тестирования FactController ===');
+        this.logger.info(`Пройдено: ${this.testResults.passed}`);
+        this.logger.info(`Провалено: ${this.testResults.failed}`);
 
         if (this.testResults.errors.length > 0) {
-            this.logger.debug('\nОшибки:');
+            this.logger.error('\nОшибки:');
             for (const error of this.testResults.errors) {
-                this.logger.debug(`  - ${error.test}: ${error.error}`);
+                this.logger.error(`  - ${error.test}: ${error.error}`);
             }
         }
 
         const totalTests = this.testResults.passed + this.testResults.failed;
         const successRate = totalTests > 0 ? (this.testResults.passed / totalTests * 100).toFixed(1) : 0;
-        this.logger.debug(`\nПроцент успеха: ${successRate}%`);
+        this.logger.info(`\nПроцент успеха: ${successRate}%`);
     }
 }
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const Logger = require('../utils/logger');
+const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
@@ -37,13 +38,15 @@ function createRoutes(factController) {
             const { messageType } = req.params;
             const messageData = req.body;
 
-            logger.debug('Message processing - request data:', {
+            /*
+            logger.info('Message processing - request data:', {
                 messageType,
                 messageData,
                 messageDataType: typeof messageData,
                 isArray: Array.isArray(messageData),
                 bodyKeys: messageData ? Object.keys(messageData) : 'no keys'
             });
+            */
 
             // Валидация входных данных
             if (!messageType || messageType.trim() === '') {
@@ -129,6 +132,64 @@ function createRoutes(factController) {
             messageType,
             timestamp: new Date().toISOString()
         });
+    });
+
+    // GET /api/v1/message/{messageType}/json
+    apiV1.get('/message/:messageType/json', (req, res) => {
+        try {
+            const { messageType } = req.params;
+            
+            logger.debug('Message generation request:', {
+                messageType,
+                messageTypeType: typeof messageType
+            });
+
+            // Валидация входных данных
+            if (!messageType || messageType.trim() === '') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Неверный параметр messageType',
+                    message: 'messageType не может быть пустым'
+                });
+            }
+
+            // Преобразуем messageType в число
+            const messageTypeNumber = parseInt(messageType.trim());
+            if (isNaN(messageTypeNumber)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Неверный формат messageType',
+                    message: 'messageType должен быть числом'
+                });
+            }
+
+            // Генерируем сообщение указанного типа
+            const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
+            
+            logger.info(`Сообщение типа ${messageTypeNumber} успешно сгенерировано`);
+
+            res.json(generatedMessage.d);
+
+        } catch (error) {
+            logger.error(`Ошибка генерации сообщения типа ${req.params.messageType}:`, {
+                error: error.message,
+                stack: error.stack
+            });
+
+            if (error.code === ERROR_WRONG_MESSAGE_TYPE) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Ошибка генерации сообщения',
+                    message: error.message
+                });
+            }
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка генерации сообщения',
+                message: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
     });
 
     // Подключаем API v1 к основному роутеру

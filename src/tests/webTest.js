@@ -200,6 +200,54 @@ class ApiTester {
     }
 
     /**
+     * Тестирует генерацию сообщения по типу (GET)
+     */
+    async testGenerateMessage(messageType = '1') {
+        this.logger.info(`🔍 Тестирование генерации сообщения типа: ${messageType}`);
+        
+        try {
+            const response = await this.makeRequest('GET', `/api/v1/message/${messageType}/json`);
+            
+            if (response.statusCode === 200) {
+                this.logger.info('✅ Сообщение успешно сгенерировано', {
+                    messageType: response.data.messageType,
+                    hasMessage: !!response.data.message,
+                    messageStructure: response.data.message ? Object.keys(response.data.message) : 'N/A'
+                });
+                return true;
+            } else {
+                this.logger.error('❌ Ошибка генерации сообщения', response);
+                return false;
+            }
+        } catch (error) {
+            this.logger.error('❌ Ошибка генерации сообщения:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Тестирует генерацию сообщения несуществующего типа (должна вернуть 400)
+     */
+    async testGenerateInvalidMessage() {
+        this.logger.info('🔍 Тестирование генерации сообщения несуществующего типа...');
+        
+        try {
+            const response = await this.makeRequest('GET', '/api/v1/message/999/json');
+            
+            if (response.statusCode === 400) {
+                this.logger.info('✅ Валидация несуществующего типа работает корректно', response.data);
+                return true;
+            } else {
+                this.logger.error('❌ Неожиданный ответ для несуществующего типа', response);
+                return false;
+            }
+        } catch (error) {
+            this.logger.error('❌ Ошибка тестирования несуществующего типа:', error.message);
+            return false;
+        }
+    }
+
+    /**
      * Запускает все тесты
      */
     async runAllTests() {
@@ -210,7 +258,9 @@ class ApiTester {
             { name: 'JSON Message', fn: () => this.testJsonMessage() },
             { name: 'IRIS Message', fn: () => this.testIrisMessage() },
             { name: '404 Not Found', fn: () => this.testNotFound() },
-            { name: 'Invalid JSON', fn: () => this.testInvalidJson() }
+            { name: 'Invalid JSON', fn: () => this.testInvalidJson() },
+            { name: 'Generate Message', fn: () => this.testGenerateMessage() },
+            { name: 'Generate Invalid Message', fn: () => this.testGenerateInvalidMessage() }
         ];
 
         const results = [];

@@ -96,8 +96,8 @@ class FactController {
         ]);
         return {
             fact,
-            relevantFacts: relevantFactsResult.result,
-            saveFactResult: factResult.result,
+            relevantFacts: relevantFactsResult?.result,
+            saveFactResult: factResult?.result,
             saveIndexResult: indexResult,
             processingTime: {
                 total: Date.now() - startTime,

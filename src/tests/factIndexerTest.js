@@ -756,20 +756,20 @@ class FactIndexerTest {
      * Вывод результатов тестирования
      */
     printResults() {
-        this.logger.debug('\n=== Результаты тестирования FactIndexer ===');
-        this.logger.debug(`Пройдено: ${this.testResults.passed}`);
-        this.logger.debug(`Провалено: ${this.testResults.failed}`);
+        this.logger.info('\n=== Результаты тестирования FactIndexer ===');
+        this.logger.info(`Пройдено: ${this.testResults.passed}`);
+        this.logger.info(`Провалено: ${this.testResults.failed}`);
 
         if (this.testResults.errors.length > 0) {
-            this.logger.debug('\nОшибки:');
+            this.logger.error('\nОшибки:');
             this.testResults.errors.forEach(error => {
-                this.logger.debug(`  - ${error}`);
+                this.logger.error(`  - ${error}`);
             });
         }
 
         const total = this.testResults.passed + this.testResults.failed;
         const successRate = total > 0 ? (this.testResults.passed / total * 100).toFixed(1) : 0;
-        this.logger.debug(`\nПроцент успеха: ${successRate}%`);
+        this.logger.info(`\nПроцент успеха: ${successRate}%`);
     }
 }
 

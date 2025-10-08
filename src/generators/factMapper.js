@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 // const path = require('path');
 const Logger = require('../utils/logger');
+const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG, ERROR_WRONG_KEY_TYPE } = require('../common/errors');
 
 /**
  * Формат файла fieldConfigs.json
@@ -132,19 +133,55 @@ class FactMapper {
     }
 
     /**
+     * Валидация структуры сообщения
+     */
+    _validateMessageAndGetFactId(message) {
+        if (!message || typeof message !== 'object') {
+            const error = new Error('Входное сообщение должно быть объектом. Полный объект: ' + message);
+            error.code = ERROR_WRONG_MESSAGE_STRUCTURE;
+            throw error;
+        }
+        if (!message.t || typeof message.t !== 'number') {
+            const error = new Error('Тип сообщения должен быть целым числом. Полученное значение: ' + message.t);
+            error.code = ERROR_WRONG_MESSAGE_STRUCTURE;
+            throw error;
+        }
+        if (!message.d || typeof message.d !== 'object') {
+            const error = new Error('Данные сообщения должны быть объектом. Полученное значение: ' + message.d);
+            error.code = ERROR_WRONG_MESSAGE_STRUCTURE;
+            throw error;
+        }
+        return this.getFactId(message);
+    }
+
+    /**
      * Получение идентификатора факта
      * 
      */
     getFactId(message) {
-        let factId = null;
-        this._mappingConfig.filter(rule => rule.message_types.includes(message.t)).forEach(rule => {
-            if (rule.key_type === this.KEY_TYPE_HASH) {
-                factId = this._hash(message.t, message.d[rule.src]);
-            } else if (rule.key_type === this.KEY_TYPE_VALUE) {
-                factId = `${message.t}:${String(message.d[rule.src])}`;
-            }
-        });
-        return factId;
+        // Нужно проверить, что все поля, которые используются в маппинге, присутствуют в сообщении
+        const keyRules = this._mappingConfig.filter(rule => rule.message_types.includes(message.t) && [this.KEY_TYPE_HASH, this.KEY_TYPE_VALUE].includes(rule.key_type));
+        if (!keyRules.length) {
+            const error = new Error(`В конфигурации полей сообщения для типа ${message.t} не найден ключ (поле с атрибутом key_type: 1 или key_type: 2). Маппинг не будет выполняться.`);
+            error.code = ERROR_MISSING_KEY_IN_CONFIG;
+            throw error;
+        }
+        // Нужно найти ключевое поле в сообщении
+        const keyRule = keyRules.find(rule => message.d[rule.src]);
+        if (!keyRule) {
+            const error = new Error(`В сообщении типа ${message.t} не найдено ключевое поле: ${keyRules.map(rule => rule.src).join(', ')}.`);
+            error.code = ERROR_MISSING_KEY_IN_MESSAGE;
+            throw error;
+        }
+        // Получаем идентификатор факта
+        if (keyRule.key_type === this.KEY_TYPE_HASH) {
+            return this._hash(message.t, message.d[keyRule.src]);
+        } else if (keyRule.key_type === this.KEY_TYPE_VALUE) {
+            return `${message.t}:${String(message.d[keyRule.src])}`;
+        }
+        const error = new Error(`Неподдерживаемый тип ключа: ${keyRule.key_type}. Маппинг не будет выполняться.`);
+        error.code = ERROR_WRONG_KEY_TYPE;
+        throw error;
     }
 
     /**
@@ -154,15 +191,13 @@ class FactMapper {
      * @returns {Object} Преобразованный факт во внутренней структуре
      */
     mapMessageToFact(message, keepUnmappedFields=true){
+        const factId = this._validateMessageAndGetFactId(message);
         const fact = {
-            _id: this.getFactId(message),
+            _id: factId,
             t: message.t,
             c: new Date(), // дата и время создания объекта
             d: this.mapMessageData(message.d, message.t, keepUnmappedFields),
         };
-        if (fact._id === null) {
-            throw new Error(`В описании полей сообщения с типом ${message.t} не указан ключ (поле с атрибутом key_type: 1 или key_type: 2). \n${JSON.stringify(this._mappingConfig)}`);
-        }
         return fact;
     }
 

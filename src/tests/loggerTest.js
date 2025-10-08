@@ -458,9 +458,9 @@ class LoggerTest {
      * Вывод результатов тестирования
      */
     printResults() {
-        this.logger.debug('\n=== Результаты тестирования Logger ===');
-        this.logger.debug(`Пройдено: ${this.testResults.passed}`);
-        this.logger.debug(`Провалено: ${this.testResults.failed}`);
+        this.logger.info('\n=== Результаты тестирования Logger ===');
+        this.logger.info(`Пройдено: ${this.testResults.passed}`);
+        this.logger.info(`Провалено: ${this.testResults.failed}`);
         
         if (this.testResults.errors.length > 0) {
         this.logger.error('\nОшибки:');
@@ -470,10 +470,10 @@ class LoggerTest {
         }
         
         const successRate = this.testResults.passed / (this.testResults.passed + this.testResults.failed) * 100;
-        this.logger.debug(`\nПроцент успеха: ${successRate.toFixed(1)}%`);
+        this.logger.info(`\nПроцент успеха: ${successRate.toFixed(1)}%`);
         
         if (this.testResults.failed === 0) {
-            this.logger.debug('🎉 Все тесты прошли успешно!');
+            this.logger.info('🎉 Все тесты прошли успешно!');
         } else {
             this.logger.error(`⚠ ${this.testResults.failed} тестов провалено`);
         }

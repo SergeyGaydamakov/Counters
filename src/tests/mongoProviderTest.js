@@ -1,6 +1,6 @@
 const { MongoProvider, MessageGenerator, FactIndexer, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
-const config = require('../utils/config');
+const config = require('../common/config');
 
 /**
  * Тесты для всех методов MongoProvider
@@ -2233,20 +2233,20 @@ class MongoProviderTest {
      * Вывод результатов тестирования
      */
     printResults() {
-        this.logger.debug('\n=== Результаты тестирования MongoProvider ===');
-        this.logger.debug(`Пройдено: ${this.testResults.passed}`);
-        this.logger.debug(`Провалено: ${this.testResults.failed}`);
+        this.logger.info('\n=== Результаты тестирования MongoProvider ===');
+        this.logger.info(`Пройдено: ${this.testResults.passed}`);
+        this.logger.info(`Провалено: ${this.testResults.failed}`);
         
         if (this.testResults.errors.length > 0) {
-            this.logger.debug('\nОшибки:');
+            this.logger.error('\nОшибки:');
             this.testResults.errors.forEach(error => {
-                this.logger.debug(`  - ${error}`);
+                this.logger.error(`  - ${error}`);
             });
         }
         
         const total = this.testResults.passed + this.testResults.failed;
         const successRate = total > 0 ? (this.testResults.passed / total * 100).toFixed(1) : 0;
-        this.logger.debug(`\nПроцент успеха: ${successRate}%`);
+        this.logger.info(`\nПроцент успеха: ${successRate}%`);
     }
 }
 

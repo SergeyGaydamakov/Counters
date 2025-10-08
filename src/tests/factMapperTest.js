@@ -32,6 +32,7 @@ class FactMapperTest {
         this.testMapFactWithMultipleFields('8. Тест маппинга факта с множественными полями...');
         this.testGetMappingRulesForType('9. Тест получения правил маппинга для типа...');
         this.testErrorHandling('10. Тест обработки ошибок...');
+        this.testMessageValidation('11. Тест валидации входящего сообщения для mapMessageToFact...');
         
         this.printResults();
     }
@@ -401,6 +402,145 @@ class FactMapperTest {
 
         } catch (error) {
             this.assert(false, 'Обработка ошибок', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест валидации входящего сообщения для mapMessageToFact
+     */
+    testMessageValidation(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'id',
+                    dst: 'fact_id',
+                    message_types: [1001],
+                    key_type: 1 // HASH key type
+                },
+                {
+                    src: 'name',
+                    dst: 'fact_name',
+                    message_types: [1001]
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+
+            // Тест 1: null сообщение
+            try {
+                mapper.mapMessageToFact(null);
+                this.assert(false, 'Валидация null сообщения', 'Должна была быть выброшена ошибка для null');
+            } catch (error) {
+                this.assert(error.message.includes('Входное сообщение должно быть объектом'), 
+                    'Валидация null сообщения', 'Корректная ошибка для null сообщения');
+            }
+
+            // Тест 2: undefined сообщение
+            try {
+                mapper.mapMessageToFact(undefined);
+                this.assert(false, 'Валидация undefined сообщения', 'Должна была быть выброшена ошибка для undefined');
+            } catch (error) {
+                this.assert(error.message.includes('Входное сообщение должно быть объектом'), 
+                    'Валидация undefined сообщения', 'Корректная ошибка для undefined сообщения');
+            }
+
+            // Тест 3: не объект (строка)
+            try {
+                mapper.mapMessageToFact('not an object');
+                this.assert(false, 'Валидация строки как сообщения', 'Должна была быть выброшена ошибка для строки');
+            } catch (error) {
+                this.assert(error.message.includes('Входное сообщение должно быть объектом'), 
+                    'Валидация строки как сообщения', 'Корректная ошибка для строки');
+            }
+
+            // Тест 4: не объект (число)
+            try {
+                mapper.mapMessageToFact(123);
+                this.assert(false, 'Валидация числа как сообщения', 'Должна была быть выброшена ошибка для числа');
+            } catch (error) {
+                this.assert(error.message.includes('Входное сообщение должно быть объектом'), 
+                    'Валидация числа как сообщения', 'Корректная ошибка для числа');
+            }
+
+            // Тест 5: отсутствует поле t (тип сообщения)
+            try {
+                mapper.mapMessageToFact({ d: { id: 'test', name: 'test' } });
+                this.assert(false, 'Валидация отсутствия поля t', 'Должна была быть выброшена ошибка для отсутствующего поля t');
+            } catch (error) {
+                this.assert(error.message.includes('Тип сообщения должен быть целым числом'), 
+                    'Валидация отсутствия поля t', 'Корректная ошибка для отсутствующего поля t');
+            }
+
+            // Тест 6: поле t не является числом
+            try {
+                mapper.mapMessageToFact({ t: 'not a number', d: { id: 'test', name: 'test' } });
+                this.assert(false, 'Валидация нечислового поля t', 'Должна была быть выброшена ошибка для нечислового поля t');
+            } catch (error) {
+                this.assert(error.message.includes('Тип сообщения должен быть целым числом'), 
+                    'Валидация нечислового поля t', 'Корректная ошибка для нечислового поля t');
+            }
+
+            // Тест 7: поле t является null
+            try {
+                mapper.mapMessageToFact({ t: null, d: { id: 'test', name: 'test' } });
+                this.assert(false, 'Валидация null поля t', 'Должна была быть выброшена ошибка для null поля t');
+            } catch (error) {
+                this.assert(error.message.includes('Тип сообщения должен быть целым числом'), 
+                    'Валидация null поля t', 'Корректная ошибка для null поля t');
+            }
+
+            // Тест 8: отсутствует поле d (данные сообщения)
+            try {
+                mapper.mapMessageToFact({ t: 1001 });
+                this.assert(false, 'Валидация отсутствия поля d', 'Должна была быть выброшена ошибка для отсутствующего поля d');
+            } catch (error) {
+                this.assert(error.message.includes('Данные сообщения должны быть объектом'), 
+                    'Валидация отсутствия поля d', 'Корректная ошибка для отсутствующего поля d');
+            }
+
+            // Тест 9: поле d не является объектом
+            try {
+                mapper.mapMessageToFact({ t: 1001, d: 'not an object' });
+                this.assert(false, 'Валидация необъектного поля d', 'Должна была быть выброшена ошибка для необъектного поля d');
+            } catch (error) {
+                this.assert(error.message.includes('Данные сообщения должны быть объектом'), 
+                    'Валидация необъектного поля d', 'Корректная ошибка для необъектного поля d');
+            }
+
+            // Тест 10: поле d является null
+            try {
+                mapper.mapMessageToFact({ t: 1001, d: null });
+                this.assert(false, 'Валидация null поля d', 'Должна была быть выброшена ошибка для null поля d');
+            } catch (error) {
+                this.assert(error.message.includes('Данные сообщения должны быть объектом'), 
+                    'Валидация null поля d', 'Корректная ошибка для null поля d');
+            }
+
+            // Тест 11: валидное сообщение должно проходить валидацию
+            try {
+                const validMessage = { t: 1001, d: { id: 'test123', name: 'Test Name' } };
+                const result = mapper.mapMessageToFact(validMessage);
+                this.assert(result && typeof result === 'object', 'Валидация корректного сообщения', 'Корректное сообщение должно проходить валидацию');
+                this.assert(result._id !== null, 'Генерация ID для корректного сообщения', 'ID должен быть сгенерирован для корректного сообщения');
+                this.assert(result.t === 1001, 'Сохранение типа сообщения', 'Тип сообщения должен сохраняться');
+                this.assert(result.d && typeof result.d === 'object', 'Сохранение данных сообщения', 'Данные сообщения должны сохраняться');
+            } catch (error) {
+                this.assert(false, 'Валидация корректного сообщения', `Ошибка при обработке корректного сообщения: ${error.message}`);
+            }
+
+            // Тест 12: сообщение без ключевого поля (отсутствует поле для генерации _id)
+            try {
+                const messageWithoutKey = { t: 1001, d: { name: 'Test Name' } }; // отсутствует поле 'id'
+                mapper.mapMessageToFact(messageWithoutKey);
+                this.assert(false, 'Валидация сообщения без ключевого поля', 'Должна была быть выброшена ошибка для сообщения без ключевого поля');
+            } catch (error) {
+                this.assert(error.message.includes('не указан ключ'), 
+                    'Валидация сообщения без ключевого поля', 'Корректная ошибка для сообщения без ключевого поля');
+            }
+
+        } catch (error) {
+            this.assert(false, 'Валидация входящего сообщения', `Ошибка: ${error.message}`);
         }
     }
 

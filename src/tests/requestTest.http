@@ -1,16 +1,111 @@
-###
+#
+# Запуск запроса на выполнение Ctrl+Shift+O
+# Ctrl+Alt+H
+#
+@host = localhost:3000
+@login = 1
+@password = 1
+
+# Тип сообщения
+@messageType = 2
 
 
-# Health check
-curl http://localhost:3000/health
+### Health check
+GET http://{{host}}/health
 
-# Обработка события
-curl -X POST http://localhost:3000/api/v1/message/1/json \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userId": "user123",
-    "productId": "prod456",
-    "amount": 99.99,
-    "currency": "USD"
-  }'
+### Генерация сообщения типа 1
+# @name newMessage
+GET http://{{host}}/api/v1/message/{{messageType}}/json
+
+### Обработка сообщения типа 1
+
+@processedMessage = {{newMessage.response.body.$}}
+POST http://{{host}}/api/v1/message/{{messageType}}/json
+Content-Type: application/json
+
+{{processedMessage}}
+
+### Обработка сообщения типа 1
+POST http://{{host}}/api/v1/message/1/json
+Content-Type: application/json
+
+{
+    "MessageId": "1e2f63841e9fbea668e68832",
+    "acc_identification_flag": 1000,
+    "acc_prepaid": false,
+    "agreement": 1000,
+    "custom_auth_limit": 1000,
+    "dst_client_id": "ZQhYClA",
+    "fid_md": 1000,
+    "from_ros": 8579521,
+    "grade": 92791,
+    "inn": "PbpMhelLISNEv",
+    "INN_recepient": "AufzrzfAwc",
+    "insurance_activity": 9336780,
+    "ip_address": "AWbCdqHJZFj",
+    "kir_flg": 1000,
+    "md_agreement_rosbank_flag": 5784330,
+    "md_fid01": 1000,
+    "md_fid01.2": 1504285,
+    "md_fid02": 5760850,
+    "md_fid02.2": 2202780,
+    "md_fid03": 7484933,
+    "md_fid04": 8633290,
+    "md_fid08.1": 2025269,
+    "md_fid08.2": 1000,
+    "md_fid08.3": 9591313,
+    "md_fid09": 1007326,
+    "md_fid10": 3745525,
+    "md_fid11": 3053738,
+    "md_fid15": 986823,
+    "md_fid15.2": 3947106,
+    "md_fid16": 3878886,
+    "md_fid16.2": 7593227,
+    "md_rosbank_userAgent": "11111111111111111111",
+    "monthly_limit": 1126849,
+    "msgMode": "BygSfxSuugyBocfX",
+    "organization_id": "OhWVZYyyPRF",
+    "p_dstCardNumber": "HJv",
+    "p_dstClientId": "fyotHYtGHFYfEhUqHIHBwZ",
+    "p_dstOrganisationID": "YqybHOxIhzIRfpqbk",
+    "pan": "ApaxoNCp",
+    "PAN": "APxmCkSAGgLz",
+    "pe_aml_status": 4801163,
+    "pe_birthdate_dst": "2024-10-10T11:35:40.753Z",
+    "pe_child_flag": 3823825,
+    "pe_drop_flag": 8423561,
+    "pe_dst_aml_status": 1978279,
+    "pe_parent_flag": 3616571,
+    "pe_phone_dst": "kNEmy",
+    "pe_pm_client_id": "aHOjhGmYOVv",
+    "pe_pm_flag_num": 4287917,
+    "pe_rosbank_private_flag": 5292035,
+    "pe_vip_flag_2_phone": 7153399,
+    "ph_segment": 4078799,
+    "phone": "dOgIp",
+    "receiver_acc_and_bik": "bijyty",
+    "rosbank_risk_flag1": 4914738,
+    "rosbank_risk_flag2": 8833656,
+    "rosbank_risk_flag3": 52819,
+    "s_client_id": "eFxpEYeilSTZtjWEk",
+    "s_organization_id": "FkRFJIAElZlyw",
+    "subscription": 5095931,
+    "subscription_date": "2024-07-22T06:20:28.636Z",
+    "sum_credlimit": 6760985,
+    "timestamp": "2024-09-26T14:18:25.203Z",
+    "vul_flg": true
+}
+
+
+### Генерация сообщения типа 1
+GET http://{{host}}/api/v1/message/1/json
+
+### Генерация сообщения типа 9 (геолокация)
+GET http://{{host}}/api/v1/message/9/json
+
+### Генерация сообщения несуществующего типа (должна вернуть 400)
+GET http://{{host}}/api/v1/message/999/json
+
+### Генерация сообщения с неверным форматом (должна вернуть 400)
+GET http://{{host}}/api/v1/message/abc/json
 

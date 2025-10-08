@@ -5,7 +5,7 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const Logger = require('../utils/logger');
 const { MongoProvider, FactController } = require('../index');
-const config = require('../utils/config');
+const config = require('../common/config');
 const { createRoutes } = require('./routes');
 const { 
     requestLogger, 
@@ -69,7 +69,7 @@ app.use(express.urlencoded({
 }));
 
 // Middleware для добавления метаданных к ответу
-app.use(responseMetadata);
+// app.use(responseMetadata);
 
 // Middleware для логирования запросов
 if (config.logging.enableRequestLogging) {
