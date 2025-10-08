@@ -1,0 +1,16 @@
+###
+
+
+# Health check
+curl http://localhost:3000/health
+
+# Обработка события
+curl -X POST http://localhost:3000/api/v1/message/1/json \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user123",
+    "productId": "prod456",
+    "amount": 99.99,
+    "currency": "USD"
+  }'
+
