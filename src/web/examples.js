@@ -4,8 +4,8 @@
 
 const examples = {
     // Пример запроса для обработки JSON события
-    jsonEvent: {
-        url: 'POST /api/v1/event/purchase/json',
+    jsonMessage: {
+        url: 'POST /api/v1/message/purchase/json',
         headers: {
             'Content-Type': 'application/json'
         },
@@ -22,7 +22,7 @@ const examples = {
         },
         expectedResponse: {
             success: true,
-            eventType: 'purchase',
+            messageType: 'purchase',
             factId: 'generated-fact-id',
             processingTime: {
                 total: 150,
@@ -39,8 +39,8 @@ const examples = {
     },
 
     // Пример запроса для IRIS события (заглушка)
-    irisEvent: {
-        url: 'POST /api/v1/event/iris_event/iris',
+    irisMessage: {
+        url: 'POST /api/v1/message/iris_message/iris',
         headers: {
             'Content-Type': 'application/json'
         },
@@ -52,7 +52,7 @@ const examples = {
             success: false,
             error: 'IRIS обработка не реализована',
             message: 'Данный endpoint находится в разработке',
-            eventType: 'iris_event',
+            messageType: 'iris_message',
             timestamp: '2024-01-15T10:30:00.123Z',
             worker: 12345
         }
@@ -76,7 +76,7 @@ const examples = {
     },
 
     // Примеры различных типов событий
-    eventTypes: [
+    messageTypes: [
         {
             type: 'purchase',
             description: 'Покупка товара',
@@ -121,7 +121,7 @@ const examples = {
 
     // Примеры cURL команд
     curlExamples: {
-        jsonEvent: `curl -X POST http://localhost:3000/api/v1/event/purchase/json \\
+        jsonMessage: `curl -X POST http://localhost:3000/api/v1/message/purchase/json \\
   -H "Content-Type: application/json" \\
   -d '{
     "userId": "user123",
@@ -132,7 +132,7 @@ const examples = {
 
         healthCheck: `curl -X GET http://localhost:3000/health`,
 
-        irisEvent: `curl -X POST http://localhost:3000/api/v1/event/iris_event/iris \\
+        irisMessage: `curl -X POST http://localhost:3000/api/v1/message/iris_message/iris \\
   -H "Content-Type: application/json" \\
   -d '{
     "irisData": "some_iris_string_data"
@@ -143,8 +143,8 @@ const examples = {
     performanceTest: {
         description: 'Тестирование производительности с помощью Apache Bench (ab)',
         commands: {
-            basic: 'ab -n 1000 -c 10 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/event/test/json',
-            highLoad: 'ab -n 10000 -c 100 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/event/test/json',
+            basic: 'ab -n 1000 -c 10 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/message/test/json',
+            highLoad: 'ab -n 10000 -c 100 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/message/test/json',
             healthCheck: 'ab -n 1000 -c 10 http://localhost:3000/health'
         },
         testDataFile: 'test_data.json',

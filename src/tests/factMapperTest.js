@@ -61,7 +61,7 @@ class FactMapperTest {
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
-                    event_types: [1, 2]
+                    message_types: [1, 2]
                 }
             ];
             
@@ -84,12 +84,12 @@ class FactMapperTest {
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
-                    event_types: [101, 102]
+                    message_types: [101, 102]
                 },
                 {
                     src: 'field2',
                     dst: 'mapped_field2',
-                    event_types: [101]
+                    message_types: [101]
                 }
             ];
 
@@ -130,7 +130,7 @@ class FactMapperTest {
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
-                    event_types: [201]
+                    message_types: [201]
                 }
             ];
 
@@ -141,9 +141,9 @@ class FactMapperTest {
                 otherField: 'ignored'
             };
 
-            const mappedEventData = mapper.mapEventData(inputEvent, 201);
+            const mappedEventData = mapper.mapMessageData(inputEvent, 201);
             
-            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(typeof mappedEventData === 'object', 'mapMessageData возвращает объект');
             this.assert(mappedEventData.mapped_field1 === 'test_value', 'Поле field1 корректно маппится в mapped_field1');
             this.assert('field2' in mappedEventData, 'Поле field2 сохраняется');
             this.assert('otherField' in mappedEventData, 'Другие поля сохраняются');
@@ -163,12 +163,12 @@ class FactMapperTest {
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
-                    event_types: [301]
+                    message_types: [301]
                 },
                 {
                     src: 'nonexistent_field',
                     dst: 'mapped_nonexistent',
-                    event_types: [301]
+                    message_types: [301]
                 }
             ];
 
@@ -179,9 +179,9 @@ class FactMapperTest {
                 otherField: 'ignored'
             };
 
-            const mappedEventData = mapper.mapEventData(inputEvent, 301, false);
+            const mappedEventData = mapper.mapMessageData(inputEvent, 301, false);
             
-            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(typeof mappedEventData === 'object', 'mapMessageData возвращает объект');
             this.assert(mappedEventData.mapped_field1 === 'test_value', 'Поле field1 корректно маппится');
             this.assert(!('field2' in mappedEventData), 'Поле field2 удалено при keepUnmappedFields=false');
             this.assert(!('otherField' in mappedEventData), 'Другие поля удалены при keepUnmappedFields=false');
@@ -202,12 +202,12 @@ class FactMapperTest {
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
-                    event_types: [401]
+                    message_types: [401]
                 },
                 {
                     src: 'nonexistent_field',
                     dst: 'mapped_nonexistent',
-                    event_types: [401]
+                    message_types: [401]
                 }
             ];
 
@@ -218,9 +218,9 @@ class FactMapperTest {
                 otherField: 'ignored'
             };
 
-            const mappedEventData = mapper.mapEventData(inputEvent, 401, true);
+            const mappedEventData = mapper.mapMessageData(inputEvent, 401, true);
             
-            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(typeof mappedEventData === 'object', 'mapMessageData возвращает объект');
             this.assert(mappedEventData.mapped_field1 === 'test_value', 'Поле field1 корректно маппится');
             this.assert('field2' in mappedEventData, 'Поле field2 сохраняется');
             this.assert('otherField' in mappedEventData, 'Другие поля сохраняются');
@@ -246,9 +246,9 @@ class FactMapperTest {
                 otherField: 'ignored'
             };
 
-            const mappedEventData = mapper.mapEventData(inputEvent, 999);
+            const mappedEventData = mapper.mapMessageData(inputEvent, 999);
             
-            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(typeof mappedEventData === 'object', 'mapMessageData возвращает объект');
             this.assert(mappedEventData.field1 === 'test_value', 'Поле field1 сохраняется без изменений');
             this.assert(mappedEventData.field2 === 'another_value', 'Поле field2 сохраняется без изменений');
             this.assert(mappedEventData.otherField === 'ignored', 'Поле otherField сохраняется без изменений');
@@ -269,22 +269,22 @@ class FactMapperTest {
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
-                    event_types: [501]
+                    message_types: [501]
                 },
                 {
                     src: 'field2',
                     dst: 'mapped_field2',
-                    event_types: [501]
+                    message_types: [501]
                 },
                 {
                     src: 'field3',
                     dst: 'mapped_field3',
-                    event_types: [501]
+                    message_types: [501]
                 },
                 {
                     src: 'field4',
                     dst: 'mapped_field4',
-                    event_types: [501]
+                    message_types: [501]
                 }
             ];
 
@@ -298,9 +298,9 @@ class FactMapperTest {
                 otherField: 'ignored'
             };
 
-            const mappedEventData = mapper.mapEventData(inputEvent, 501);
+            const mappedEventData = mapper.mapMessageData(inputEvent, 501);
             
-            this.assert(typeof mappedEventData === 'object', 'mapEventData возвращает объект');
+            this.assert(typeof mappedEventData === 'object', 'mapMessageData возвращает объект');
             this.assert(mappedEventData.mapped_field1 === 'value1', 'Поле field1 корректно маппится в mapped_field1');
             this.assert(mappedEventData.mapped_field2 === 'value2', 'Поле field2 корректно маппится в mapped_field2');
             this.assert(mappedEventData.mapped_field3 === 'value3', 'Поле field3 корректно маппится в mapped_field3');
@@ -326,17 +326,17 @@ class FactMapperTest {
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
-                    event_types: [601, 602]
+                    message_types: [601, 602]
                 },
                 {
                     src: 'field2',
                     dst: 'mapped_field2',
-                    event_types: [601]
+                    message_types: [601]
                 },
                 {
                     src: 'field3',
                     dst: 'mapped_field3',
-                    event_types: [603]
+                    message_types: [603]
                 }
             ];
 
@@ -350,7 +350,7 @@ class FactMapperTest {
                 const rule = rules[0];
                 this.assert(typeof rule.src === 'string', 'Правило содержит src');
                 this.assert(typeof rule.dst === 'string', 'Правило содержит dst');
-                this.assert(Array.isArray(rule.event_types), 'Правило содержит event_types');
+                this.assert(Array.isArray(rule.message_types), 'Правило содержит message_types');
             }
         } catch (error) {
             this.assert(false, 'Получение правил маппинга', `Ошибка: ${error.message}`);
@@ -364,12 +364,12 @@ class FactMapperTest {
     testErrorHandling(title) {
         this.logger.info(title);
         try {
-            const testConfig = [{ src: 'field1', dst: 'mapped_field1', event_types: [701] }];
+            const testConfig = [{ src: 'field1', dst: 'mapped_field1', message_types: [701] }];
             const mapper = new FactMapper(testConfig);
             
             // Тест с невалидным входным фактом
             try {
-                mapper.mapEventData(null, 701);
+                mapper.mapMessageData(null, 701);
                 this.assert(false, 'Обработка null факта', 'Должна была быть выброшена ошибка');
             } catch (error) {
                 this.assert(true, 'Обработка null факта', 'Ошибка корректно обработана');
@@ -377,15 +377,15 @@ class FactMapperTest {
 
             // Тест с невалидным типом факта
             try {
-                mapper.mapEventData({ field1: 'test' }, null);
+                mapper.mapMessageData({ field1: 'test' }, null);
                 this.assert(false, 'Обработка null типа', 'Должна была быть выброшена ошибка');
             } catch (error) {
                 this.assert(true, 'Обработка null типа', 'Ошибка корректно обработана');
             }
 
-            // Тест с невалидным массивом фактов (теперь проверяем mapEventData с невалидными данными)
+            // Тест с невалидным массивом фактов (теперь проверяем mapMessageData с невалидными данными)
             try {
-                mapper.mapEventData('not an object', 701);
+                mapper.mapMessageData('not an object', 701);
                 this.assert(false, 'Обработка невалидного объекта', 'Должна была быть выброшена ошибка');
             } catch (error) {
                 this.assert(true, 'Обработка невалидного объекта', 'Ошибка корректно обработана');
@@ -393,7 +393,7 @@ class FactMapperTest {
 
             // Тест с невалидной конфигурацией при инициализации
             try {
-                new FactMapper([{ src: 'field1' }]); // Отсутствует dst и event_types
+                new FactMapper([{ src: 'field1' }]); // Отсутствует dst и message_types
                 this.assert(false, 'Обработка невалидной конфигурации', 'Должна была быть выброшена ошибка');
             } catch (error) {
                 this.assert(true, 'Обработка невалидной конфигурации', 'Ошибка корректно обработана');

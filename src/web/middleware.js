@@ -98,8 +98,8 @@ const notFoundHandler = (req, res) => {
         message: `Маршрут ${req.method} ${req.originalUrl} не существует`,
         availableEndpoints: [
             'GET /health',
-            'POST /api/v1/event/{eventType}/json',
-            'POST /api/v1/event/{eventType}/iris'
+            'POST /api/v1/message/{messageType}/json',
+            'POST /api/v1/message/{messageType}/iris'
         ],
         timestamp: new Date().toISOString()
     });

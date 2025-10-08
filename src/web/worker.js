@@ -135,6 +135,8 @@ async function initialize() {
 
     } catch (error) {
         logger.error(`❌ Ошибка инициализации воркера ${process.pid}:`, error);
+        console.error('Полная ошибка:', error);
+        console.error('Stack trace:', error.stack);
         process.exit(1);
     }
 }

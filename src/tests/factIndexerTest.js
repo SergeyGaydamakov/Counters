@@ -1,4 +1,4 @@
-const { FactIndexer, EventGenerator, FactMapper } = require('../index');
+const { FactIndexer, MessageGenerator, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
 
 /**
@@ -68,7 +68,7 @@ class FactIndexerTest {
             {
                 "src": "dt",
                 "dst": "dt",
-                "event_types": [1, 2, 3], // user_action, system_event, payment
+                "message_types": [1, 2, 3], // user_action, system_message, payment
                 "generator": {
                     "type": "date",
                     "min": "2024-01-01",
@@ -78,32 +78,32 @@ class FactIndexerTest {
             {
                 "src": "f1",
                 "dst": "f1",
-                "event_types": [1, 2, 3], // user_action, system_event, payment
+                "message_types": [1, 2, 3], // user_action, system_message, payment
                 "key_type": 1
             },
             {
                 "src": "f2",
                 "dst": "f2",
-                "event_types": [1, 3] // user_action, payment
+                "message_types": [1, 3] // user_action, payment
             },
             {
                 "src": "f3",
                 "dst": "f3",
-                "event_types": [2, 3] // system_event, payment
+                "message_types": [2, 3] // system_message, payment
             },
             {
                 "src": "f4",
                 "dst": "f4",
-                "event_types": [1] // user_action
+                "message_types": [1] // user_action
             },
             {
                 "src": "f5",
                 "dst": "f5",
-                "event_types": [2] // system_event
+                "message_types": [2] // system_message
             }
         ];
 
-        this.generator = new EventGenerator(this.testFieldConfig);
+        this.generator = new MessageGenerator(this.testFieldConfig);
         this.mapper = new FactMapper(this.testFieldConfig);
         this.testResults = {
             passed: 0,
@@ -492,8 +492,8 @@ class FactIndexerTest {
             // Генерируем несколько фактов
             const facts = [];
             for (let i = 0; i < 5; i++) {
-                const event = this.generator.generateRandomTypeEvent();
-                const fact = this.mapper.mapEventToFact(event);
+                const message = this.generator.generateRandomTypeMessage();
+                const fact = this.mapper.mapMessageToFact(message);
                 facts.push(fact);
             }
 

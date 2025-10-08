@@ -1,4 +1,4 @@
-const { MongoProvider, EventGenerator, FactIndexer, FactMapper } = require('../index');
+const { MongoProvider, MessageGenerator, FactIndexer, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
 const config = require('../utils/config');
 
@@ -18,7 +18,7 @@ class MongoProviderTest {
             {
                 src: "amount",
                 dst: "amount",
-                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                message_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "integer",
                     min: 1,
@@ -30,7 +30,7 @@ class MongoProviderTest {
             {
                 src: "dt",
                 dst: "dt",
-                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                message_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "date",
                     min: "2024-01-01 00:00:00",
@@ -40,7 +40,7 @@ class MongoProviderTest {
             {
                 src: "f1",
                 dst: "f1",
-                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                message_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "string",
                     min: 2,
@@ -53,7 +53,7 @@ class MongoProviderTest {
             {
                 src: "f2",
                 dst: "f2",
-                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                message_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "enum",
                     values: ["value1", "value2", "value3", "value4", "value5", "value6", "value7", "value8", "value9", "value10"],
@@ -64,7 +64,7 @@ class MongoProviderTest {
             {
                 src: "f3",
                 dst: "f3",
-                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                message_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
                 generator: {
                     type: "enum",
                     values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -75,11 +75,11 @@ class MongoProviderTest {
             {
                 src: "f4",
                 dst: "f4",
-                event_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+                message_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
             }
         ];
         
-        this.generator = new EventGenerator(this.fieldConfig);
+        this.generator = new MessageGenerator(this.fieldConfig);
         
        
         // Минимальная конфигурация для FactIndexer (4 первых значения)
@@ -304,7 +304,7 @@ class MongoProviderTest {
             await this.provider.clearFactsCollection();
             
             // Генерируем тестовый факт
-            const testFact = this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent());
+            const testFact = this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage());
 
             // Тест первой вставки (должна создать новый документ)
             const insertResult = await this.provider.saveFact(testFact);
@@ -363,7 +363,7 @@ class MongoProviderTest {
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
-            const testFact = this.mapper.mapEventToFact(this.generator.generateEvent(1));
+            const testFact = this.mapper.mapMessageToFact(this.generator.generateMessage(1));
             
             // Создаем индексные значения
             const indexValues = this.indexer.index(testFact);
@@ -441,9 +441,9 @@ class MongoProviderTest {
             
             // Генерируем тестовые данные
             const facts = [
-                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()), 
-                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()), 
-                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent())
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()), 
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()), 
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage())
             ];
             const indexValues = this.indexer.index(facts[0]);
 
@@ -650,7 +650,7 @@ class MongoProviderTest {
             await this.provider.clearFactsCollection();
             
             // Генерируем тестовый факт
-            const testFact = this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent());
+            const testFact = this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage());
 
             // Первая вставка в режиме insert
             const firstResult = await this.provider.saveFact(testFact);
@@ -703,8 +703,8 @@ class MongoProviderTest {
             
             // Генерируем тестовые данные
             const facts = [
-                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()), 
-                this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent())
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()), 
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage())
             ];
             const indexValues = this.indexer.index(facts[0]);
 
@@ -757,7 +757,7 @@ class MongoProviderTest {
             await this.provider.clearFactIndexCollection();
             
             // Генерируем тестовые данные
-            const testFact = this.mapper.mapEventToFact(this.generator.generateEvent(1));
+            const testFact = this.mapper.mapMessageToFact(this.generator.generateMessage(1));
             const indexValues = this.indexer.index(testFact);
 
             // Первая вставка
@@ -831,7 +831,7 @@ class MongoProviderTest {
             // Сначала добавляем тестовые данные
             const fromDate = new Date('2024-01-01');
             const toDate = new Date('2024-12-31');
-            const facts = Array.from({length: 5}, () => this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()));
+            const facts = Array.from({length: 5}, () => this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()));
             
             // Вставляем факты
             for (const fact of facts) {

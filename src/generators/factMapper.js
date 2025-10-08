@@ -106,13 +106,13 @@ class FactMapper {
                 throw new Error(`Правило маппинга ${i} должно содержать поле 'dst' типа string`);
             }
 
-            if (!Array.isArray(rule.event_types) || rule.event_types.length === 0) {
-                this.logger.error(`Правило маппинга ${i} должно содержать непустой массив 'event_types': ${JSON.stringify(rule)}`);
-                throw new Error(`Правило маппинга ${i} должно содержать непустой массив 'event_types'`);
+            if (!Array.isArray(rule.message_types) || rule.message_types.length === 0) {
+                this.logger.error(`Правило маппинга ${i} должно содержать непустой массив 'message_types': ${JSON.stringify(rule)}`);
+                throw new Error(`Правило маппинга ${i} должно содержать непустой массив 'message_types'`);
             }
 
-            for (let j = 0; j < rule.event_types.length; j++) {
-                if (typeof rule.event_types[j] !== 'number' || !Number.isInteger(rule.event_types[j])) {
+            for (let j = 0; j < rule.message_types.length; j++) {
+                if (typeof rule.message_types[j] !== 'number' || !Number.isInteger(rule.message_types[j])) {
                     throw new Error(`Правило маппинга ${i}, тип ${j} должен быть целым числом`);
                 }
             }
@@ -135,59 +135,59 @@ class FactMapper {
      * Получение идентификатора факта
      * 
      */
-    getFactId(event) {
+    getFactId(message) {
         let factId = null;
-        this._mappingConfig.filter(rule => rule.event_types.includes(event.t)).forEach(rule => {
+        this._mappingConfig.filter(rule => rule.message_types.includes(message.t)).forEach(rule => {
             if (rule.key_type === this.KEY_TYPE_HASH) {
-                factId = this._hash(event.t, event.d[rule.src]);
+                factId = this._hash(message.t, message.d[rule.src]);
             } else if (rule.key_type === this.KEY_TYPE_VALUE) {
-                factId = `${event.t}:${String(event.d[rule.src])}`;
+                factId = `${message.t}:${String(message.d[rule.src])}`;
             }
         });
         return factId;
     }
 
     /**
-     * Преобразует входное событие во внутреннюю сохраняемую структуру факта
-     * @param {Object} event - Входное событие для преобразования
+     * Преобразует входное сообщение во внутреннюю сохраняемую структуру факта
+     * @param {Object} message - Входное сообщение для преобразования
      * @param {boolean} keepUnmappedFields - Если true, поля, не найденные в правилах маппинга, сохраняются в результате. Если false, такие поля удаляются из результата. По умолчанию true.
      * @returns {Object} Преобразованный факт во внутренней структуре
      */
-    mapEventToFact(event, keepUnmappedFields=true){
+    mapMessageToFact(message, keepUnmappedFields=true){
         const fact = {
-            _id: this.getFactId(event),
-            t: event.t,
+            _id: this.getFactId(message),
+            t: message.t,
             c: new Date(), // дата и время создания объекта
-            d: this.mapEventData(event.d, event.t, keepUnmappedFields),
+            d: this.mapMessageData(message.d, message.t, keepUnmappedFields),
         };
         if (fact._id === null) {
-            throw new Error(`В описании полей события с типом ${event.t} не указан ключ (поле с атрибутом key_type: 1 или key_type: 2). \n${JSON.stringify(this._mappingConfig)}`);
+            throw new Error(`В описании полей сообщения с типом ${message.t} не указан ключ (поле с атрибутом key_type: 1 или key_type: 2). \n${JSON.stringify(this._mappingConfig)}`);
         }
         return fact;
     }
 
     /**
-     * Преобразует входное событие во внутреннюю сохраняемую структуру факта
-     * @param {Object} eventData - Входное событие для преобразования
-     * @param {string} eventType - Тип события для определения применимых правил маппинга
+     * Преобразует входное сообщение во внутреннюю сохраняемую структуру факта
+     * @param {Object} messageData - Входное сообщение для преобразования
+     * @param {string} messageType - Тип сообщения для определения применимых правил маппинга
      * @returns {Object} Преобразованные данные факта во внутренней структуре
-     * @throws {Error} если входное событие невалидно или тип события не поддерживается
+     * @throws {Error} если входное сообщение невалидно или тип сообщения не поддерживается
      */
-    mapEventData(eventData, eventType, keepUnmappedFields = true) {
-        if (!eventData || typeof eventData !== 'object') {
-            throw new Error('Входные данные события должны быть объектом');
+    mapMessageData(messageData, messageType, keepUnmappedFields = true) {
+        if (!messageData || typeof messageData !== 'object') {
+            throw new Error('Входные данные сообщения должны быть объектом');
         }
 
-        if (!eventType || typeof eventType !== 'number') {
-            throw new Error(`Тип события должен быть целым числом, а не ${typeof eventType}. Переданное значение: ${eventType}`);
+        if (!messageType || typeof messageType !== 'number') {
+            throw new Error(`Тип сообщения должен быть целым числом, а не ${typeof messageType}. Переданное значение: ${messageType}`);
         }
 
-        // Находим правила маппинга, применимые для данного типа события
-        const applicableRules = this.getMappingRulesForType(eventType);
+        // Находим правила маппинга, применимые для данного типа сообщения
+        const applicableRules = this.getMappingRulesForType(messageType);
 
         if (applicableRules.length === 0) {
-            this.logger.warn(`Не найдено правил маппинга для типа события: ${eventType}`);
-            return eventData; // Возвращаем исходное событие без изменений
+            this.logger.warn(`Не найдено правил маппинга для типа сообщения: ${messageType}`);
+            return messageData; // Возвращаем исходное сообщение без изменений
         }
 
         // Создаем результирующий объект
@@ -195,21 +195,21 @@ class FactMapper {
 
         // Применяем правила маппинга
         applicableRules.forEach(rule => {
-            if (rule.src in eventData) {
+            if (rule.src in messageData) {
                 // Если исходное поле существует, копируем его значение в целевое поле
-                factData[rule.dst] = eventData[rule.src];
-                this.logger.debug(`Применено правило маппинга: ${rule.src} -> ${rule.dst} для типа ${eventType}`);
+                factData[rule.dst] = messageData[rule.src];
+                this.logger.debug(`Применено правило маппинга: ${rule.src} -> ${rule.dst} для типа ${messageType}`);
             } else {
-                this.logger.debug(`Исходное поле '${rule.src}' не найдено в факте для типа ${eventType}`);
+                this.logger.debug(`Исходное поле '${rule.src}' не найдено в факте для типа ${messageType}`);
             }
         });
 
         // Если keepUnmappedFields=true, добавляем поля, которые не участвуют в маппинге
         if (keepUnmappedFields) {
             const mappedFields = new Set(applicableRules.map(rule => rule.src));
-            Object.keys(eventData).forEach(field => {
+            Object.keys(messageData).forEach(field => {
                 if (!mappedFields.has(field)) {
-                    factData[field] = eventData[field];
+                    factData[field] = messageData[field];
                     this.logger.debug(`Сохранено неотображенное поле: ${field}`);
                 }
             });
@@ -221,13 +221,13 @@ class FactMapper {
 
 
     /**
-     * Получает правила маппинга для конкретного типа события
-     * @param {string} eventType - Тип события
+     * Получает правила маппинга для конкретного типа сообщения
+     * @param {string} messageType - Тип сообщения
      * @returns {Array<Object>} Массив правил маппинга для данного типа
      */
-    getMappingRulesForType(eventType) {
+    getMappingRulesForType(messageType) {
         return this._mappingConfig.filter(rule => 
-            rule.event_types.includes(eventType)
+            rule.message_types.includes(messageType)
         );
     }
 

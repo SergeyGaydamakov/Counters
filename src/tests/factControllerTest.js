@@ -11,7 +11,7 @@ class FactControllerTest {
         {
             "src": "dt",
             "dst": "dt",
-            "event_types": [1, 2, 3],
+            "message_types": [1, 2, 3],
             "generator": {
                 "type": "date",
                 "min": "2025-01-01",
@@ -21,7 +21,7 @@ class FactControllerTest {
         {
             "src": "a",
             "dst": "a",
-            "event_types": [1, 2, 3],
+            "message_types": [1, 2, 3],
             "generator": {
                 "type": "integer",
                 "min": 1,
@@ -33,7 +33,7 @@ class FactControllerTest {
         {
             "src": "f1",
             "dst": "f1",
-            "event_types": [1, 2, 3],
+            "message_types": [1, 2, 3],
             "generator": {
                 "type": "string",
                 "min": 3,
@@ -46,7 +46,7 @@ class FactControllerTest {
         {
             "src": "f2",
             "dst": "f2",
-            "event_types": [1, 3],
+            "message_types": [1, 3],
             "generator": {
                 "type": "string",
                 "min": 3,
@@ -58,7 +58,7 @@ class FactControllerTest {
         {
             "src": "f3",
             "dst": "f3",
-            "event_types": [2, 3],
+            "message_types": [2, 3],
             "generator": {
                 "type": "string",
                 "min": 3,
@@ -123,8 +123,8 @@ class FactControllerTest {
             // Запуск тестов
             await this.testRunBasic('1. Тест базового выполнения метода run...');
             await this.testRunWithExistingFacts('2. Тест выполнения с существующими фактами...');
-            await this.testProcessEvent('3. Тест метода processEvent...');
-            await this.testProcessEventWithCounters('6. Тест метода processEventWithCounters...');
+            await this.testProcessMessage('3. Тест метода processMessage...');
+            await this.testProcessMessageWithCounters('6. Тест метода processMessageWithCounters...');
             await this.testRunMultipleTimes('4. Тест многократного выполнения...');
             await this.testRunWithEmptyDatabase('5. Тест выполнения с пустой базой данных...');
             await this.testRunErrorHandling('6. Тест обработки ошибок...');
@@ -390,9 +390,9 @@ class FactControllerTest {
     }
 
     /**
-     * Тест 5: Метод processEvent
+     * Тест 5: Метод processMessage
      */
-    async testProcessEvent(title) {
+    async testProcessMessage(title) {
         this.logger.debug(title);
         
         try {
@@ -411,12 +411,12 @@ class FactControllerTest {
                 }
             };
 
-            // Вызываем метод processEvent
-            const result = await this.controller.processEvent(testEvent);
+            // Вызываем метод processMessage
+            const result = await this.controller.processMessage(testEvent);
 
             // Проверяем структуру результата
             if (!result || typeof result !== 'object') {
-                throw new Error('processEvent должен возвращать объект');
+                throw new Error('processMessage должен возвращать объект');
             }
 
             // Проверяем наличие обязательных полей в результате
@@ -459,15 +459,15 @@ class FactControllerTest {
             this.logger.debug('   ✓ Успешно');
         } catch (error) {
             this.testResults.failed++;
-            this.testResults.errors.push({ test: 'testProcessEvent', error: error.message });
+            this.testResults.errors.push({ test: 'testProcessMessage', error: error.message });
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }
 
     /**
-     * Тест 6: Метод processEventWithCounters
+     * Тест 6: Метод processMessageWithCounters
      */
-    async testProcessEventWithCounters(title) {
+    async testProcessMessageWithCounters(title) {
         this.logger.debug(title);
         
         try {
@@ -486,12 +486,12 @@ class FactControllerTest {
                 }
             };
 
-            // Вызываем метод processEventWithCounters
-            const result = await this.controller.processEventWithCounters(testEvent);
+            // Вызываем метод processMessageWithCounters
+            const result = await this.controller.processMessageWithCounters(testEvent);
 
             // Проверяем структуру результата
             if (!result || typeof result !== 'object') {
-                throw new Error('processEventWithCounters должен возвращать объект');
+                throw new Error('processMessageWithCounters должен возвращать объект');
             }
 
             // Проверяем наличие обязательных полей в результате
@@ -534,7 +534,7 @@ class FactControllerTest {
             this.logger.debug('   ✓ Успешно');
         } catch (error) {
             this.testResults.failed++;
-            this.testResults.errors.push({ test: 'testProcessEventWithCounters', error: error.message });
+            this.testResults.errors.push({ test: 'testProcessMessageWithCounters', error: error.message });
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }

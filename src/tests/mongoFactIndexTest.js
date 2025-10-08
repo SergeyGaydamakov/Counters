@@ -1,4 +1,4 @@
-const { MongoProvider, FactIndexer, EventGenerator, FactMapper } = require('../index');
+const { MongoProvider, FactIndexer, MessageGenerator, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
 const config = require('../utils/config');
 
@@ -71,7 +71,7 @@ class MongoFactIndexTest {
             {
                 "src": "d",
                 "dst": "d",
-                "event_types": [1, 2, 3], // user_action, system_event, payment
+                "message_types": [1, 2, 3], // user_action, system_message, payment
                 "generator": {
                     "type": "date",
                     "min": "2024-01-01",
@@ -81,32 +81,32 @@ class MongoFactIndexTest {
             {
                 "src": "f1",
                 "dst": "f1",
-                "event_types": [1, 2, 3],
+                "message_types": [1, 2, 3],
                 "key_type": 1
             },
             {
                 "src": "f2",
                 "dst": "f2",
-                "event_types": [1, 3] // user_action, payment
+                "message_types": [1, 3] // user_action, payment
             },
             {
                 "src": "f3",
                 "dst": "f3",
-                "event_types": [2, 3] // system_event, payment
+                "message_types": [2, 3] // system_message, payment
             },
             {
                 "src": "f4",
                 "dst": "f4",
-                "event_types": [1] // user_action
+                "message_types": [1] // user_action
             },
             {
                 "src": "f5",
                 "dst": "f5",
-                "event_types": [2] // system_event
+                "message_types": [2] // system_message
             }
         ];
 
-        this.generator = new EventGenerator(testFieldConfig);
+        this.generator = new MessageGenerator(testFieldConfig);
         this.mapper = new FactMapper(testFieldConfig);
 
         this.testResults = {
@@ -172,7 +172,7 @@ class MongoFactIndexTest {
             // Генерируем тестовые факты
             const facts = [];
             for (let i = 0; i < 5; i++) {
-                facts.push(this.mapper.mapEventToFact(this.generator.generateRandomTypeEvent()));
+                facts.push(this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()));
             }
             
             // Создаем индексные значения

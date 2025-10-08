@@ -2,7 +2,7 @@
   {
     "src": "id",
     "dst": "id",
-    "event_types": [
+    "message_types": [
       1,
       2,
       3,
@@ -23,7 +23,7 @@
   {
     "src": "amount",
     "dst": "a",
-    "event_types": [
+    "message_types": [
       1,
       2,
       3,
@@ -46,7 +46,7 @@
   {
     "src": "dt",
     "dst": "dt",
-    "event_types": [
+    "message_types": [
       1,
       2,
       3,
@@ -67,7 +67,7 @@
   {
     "src": "f1",
     "dst": "f1",
-    "event_types": [
+    "message_types": [
       1,
       2,
       3,
@@ -90,7 +90,7 @@
   {
     "src": "f2",
     "dst": "f2",
-    "event_types": [
+    "message_types": [
       1,
       2,
       3,
@@ -122,7 +122,7 @@
   {
     "src": "f3",
     "dst": "f3",
-    "event_types": [
+    "message_types": [
       1,
       2,
       5,
@@ -153,7 +153,7 @@
   {
     "src": "f4",
     "dst": "f4",
-    "event_types": [
+    "message_types": [
       1,
       2,
       4,
@@ -174,7 +174,7 @@
   {
     "src": "f5",
     "dst": "f5",
-    "event_types": [
+    "message_types": [
       2,
       5,
       6,
@@ -193,7 +193,7 @@
   {
     "src": "f6",
     "dst": "f6",
-    "event_types": [
+    "message_types": [
       2,
       6,
       7,
@@ -211,7 +211,7 @@
   {
     "src": "f7",
     "dst": "f7",
-    "event_types": [
+    "message_types": [
       1,
       3,
       4,
@@ -229,7 +229,7 @@
   {
     "src": "f8",
     "dst": "f8",
-    "event_types": [
+    "message_types": [
       4,
       5,
       6,
@@ -248,7 +248,7 @@
   {
     "src": "f9",
     "dst": "f9",
-    "event_types": [
+    "message_types": [
       3,
       4,
       7,
@@ -265,7 +265,7 @@
   {
     "src": "f10",
     "dst": "f10",
-    "event_types": [
+    "message_types": [
       1,
       3,
       4,
@@ -283,7 +283,7 @@
   {
     "src": "f11",
     "dst": "f11",
-    "event_types": [
+    "message_types": [
       5,
       7
     ],
@@ -298,7 +298,7 @@
   {
     "src": "f12",
     "dst": "f12",
-    "event_types": [
+    "message_types": [
       2,
       4,
       8
@@ -314,7 +314,7 @@
   {
     "src": "f13",
     "dst": "f13",
-    "event_types": [
+    "message_types": [
       3,
       4,
       5,
@@ -331,7 +331,7 @@
   {
     "src": "f14",
     "dst": "f14",
-    "event_types": [
+    "message_types": [
       1,
       3,
       5,
@@ -348,7 +348,7 @@
   {
     "src": "f15",
     "dst": "f15",
-    "event_types": [
+    "message_types": [
       1,
       3
     ],
@@ -363,7 +363,7 @@
   {
     "src": "f16",
     "dst": "f16",
-    "event_types": [
+    "message_types": [
       3,
       4,
       7,
@@ -380,7 +380,7 @@
   {
     "src": "f17",
     "dst": "f17",
-    "event_types": [
+    "message_types": [
       1,
       3,
       7,
@@ -397,7 +397,7 @@
   {
     "src": "f18",
     "dst": "f18",
-    "event_types": [
+    "message_types": [
       6
     ],
     "generator": {
@@ -411,7 +411,7 @@
   {
     "src": "f19",
     "dst": "f19",
-    "event_types": [
+    "message_types": [
       4,
       9
     ],
@@ -426,7 +426,7 @@
   {
     "src": "f20",
     "dst": "f20",
-    "event_types": [
+    "message_types": [
       2
     ],
     "generator": {
@@ -440,7 +440,7 @@
   {
     "src": "f21",
     "dst": "f21",
-    "event_types": [
+    "message_types": [
       2,
       8,
       9
@@ -456,7 +456,7 @@
   {
     "src": "f22",
     "dst": "f22",
-    "event_types": [
+    "message_types": [
       2,
       6
     ],
@@ -471,7 +471,7 @@
   {
     "src": "f23",
     "dst": "f23",
-    "event_types": [
+    "message_types": [
       1,
       9
     ],

@@ -10,7 +10,7 @@ const testFieldConfig = [
     {
         "src": "dt",
         "dst": "dt",
-        "message_types": [1, 2, 3], // user_action, system_event, payment
+        "message_types": [1, 2, 3], // user_action, system_message, payment
         "generator": {
             "type": "date",
             "min": "2024-01-01",
@@ -20,7 +20,7 @@ const testFieldConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "event_types": [1, 2, 3] // user_action, system_event, payment
+        "message_types": [1, 2, 3] // user_action, system_message, payment
     },
     {
         "src": "f2",
@@ -30,7 +30,7 @@ const testFieldConfig = [
     {
         "src": "f3",
         "dst": "f3",
-        "message_types": [2, 3] // system_event, payment
+        "message_types": [2, 3] // system_message, payment
     },
     {
         "src": "f4",
@@ -40,7 +40,7 @@ const testFieldConfig = [
     {
         "src": "f5",
         "dst": "f5",
-        "message_types": [2] // system_event
+        "message_types": [2] // system_message
     }
 ];
 
@@ -83,7 +83,7 @@ const invalidFieldConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "event_types": "not_an_array" // Ошибка: должно быть массивом
+        "message_types": "not_an_array" // Ошибка: должно быть массивом
     }
 ];
 
@@ -92,7 +92,7 @@ const incompleteFieldConfig = [
     {
         "src": "f1",
         // Отсутствует dst
-        "event_types": [1]
+        "message_types": [1]
     }
 ];
 
@@ -101,7 +101,7 @@ const generatorTestConfig = [
     {
         "src": "stringField",
         "dst": "stringField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "string",
             "min": 5,
@@ -111,7 +111,7 @@ const generatorTestConfig = [
     {
         "src": "integerField",
         "dst": "integerField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "integer",
             "min": 100,
@@ -121,7 +121,7 @@ const generatorTestConfig = [
     {
         "src": "dateField",
         "dst": "dateField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "date",
             "min": "2024-01-01",
@@ -131,7 +131,7 @@ const generatorTestConfig = [
     {
         "src": "enumField",
         "dst": "enumField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "enum",
             "values": ["option1", "option2", "option3", "option4"]
@@ -140,7 +140,7 @@ const generatorTestConfig = [
     {
         "src": "objectIdField",
         "dst": "objectIdField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "objectId"
         }
@@ -148,7 +148,7 @@ const generatorTestConfig = [
     {
         "src": "defaultField",
         "dst": "defaultField",
-        "event_types": [1]
+        "message_types": [1]
         // Без generator - должно использовать значение по умолчанию
     }
 ];
@@ -158,7 +158,7 @@ const invalidGeneratorConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "invalid_type" // Неверный тип
         }
@@ -170,7 +170,7 @@ const defaultValueTestConfig = [
     {
         "src": "stringField",
         "dst": "stringField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "string",
             "min": 5,
@@ -182,7 +182,7 @@ const defaultValueTestConfig = [
     {
         "src": "integerField",
         "dst": "integerField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "integer",
             "min": 100,
@@ -194,7 +194,7 @@ const defaultValueTestConfig = [
     {
         "src": "dateField",
         "dst": "dateField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "date",
             "min": "2024-01-01",
@@ -206,7 +206,7 @@ const defaultValueTestConfig = [
     {
         "src": "enumField",
         "dst": "enumField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "enum",
             "values": ["option1", "option2", "option3", "option4"],
@@ -217,7 +217,7 @@ const defaultValueTestConfig = [
     {
         "src": "objectIdField",
         "dst": "objectIdField",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "objectId",
             "default_value": "507f1f77bcf86cd799439011",
@@ -231,7 +231,7 @@ const invalidDefaultValueConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "string",
             "default_value": 123, // Неверный тип для string
@@ -244,7 +244,7 @@ const invalidDefaultRandomConfig = [
     {
         "src": "f1",
         "dst": "f1",
-        "event_types": [1],
+        "message_types": [1],
         "generator": {
             "type": "integer",
             "default_value": 100,
@@ -276,7 +276,7 @@ function testValidConstructor(testName) {
         console.log(`✅ Доступные поля: [${actualFields.join(', ')}]`);
 
         // Проверяем доступные типы
-        const expectedTypes = [1, 2, 3]; // user_action, system_event, payment
+        const expectedTypes = [1, 2, 3]; // user_action, system_message, payment
         const actualTypes = generator._availableTypes;
         // Проверяем наличие всех типов в expectedTypes
         const hasAllTypes = expectedTypes.every(type => actualTypes.includes(type));
@@ -357,7 +357,7 @@ function testGenerateEvent(testName) {
         const generator = new MessageGenerator(testFieldConfig);
 
         // Генерируем факт типа user_action (тип 1)
-        const event = generator.generateEvent(1);
+        const event = generator.generateMessage(1);
 
         // Проверяем структуру факта
         console.log('✅ Событие сгенерировано успешно');
@@ -410,7 +410,7 @@ function testGenerateFactInvalidType(testName) {
 
     try {
         const generator = new MessageGenerator(testFieldConfig);
-        const fact = generator.generateEvent(999); // Несуществующий тип
+        const fact = generator.generateMessage(999); // Несуществующий тип
         console.log('❌ Ошибка: должен был выбросить исключение');
         return false;
     } catch (error) {
@@ -430,7 +430,7 @@ function testGenerateRandomTypeFact(testName) {
 
         // Генерируем несколько случайных фактов
         for (let i = 0; i < 5; i++) {
-            const fact = generator.generateRandomTypeEvent();
+            const fact = generator.generateRandomTypeMessage();
             console.log(`   Случайный факт ${i + 1}: тип=${fact.t}, поля=[${Object.keys(fact).filter(k => k.startsWith('f')).join(', ')}]`);
         }
 
@@ -453,7 +453,7 @@ function testGenerateFactForAllTypes(testName) {
 
         console.log('✅ Генерация фактов для всех типов:');
         generator._availableTypes.forEach(type => {
-            const fact = generator.generateEvent(type);
+            const fact = generator.generateMessage(type);
             const dataFields = fact.d ? Object.keys(fact.d) : [];
             console.log(`   Тип ${type}: ${dataFields.length} полей [${dataFields.join(', ')}]`);
         });
@@ -478,7 +478,7 @@ function testPerformance(testName) {
         const startTime = Date.now();
 
         for (let i = 0; i < iterations; i++) {
-            generator.generateRandomTypeEvent();
+            generator.generateRandomTypeMessage();
         }
 
         const endTime = Date.now();
@@ -519,7 +519,7 @@ function testGeneratorTypes(testName) {
 
     try {
         const generator = new MessageGenerator(generatorTestConfig);
-        const fact = generator.generateEvent(1);
+        const fact = generator.generateMessage(1);
 
         console.log('✅ Факт сгенерирован с различными типами генераторов');
         
@@ -616,7 +616,7 @@ function testEnumRandomness(testName) {
 
         // Генерируем 50 фактов и собираем все enum значения
         for (let i = 0; i < 50; i++) {
-            const fact = generator.generateEvent(1);
+            const fact = generator.generateMessage(1);
             if (fact.d && fact.d.enumField) {
                 enumValues.add(fact.d.enumField);
             }
@@ -679,7 +679,7 @@ function testDefaultValueGeneration(testName) {
 
     try {
         const generator = new MessageGenerator(defaultValueTestConfig);
-        const fact = generator.generateEvent(1);
+        const fact = generator.generateMessage(1);
 
         console.log('✅ Факт сгенерирован с default_value и default_random');
         
@@ -743,7 +743,7 @@ function testObjectIdUniqueness(testName) {
 
         // Генерируем много фактов и собираем все ObjectId
         for (let i = 0; i < iterations; i++) {
-            const fact = generator.generateEvent(1);
+            const fact = generator.generateMessage(1);
             if (fact.d && fact.d.objectIdField) {
                 const objectIdString = fact.d.objectIdField.toString();
                 objectIds.add(objectIdString);
@@ -801,7 +801,7 @@ function testDefaultValueFrequency(testName) {
 
         // Генерируем много фактов для статистики
         for (let i = 0; i < iterations; i++) {
-            const fact = generator.generateEvent(1);
+            const fact = generator.generateMessage(1);
             
             if (fact.d) {
                 if (fact.d.stringField === "DEFAULT_STRING") defaultStringCount++;

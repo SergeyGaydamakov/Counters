@@ -38,11 +38,11 @@ GET /health
 
 ### Обработка JSON событий
 ```
-POST /api/v1/event/{eventType}/json
+POST /api/v1/message/{messageType}/json
 ```
 
 **Параметры:**
-- `eventType` (string) - тип события
+- `messageType` (string) - тип события
 
 **Тело запроса:**
 ```json
@@ -61,7 +61,7 @@ POST /api/v1/event/{eventType}/json
 ```json
 {
   "success": true,
-  "eventType": "purchase",
+  "messageType": "purchase",
   "factId": "generated-fact-id",
   "processingTime": {
     "total": 150,
@@ -77,7 +77,7 @@ POST /api/v1/event/{eventType}/json
 
 ### Обработка IRIS событий (заглушка)
 ```
-POST /api/v1/event/{eventType}/iris
+POST /api/v1/message/{messageType}/iris
 ```
 В настоящее время не реализовано.
 
@@ -116,7 +116,7 @@ POST /api/v1/event/{eventType}/iris
 curl -X GET http://localhost:3000/health
 
 # Обработка события
-curl -X POST http://localhost:3000/api/v1/event/purchase/json \
+curl -X POST http://localhost:3000/api/v1/message/purchase/json \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "user123",
@@ -128,7 +128,7 @@ curl -X POST http://localhost:3000/api/v1/event/purchase/json \
 
 ### JavaScript (fetch)
 ```javascript
-const response = await fetch('http://localhost:3000/api/v1/event/purchase/json', {
+const response = await fetch('http://localhost:3000/api/v1/message/purchase/json', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -150,15 +150,15 @@ console.log(result);
 ### Apache Bench
 ```bash
 # Базовый тест
-ab -n 1000 -c 10 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/event/test/json
+ab -n 1000 -c 10 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/message/test/json
 
 # Высокая нагрузка
-ab -n 10000 -c 100 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/event/test/json
+ab -n 10000 -c 100 -H "Content-Type: application/json" -p test_data.json http://localhost:3000/api/v1/message/test/json
 ```
 
 ### wrk
 ```bash
-wrk -t12 -c400 -d30s -s post.lua http://localhost:3000/api/v1/event/test/json
+wrk -t12 -c400 -d30s -s post.lua http://localhost:3000/api/v1/message/test/json
 ```
 
 ## Мониторинг
@@ -240,7 +240,7 @@ src/web/
 curl http://localhost:3000/health
 
 # Обработка события
-curl -X POST http://localhost:3000/api/v1/event/1/json \
+curl -X POST http://localhost:3000/api/v1/message/1/json \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "user123",

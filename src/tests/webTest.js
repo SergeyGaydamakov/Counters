@@ -90,12 +90,12 @@ class ApiTester {
     }
 
     /**
-     * Тестирует обработку JSON события
+     * Тестирует обработку JSON сообщения
      */
-    async testJsonEvent(eventType = '1', eventData = null) {
-        this.logger.info(`🔍 Тестирование JSON события типа: ${eventType}`);
+    async testJsonMessage(messageType = '1', messageData = null) {
+        this.logger.info(`🔍 Тестирование JSON сообщения типа: ${messageType}`);
         
-        const testData = eventData || {
+        const testData = messageData || {
             userId: 'test_user_123',
             productId: 'test_product_456',
             amount: 99.99,
@@ -108,21 +108,21 @@ class ApiTester {
         };
 
         try {
-            const response = await this.makeRequest('POST', `/api/v1/event/${eventType}/json`, testData);
+            const response = await this.makeRequest('POST', `/api/v1/message/${messageType}/json`, testData);
             
             if (response.statusCode === 200) {
-                this.logger.info('✅ JSON событие успешно обработано', {
+                this.logger.info('✅ JSON сообщение успешно обработано', {
                     factId: response.data.factId,
                     processingTime: response.data.processingTime,
                     worker: response.data.worker
                 });
                 return true;
             } else {
-                this.logger.error('❌ Ошибка обработки JSON события', response);
+                this.logger.error('❌ Ошибка обработки JSON сообщения', response);
                 return false;
             }
         } catch (error) {
-            this.logger.error('❌ Ошибка JSON события:', error.message);
+            this.logger.error('❌ Ошибка JSON сообщения:', error.message);
             return false;
         }
     }
@@ -130,8 +130,8 @@ class ApiTester {
     /**
      * Тестирует IRIS endpoint (заглушка)
      */
-    async testIrisEvent(eventType = 'test_iris') {
-        this.logger.info(`🔍 Тестирование IRIS события типа: ${eventType}`);
+    async testIrisMessage(messageType = 'test_iris') {
+        this.logger.info(`🔍 Тестирование IRIS сообщения типа: ${messageType}`);
         
         const testData = {
             irisData: 'test_iris_string_data',
@@ -139,7 +139,7 @@ class ApiTester {
         };
 
         try {
-            const response = await this.makeRequest('POST', `/api/v1/event/${eventType}/iris`, testData);
+            const response = await this.makeRequest('POST', `/api/v1/message/${messageType}/iris`, testData);
             
             if (response.statusCode === 501) {
                 this.logger.info('✅ IRIS endpoint корректно возвращает 501 (не реализовано)', response.data);
@@ -183,8 +183,8 @@ class ApiTester {
         this.logger.info('🔍 Тестирование валидации JSON...');
         
         try {
-            // Отправляем невалидный JSON с валидным eventType
-            const response = await this.makeRequest('POST', '/api/v1/event/1/json', 'invalid json', true);
+            // Отправляем невалидный JSON с валидным messageType
+            const response = await this.makeRequest('POST', '/api/v1/message/1/json', 'invalid json', true);
             
             if (response.statusCode === 400) {
                 this.logger.info('✅ Валидация JSON работает корректно (ошибка парсинга обработана)', response.data);
@@ -207,8 +207,8 @@ class ApiTester {
         
         const tests = [
             { name: 'Health Check', fn: () => this.testHealthCheck() },
-            { name: 'JSON Event', fn: () => this.testJsonEvent() },
-            { name: 'IRIS Event', fn: () => this.testIrisEvent() },
+            { name: 'JSON Message', fn: () => this.testJsonMessage() },
+            { name: 'IRIS Message', fn: () => this.testIrisMessage() },
             { name: '404 Not Found', fn: () => this.testNotFound() },
             { name: 'Invalid JSON', fn: () => this.testInvalidJson() }
         ];
@@ -258,7 +258,7 @@ class ApiTester {
         const promises = [];
         
         for (let i = 0; i < requests; i++) {
-            const promise = this.makeRequest('POST', '/api/v1/event/1/json', testData)
+            const promise = this.makeRequest('POST', '/api/v1/message/1/json', testData)
                 .catch(error => ({ error: error.message }));
             promises.push(promise);
             

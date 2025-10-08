@@ -1,4 +1,4 @@
-const EventGenerator = require('../generators/eventGenerator');
+const MessageGenerator = require('../generators/messageGenerator');
 const FactIndexer = require('../generators/factIndexer');
 const FactMapper = require('../generators/factMapper');
 const Logger = require('../utils/logger');
@@ -29,7 +29,7 @@ class FactController {
         }
         
         this.dbProvider = dbProvider;
-        this.eventGenerator = new EventGenerator(fieldConfigPathOrMapArray, targetSize);
+        this.messageGenerator = new MessageGenerator(fieldConfigPathOrMapArray, targetSize);
         this.factIndexer = new FactIndexer(indexConfigPathOrMapArray);
         this.factMapper = new FactMapper(fieldConfigPathOrMapArray);
 
@@ -48,9 +48,9 @@ class FactController {
      */
     async run() {
         // Генерация нового случайного события
-        const event = this.eventGenerator.generateRandomTypeEvent();
+        const message = this.messageGenerator.generateRandomTypeMessage();
         // Обработка события
-        return this.processEvent(event);
+        return this.processMessage(message);
     }
 
     /**
@@ -62,19 +62,19 @@ class FactController {
      */
     async runWithCounters() {
         // Генерация нового случайного события
-        const event = this.eventGenerator.generateRandomTypeEvent();
+        const message = this.messageGenerator.generateRandomTypeMessage();
         // Обработка события
-        return this.processEventWithCounters(event);
+        return this.processMessageWithCounters(message);
     }
 
     /**
-     * Обрабатывает событие: получает релевантные факты, сохраняет факт и индексные значения в базу данных
-     * @param {Object} event - событие
+     * Обрабатывает сообщение: получает релевантные факты, сохраняет факт и индексные значения в базу данных
+     * @param {Object} message - сообщение
      * @returns {Promise<Object>} результат операции создания факта
      */
-    async processEvent(event) {
-        const fact = this.factMapper.mapEventToFact(event);
-        this.logger.debug(`*** Для события ${event.t} будет создан новый факт ${fact.t}: ${fact._id}`);
+    async processMessage(message) {
+        const fact = this.factMapper.mapMessageToFact(message);
+        this.logger.debug(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         const factIndexHashValues = factIndexes.map(index => index.h);
         const startTime = Date.now();
@@ -98,13 +98,13 @@ class FactController {
     }
 
     /**
-     * Обрабатывает событие: получает релевантные факты, сохраняет факт и индексные значения в базу данных
-     * @param {Object} event - событие
+     * Обрабатывает сообщение: получает релевантные факты, сохраняет факт и индексные значения в базу данных
+     * @param {Object} message - сообщение
      * @returns {Promise<Object>} результат операции создания факта
      */
-    async processEventWithCounters(event) {
-        const fact = this.factMapper.mapEventToFact(event);
-        this.logger.debug(`*** Для события ${event.t} будет создан новый факт ${fact.t}: ${fact._id}`);
+    async processMessageWithCounters(message) {
+        const fact = this.factMapper.mapMessageToFact(message);
+        this.logger.debug(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         const factIndexHashValues = factIndexes.map(index => index.h);
         const startTime = Date.now();
