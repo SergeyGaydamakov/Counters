@@ -101,7 +101,7 @@ class MessageGenerator {
 
             for (let j = 0; j < field.message_types.length; j++) {
                 if (typeof field.message_types[j] !== 'number' || !Number.isInteger(field.message_types[j])) {
-                    throw new Error(`Поле конфигурации ${i}, тип ${j} должен быть целым числом`);
+                    throw new Error(`Для поля конфигурации [${i}] ${field.src} тип сообщения [${j}] имеет значение ${field.message_types[j]}, а должен быть целым числом`);
                 }
             }
 
@@ -127,9 +127,9 @@ class MessageGenerator {
             throw new Error(`Поле конфигурации ${fieldIndex}: generator.type должен быть строкой`);
         }
 
-        const validTypes = ['string', 'integer', 'date', 'enum', 'objectId'];
+        const validTypes = ['string', 'integer', 'date', 'enum', 'objectId', 'boolean'];
         if (!validTypes.includes(generator.type)) {
-            throw new Error(`Поле конфигурации ${fieldIndex}: generator.type должен быть одним из: ${validTypes.join(', ')}`);
+            throw new Error(`Поле конфигурации [${fieldIndex}] ${generator.src} : generator.type = ${generator.type}, а должно быть одним из: ${validTypes.join(', ')}`);
         }
 
         // Валидация дополнительных параметров
@@ -235,6 +235,12 @@ class MessageGenerator {
                     if (!/^[0-9a-fA-F]{24}$/.test(generator.default_value)) {
                         throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен быть валидным ObjectId (24 hex символа)`);
                     }
+                }
+                break;
+
+            case 'boolean':
+                if (generator.default_value !== undefined && typeof generator.default_value !== 'boolean') {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для boolean должен быть булевым значением`);
                 }
                 break;
         }
@@ -360,6 +366,21 @@ class MessageGenerator {
     }
 
     /**
+     * Генерирует случайное булево значение
+     * @param {boolean} defaultValue - значение по умолчанию
+     * @param {number} defaultRandom - вероятность использования значения по умолчанию (0-1)
+     * @returns {boolean} случайное булево значение
+     */
+    _generateRandomBoolean(defaultValue = null, defaultRandom = 0) {
+        // Проверяем, нужно ли использовать значение по умолчанию
+        if (defaultValue !== null && Math.random() < defaultRandom) {
+            return defaultValue;
+        }
+        
+        return Math.random() < 0.5;
+    }
+
+    /**
      * Генерирует значение поля на основе конфигурации генератора
      * @param {Object} generatorConfig - конфигурация генератора
      * @returns {*} сгенерированное значение
@@ -399,6 +420,9 @@ class MessageGenerator {
                     return new ObjectId(defaultValue);
                 }
                 return this._generateGuid();
+
+            case 'boolean':
+                return this._generateRandomBoolean(defaultValue, defaultRandom);
 
             default:
                 // Fallback к значению по умолчанию

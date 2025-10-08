@@ -91,22 +91,25 @@ async function main(){
             count: 0
         };
     }
-    function updateProcessingTime(processingTime, result){
-        processingTime.total.total += result.processingTime.total;
-        processingTime.total.min = Math.min(processingTime.total.min, result.processingTime.total);
-        processingTime.total.max = Math.max(processingTime.total.max, result.processingTime.total);
-        processingTime.relevantFacts.total += result.processingTime.relevantFacts;
-        processingTime.relevantFacts.min = Math.min(processingTime.relevantFacts.min, result.processingTime.relevantFacts);
-        processingTime.relevantFacts.max = Math.max(processingTime.relevantFacts.max, result.processingTime.relevantFacts);
-        processingTime.counters.total += result.processingTime.counters;
-        processingTime.counters.min = Math.min(processingTime.counters.min, result.processingTime.counters);
-        processingTime.counters.max = Math.max(processingTime.counters.max, result.processingTime.counters);
-        processingTime.saveFact.total += result.processingTime.saveFact;
-        processingTime.saveFact.min = Math.min(processingTime.saveFact.min, result.processingTime.saveFact);
-        processingTime.saveFact.max = Math.max(processingTime.saveFact.max, result.processingTime.saveFact);
-        processingTime.saveIndex.total += result.processingTime.saveIndex;
-        processingTime.saveIndex.min = Math.min(processingTime.saveIndex.min, result.processingTime.saveIndex);
-        processingTime.saveIndex.max = Math.max(processingTime.saveIndex.max, result.processingTime.saveIndex);
+    function updateProcessingTime(processingTime, resultProcessingTime){
+        if (!resultProcessingTime) {
+            return processingTime;
+        }
+        processingTime.total.total += resultProcessingTime.total;
+        processingTime.total.min = Math.min(processingTime.total.min, resultProcessingTime.total);
+        processingTime.total.max = Math.max(processingTime.total.max, resultProcessingTime.total);
+        processingTime.relevantFacts.total += resultProcessingTime.relevantFacts;
+        processingTime.relevantFacts.min = Math.min(processingTime.relevantFacts.min, resultProcessingTime.relevantFacts);
+        processingTime.relevantFacts.max = Math.max(processingTime.relevantFacts.max, resultProcessingTime.relevantFacts);
+        processingTime.counters.total += resultProcessingTime.counters;
+        processingTime.counters.min = Math.min(processingTime.counters.min, resultProcessingTime.counters);
+        processingTime.counters.max = Math.max(processingTime.counters.max, resultProcessingTime.counters);
+        processingTime.saveFact.total += resultProcessingTime.saveFact;
+        processingTime.saveFact.min = Math.min(processingTime.saveFact.min, resultProcessingTime.saveFact);
+        processingTime.saveFact.max = Math.max(processingTime.saveFact.max, resultProcessingTime.saveFact);
+        processingTime.saveIndex.total += resultProcessingTime.saveIndex;
+        processingTime.saveIndex.min = Math.min(processingTime.saveIndex.min, resultProcessingTime.saveIndex);
+        processingTime.saveIndex.max = Math.max(processingTime.saveIndex.max, resultProcessingTime.saveIndex);
         processingTime.count++;
         return processingTime;
     }
@@ -132,9 +135,12 @@ async function main(){
         async function run(){
             const result = await factController.runWithCounters();
             // Подсчитываем минимальное, максимальное и среднее время обработки фактов
-            processingTime = updateProcessingTime(processingTime, result);
+            processingTime = updateProcessingTime(processingTime, result.processingTime);
 
-            factCount++;
+            if (result.processingTime) {
+                // Если время обработки не null, то увеличиваем счетчик фактов
+                factCount++;
+            }
             if (factCount % CYCLE_OUTPUT === 0) {
                 logger.info(`✓ Создано ${factCount} фактов`);
                 logger.info(`✓ Скорость создания фактов: ${Math.round(CYCLE_OUTPUT / (Date.now() - startCycleTime) * 1000)} фактов в секунду`);

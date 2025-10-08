@@ -76,6 +76,17 @@ class FactController {
         const fact = this.factMapper.mapMessageToFact(message);
         this.logger.debug(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
+        if (factIndexes.length === 0) {
+            this.logger.warn(`✓ Нет индексных значений для факта с типом ${fact.t}, обработка факта будет пропущена.`);
+            // Чтобы не портить статистику, для processingTime устанавливаем null
+            return {
+                fact,
+                relevantFacts: [],
+                saveFactResult: { success: true },
+                saveIndexResult: { success: true },
+                processingTime: null
+            };
+        }
         const factIndexHashValues = factIndexes.map(index => index.h);
         const startTime = Date.now();
         const [relevantFactsResult, factResult, indexResult] = await Promise.all([
@@ -106,6 +117,17 @@ class FactController {
         const fact = this.factMapper.mapMessageToFact(message);
         this.logger.debug(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
+        if (factIndexes.length === 0) {
+            this.logger.warn(`✓ Нет индексных значений для факта с типом ${fact.t}, обработка факта будет пропущена.`);
+            // Чтобы не портить статистику, для processingTime устанавливаем null
+            return {
+                fact,
+                relevantFacts: [],
+                saveFactResult: { success: true },
+                saveIndexResult: { success: true },
+                processingTime: null
+            };
+        }
         const factIndexHashValues = factIndexes.map(index => index.h);
         const startTime = Date.now();
         const [factCountersResult, factResult, indexResult] = await Promise.all([

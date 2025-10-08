@@ -116,11 +116,6 @@ class FactIndexer {
                 throw new Error(`Элемент конфигурации ${index}: поле 'fieldName' должно быть строкой`);
             }
 
-            // Проверяем формат названия поля (f1-f23)
-            if (!fieldNamePattern.test(configItem.fieldName)) {
-                throw new Error(`Элемент конфигурации ${index}: поле 'fieldName' должно быть в формате f1-f23, получено: '${configItem.fieldName}'`);
-            }
-
             // Проверяем тип поля indexTypeName
             if (typeof configItem.indexTypeName !== 'string') {
                 throw new Error(`Элемент конфигурации ${index}: поле 'indexTypeName' должно быть строкой`);
@@ -240,6 +235,7 @@ class FactIndexer {
 
         // Если нет поля d, возвращаем пустой массив
         if (!fact.d || typeof fact.d !== 'object') {
+            this.logger.warn(`Отсутствует поле d в факте ${fact._id}. Индексирование для ${this._indexConfig.indexTypeName} не будет производиться.`);
             return indexValues;
         }
 
