@@ -85,14 +85,14 @@ function createRoutes(factController) {
 
             logger.info(`Сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
-                processingTime: result.processingTime.total
+                processingTime: result.processingTime ? result.processingTime.total : 'N/A'
             });
 
             res.json({
                 success: true,
                 messageType,
                 factId: result.fact._id,
-                processingTime: result.processingTime,
+                processingTime: result.processingTime || { total: 0, message: 'No processing time available' },
                 counters: result.counters,
                 timestamp: new Date().toISOString()
             });
