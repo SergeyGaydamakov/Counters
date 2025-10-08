@@ -29,14 +29,13 @@ class MessageGenerator {
 
     /**
      * Загружает конфигурацию полей из файла или использует переданную структуру
-     * @param {string|Array|null} fieldConfigPathOrArray - путь к файлу конфигурации, массив конфигурации или null для использования fieldConfig.json
+     * @param {string|Array|null} fieldConfigPathOrArray - путь к файлу конфигурации, массив конфигурации или null для использования messageConfig.json
      * @returns {Array} массив конфигурации полей
      */
     _loadFieldConfig(fieldConfigPathOrArray) {
         if (!fieldConfigPathOrArray) {
             throw new Error('Не указана конфигурация полей (имя файла или структура)');
         }
-        
         // Определяем способ инициализации
         if (Array.isArray(fieldConfigPathOrArray)) {
             // Инициализация через массив конфигурации
@@ -44,7 +43,7 @@ class MessageGenerator {
             return fieldConfigPathOrArray;
         } else {
             // Инициализация через путь к файлу
-            const configPath = fieldConfigPathOrArray || path.join(process.cwd(), 'fieldConfig.json');
+            const configPath = fieldConfigPathOrArray || path.join(process.cwd(), 'messageConfig.json');
             return this._loadConfigFromFile(configPath);
         }
     }

@@ -193,7 +193,7 @@ MONGODB_CONNECTION_STRING=mongodb://localhost:27017
 MONGODB_DATABASE_NAME=counters
 
 # Настройки фактов
-FACT_FIELD_CONFIG_PATH=../fieldConfig.json
+FACT_FIELD_CONFIG_PATH=../messageConfig.json
 INDEX_CONFIG_PATH=../indexConfig.json
 FACT_TARGET_SIZE=500
 ```
