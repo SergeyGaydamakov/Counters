@@ -1,6 +1,6 @@
 // Импортируем систему логирования
 const Logger = require('./utils/logger');
-const { MongoProvider, FactController } = require('./index');
+const { MongoProvider, FactController, MongoCounters } = require('./index');
 
 // Загружаем переменные окружения из .env файла
 const dotenv = require('dotenv');
@@ -16,6 +16,7 @@ const databaseName = process.env.MONGODB_DATABASE_NAME || 'counters';
 // Параметры генерации фактов из .env
 const fieldConfigPath = process.env.FACT_FIELD_CONFIG_PATH || null;
 const indexConfigPath = process.env.INDEX_CONFIG_PATH || null;
+const counterConfigPath = process.env.COUNTER_CONFIG_PATH || null;
 const targetSize = parseInt(process.env.FACT_TARGET_SIZE) || 500;
 
 // Логируем загруженные параметры
@@ -122,8 +123,9 @@ async function main(){
     }
     try {
         let factCount = 0;
+        const mongoCounters = new MongoCounters(counterConfigPath);
         // Создаем провайдер данных
-        mongoProvider = new MongoProvider(connectionString, databaseName);
+        mongoProvider = new MongoProvider(connectionString, databaseName, mongoCounters);
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider

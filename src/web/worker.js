@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const Logger = require('../utils/logger');
-const { MongoProvider, FactController } = require('../index');
+const { MongoProvider, FactController, MongoCounters } = require('../index');
 const config = require('../common/config');
 const { createRoutes } = require('./routes');
 const { 
@@ -26,6 +26,7 @@ const app = express();
 // Глобальная переменная для хранения провайдера и контроллера
 let mongoProvider = null;
 let factController = null;
+let mongoCounters = null;
 
 // Middleware для безопасности
 app.use(helmet({
@@ -89,10 +90,12 @@ async function initialize() {
         logger.info(`🔌 Воркер ${process.pid} инициализируется...`);
         logger.info(`📊 MongoDB: ${config.database.connectionString}/${config.database.databaseName}`);
 
+        mongoCounters = new MongoCounters(config.facts.counterConfigPath);
         // Создаем провайдер данных
         mongoProvider = new MongoProvider(
             config.database.connectionString, 
-            config.database.databaseName
+            config.database.databaseName,
+            mongoCounters
         );
         await mongoProvider.connect();
         logger.info(`✅ MongoDB подключен в воркере ${process.pid}`);

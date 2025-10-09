@@ -12,7 +12,7 @@ class FactController {
     MAX_DEPTH_LIMIT = 1000;
     MAX_DEPTH_FROM_DATE = new Date(Date.now() - 300 * 24 * 60 * 60 * 1000);
 
-    constructor(dbProvider, fieldConfigPathOrMapArray, indexConfigPathOrMapArray, targetSize) {
+    constructor(dbProvider, fieldConfigPathOrObject, indexConfigPathOrObject, targetSize) {
         if (!dbProvider) {
             throw new Error('dbProvider обязателен для инициализации FactController');
         }
@@ -29,10 +29,10 @@ class FactController {
         }
         
         this.dbProvider = dbProvider;
-        this.messageGenerator = new MessageGenerator(fieldConfigPathOrMapArray, targetSize);
-        this.factIndexer = new FactIndexer(indexConfigPathOrMapArray);
-        this.factMapper = new FactMapper(fieldConfigPathOrMapArray);
-
+        this.messageGenerator = new MessageGenerator(fieldConfigPathOrObject, targetSize);
+        this.factIndexer = new FactIndexer(indexConfigPathOrObject);
+        this.factMapper = new FactMapper(fieldConfigPathOrObject);
+        
         // Значения хеша
         this.factIndexer._indexConfig.forEach(config => {
             this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hash(config.indexType,'1234567890')}`);

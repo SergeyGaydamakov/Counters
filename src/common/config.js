@@ -15,6 +15,7 @@ const config = {
     facts: {
         fieldConfigPath: process.env.FACT_FIELD_CONFIG_PATH || null,
         indexConfigPath: process.env.INDEX_CONFIG_PATH || null,
+        counterConfigPath: process.env.COUNTER_CONFIG_PATH || null,
         targetSize: parseInt(process.env.FACT_TARGET_SIZE) || 500
     },
     

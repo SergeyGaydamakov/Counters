@@ -67,13 +67,13 @@ class MongoCountersTest {
                 }
             ];
 
-            const counterMaker = new MongoCounters(config);
+            const mongoCounters = new MongoCounters(config);
             
-            this.assert(counterMaker instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
-            this.assert(counterMaker.getCounterCount() === 2, 'Количество счетчиков корректно');
+            this.assert(mongoCounters instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
+            this.assert(mongoCounters.getCounterCount() === 2, 'Количество счетчиков корректно');
             
-            this.assert(counterMaker.getCounterConfig('test_counter_1') !== null, 'Счетчик test_counter_1 найден');
-            this.assert(counterMaker.getCounterConfig('test_counter_2') !== null, 'Счетчик test_counter_2 найден');
+            this.assert(mongoCounters.getCounterConfig('test_counter_1') !== null, 'Счетчик test_counter_1 найден');
+            this.assert(mongoCounters.getCounterConfig('test_counter_2') !== null, 'Счетчик test_counter_2 найден');
         } catch (error) {
             this.assert(false, 'Конструктор с массивом', `Ошибка: ${error.message}`);
         }
@@ -85,10 +85,10 @@ class MongoCountersTest {
     testConstructorWithFile(title) {
         this.logger.info(title);
         try {
-            const counterMaker = new MongoCounters('./countersConfig.json');
+            const mongoCounters = new MongoCounters('./countersConfig.json');
             
-            this.assert(counterMaker instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
-            this.assert(counterMaker.getCounterCount() > 0, 'Количество счетчиков корректно');
+            this.assert(mongoCounters instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
+            this.assert(mongoCounters.getCounterCount() > 0, 'Количество счетчиков корректно');
         } catch (error) {
             this.assert(false, 'Конструктор с файлом', `Ошибка: ${error.message}`);
         }
@@ -100,10 +100,10 @@ class MongoCountersTest {
     testConstructorWithoutConfig(title) {
         this.logger.info(title);
         try {
-            const counterMaker = new MongoCounters();
+            const mongoCounters = new MongoCounters();
             
-            this.assert(counterMaker instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
-            this.assert(counterMaker.getCounterCount() === 0, 'Количество счетчиков равно 0');            
+            this.assert(mongoCounters instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
+            this.assert(mongoCounters.getCounterCount() === 0, 'Количество счетчиков равно 0');            
         } catch (error) {
             this.assert(false, 'Конструктор без конфигурации', `Ошибка: ${error.message}`);
         }
@@ -130,7 +130,7 @@ class MongoCountersTest {
                 }
             ];
 
-            const counterMaker = new MongoCounters(config);
+            const mongoCounters = new MongoCounters(config);
 
             // Тест факта с messageTypeId = 50
             const fact1 = {
@@ -140,7 +140,7 @@ class MongoCountersTest {
                 d: { messageTypeId: 50, status: 'A' }
             };
 
-            const result1 = counterMaker.make(fact1);
+            const result1 = mongoCounters.make(fact1);
             this.assert(typeof result1 === 'object', 'make возвращает объект');
             this.assert(result1.counter_50_70 !== undefined, 'Счетчик counter_50_70 применен к факту с messageTypeId = 50');
             this.assert(result1.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
@@ -153,7 +153,7 @@ class MongoCountersTest {
                 d: { messageTypeId: 60, status: 'A' }
             };
 
-            const result2 = counterMaker.make(fact2);
+            const result2 = mongoCounters.make(fact2);
             this.assert(result2.counter_50_70 === undefined, 'Счетчик counter_50_70 не применен к факту с messageTypeId = 60');
             this.assert(result2.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
         } catch (error) {
@@ -201,7 +201,7 @@ class MongoCountersTest {
                 }
             ];
 
-            const counterMaker = new MongoCounters(config);
+            const mongoCounters = new MongoCounters(config);
 
             // Тест с оператором $nin
             const fact1 = {
@@ -211,7 +211,7 @@ class MongoCountersTest {
                 d: { mti: '0200', status: 'A' }
             };
 
-            const result1 = counterMaker.make(fact1);
+            const result1 = mongoCounters.make(fact1);
             this.assert(typeof result1 === 'object', 'make возвращает объект');
             this.assert(result1.counter_nin !== undefined, 'Счетчик с $nin применен');
             this.assert(result1.counter_regex !== undefined, 'Счетчик с $regex применен');
@@ -225,7 +225,7 @@ class MongoCountersTest {
                 d: { de22: '051234' }
             };
 
-            const result2 = counterMaker.make(fact2);
+            const result2 = mongoCounters.make(fact2);
             this.assert(result2.counter_regex !== undefined, 'Счетчик с $regex применен для корректного значения');
 
             // Тест с оператором $or
@@ -236,7 +236,7 @@ class MongoCountersTest {
                 d: { status: 'A' }
             };
 
-            const result3 = counterMaker.make(fact3);
+            const result3 = mongoCounters.make(fact3);
             this.assert(result3.counter_or !== undefined, 'Счетчик с $or применен');
         } catch (error) {
             this.assert(false, 'MongoDB операторы', `Ошибка: ${error.message}`);
@@ -261,7 +261,7 @@ class MongoCountersTest {
                 }
             ];
 
-            const counterMaker = new MongoCounters(config);
+            const mongoCounters = new MongoCounters(config);
 
             // Тест с подходящим фактом
             const fact = {
@@ -271,7 +271,7 @@ class MongoCountersTest {
                 d: { messageTypeId: 50, status: 'A' }
             };
 
-            const result = counterMaker.make(fact);
+            const result = mongoCounters.make(fact);
             
             this.assert(typeof result === 'object', 'make возвращает объект');
             this.assert(result.test_counter !== undefined, 'Счетчик создан для подходящего факта');
@@ -286,7 +286,7 @@ class MongoCountersTest {
                 d: { messageTypeId: 60, status: 'A' }
             };
 
-            const unsuitableResult = counterMaker.make(unsuitableFact);
+            const unsuitableResult = mongoCounters.make(unsuitableFact);
             
             this.assert(typeof unsuitableResult === 'object', 'make возвращает объект для неподходящего факта');
             this.assert(Object.keys(unsuitableResult).length === 0, 'Для неподходящего факта не создано счетчиков');
@@ -316,18 +316,18 @@ class MongoCountersTest {
                 }
             ];
 
-            const counterMaker = new MongoCounters(config);
+            const mongoCounters = new MongoCounters(config);
 
             // Тест getCounterConfig
-            const config1 = counterMaker.getCounterConfig('counter1');
+            const config1 = mongoCounters.getCounterConfig('counter1');
             this.assert(config1 !== null, 'getCounterConfig возвращает конфигурацию для существующего счетчика');
             this.assert(config1.name === 'counter1', 'getCounterConfig возвращает правильную конфигурацию');
 
-            const configNotFound = counterMaker.getCounterConfig('nonexistent');
+            const configNotFound = mongoCounters.getCounterConfig('nonexistent');
             this.assert(configNotFound === null, 'getCounterConfig возвращает null для несуществующего счетчика');
 
             // Тест getCounterCount
-            const count = counterMaker.getCounterCount();
+            const count = mongoCounters.getCounterCount();
             this.assert(count === 2, 'getCounterCount возвращает правильное количество счетчиков');
         } catch (error) {
             this.assert(false, 'Вспомогательные методы', `Ошибка: ${error.message}`);
@@ -368,11 +368,11 @@ class MongoCountersTest {
                 }
             ];
 
-            const counterMaker = new MongoCounters(config);
+            const mongoCounters = new MongoCounters(config);
 
             // Тест с null фактом
             try {
-                const result = counterMaker.make(null);
+                const result = mongoCounters.make(null);
                 this.assert(typeof result === 'object', 'make обрабатывает null факт');
                 this.assert(Object.keys(result).length === 0, 'make возвращает пустой объект для null факта');
             } catch (error) {
@@ -382,7 +382,7 @@ class MongoCountersTest {
             // Тест с фактом без поля d
             try {
                 const factWithoutD = { _id: 'test', t: 50, c: new Date() };
-                const result = counterMaker.make(factWithoutD);
+                const result = mongoCounters.make(factWithoutD);
                 this.assert(typeof result === 'object', 'make обрабатывает факт без поля d');
                 this.assert(Object.keys(result).length === 0, 'make возвращает пустой объект для факта без поля d');
             } catch (error) {

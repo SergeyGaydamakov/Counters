@@ -10,21 +10,21 @@ class MongoProvider {
      * Конструктор MongoProvider
      * @param {string} connectionString - Строка подключения к MongoDB
      * @param {string} databaseName - Имя базы данных
-     * @param {Object} counterMaker - Объект для создания счетчиков, должен иметь метод make(fact)
-     * @throws {Error} если counterMaker не соответствует требуемому интерфейсу
+     * @param {Object} mongoCounters - Объект для создания счетчиков, должен иметь метод make(fact)
+     * @throws {Error} если mongoCounters не соответствует требуемому интерфейсу
      * 
-     * Требования к counterMaker:
+     * Требования к mongoCounters:
      * - Должен быть объектом (не null/undefined)
      * - Должен иметь метод make(fact)
      * - Метод make должен принимать объект факта и возвращать объект
      * - Возвращаемый объект должен содержать только массивы в качестве значений (для $facet)
      */
-    constructor(connectionString, databaseName, counterMaker) {
+    constructor(connectionString, databaseName, mongoCounters) {
         this.connectionString = connectionString;
         this.databaseName = databaseName;
         
-        // Проверяем интерфейс counterMaker перед присваиванием
-        this.counterMaker = this._validateCounterMakerInterface(counterMaker);
+        // Проверяем интерфейс mongoCounters перед присваиванием
+        this.mongoCounters = this._validateMongoCountersInterface(mongoCounters);
         
         // Создаем логгер для этого провайдера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
@@ -42,26 +42,26 @@ class MongoProvider {
     }
 
     /**
-     * Проверяет интерфейс класса counterMaker на наличие требуемых методов
-     * @param {Object} counterMaker - Объект counterMaker для проверки
-     * @throws {Error} если counterMaker не соответствует требуемому интерфейсу
+     * Проверяет интерфейс класса mongoCounters на наличие требуемых методов
+     * @param {Object} mongoCounters - Объект mongoCounters для проверки
+     * @throws {Error} если mongoCounters не соответствует требуемому интерфейсу
      */
-    _validateCounterMakerInterface(counterMaker) {
-        if (!counterMaker) {
+    _validateMongoCountersInterface(mongoCounters) {
+        if (!mongoCounters) {
             // Будем работать по умолчанию
             return null;
         }
 
-        if (typeof counterMaker !== 'object') {
-            throw new Error('counterMaker должен быть объектом');
+        if (typeof mongoCounters !== 'object') {
+            throw new Error('mongoCounters должен быть объектом');
         }
 
         // Проверяем наличие метода make
-        if (typeof counterMaker.make !== 'function') {
-            throw new Error('counterMaker должен иметь метод make(fact)');
+        if (typeof mongoCounters.make !== 'function') {
+            throw new Error('mongoCounters должен иметь метод make(fact)');
         }
 
-        return counterMaker;
+        return mongoCounters;
     }
 
     // ============================================================================
@@ -407,10 +407,10 @@ class MongoProvider {
      * @returns {Promise<Array>} выражение для вычисления счетчиков по фактам
      */
     getCountersExpression(fact) {
-        if (!this.counterMaker) {
+        if (!this.mongoCounters) {
             return this.getDefaultCountersExpression();
         }
-        return {"$facet": this.counterMaker.make(fact)};
+        return {"$facet": this.mongoCounters.make(fact)};
     }
 
     /**
