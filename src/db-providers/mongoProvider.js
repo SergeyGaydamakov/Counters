@@ -6,10 +6,26 @@ const Logger = require('../utils/logger');
  * Содержит методы для управления подключением, схемами, вставкой данных, запросами и статистикой
  */
 class MongoProvider {
-    constructor(connectionString, databaseName) {
+    /**
+     * Конструктор MongoProvider
+     * @param {string} connectionString - Строка подключения к MongoDB
+     * @param {string} databaseName - Имя базы данных
+     * @param {Object} counterMaker - Объект для создания счетчиков, должен иметь метод make(fact)
+     * @throws {Error} если counterMaker не соответствует требуемому интерфейсу
+     * 
+     * Требования к counterMaker:
+     * - Должен быть объектом (не null/undefined)
+     * - Должен иметь метод make(fact)
+     * - Метод make должен принимать объект факта и возвращать объект
+     * - Возвращаемый объект должен содержать только массивы в качестве значений (для $facet)
+     */
+    constructor(connectionString, databaseName, counterMaker) {
         this.connectionString = connectionString;
         this.databaseName = databaseName;
-
+        
+        // Проверяем интерфейс counterMaker перед присваиванием
+        this.counterMaker = this._validateCounterMakerInterface(counterMaker);
+        
         // Создаем логгер для этого провайдера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.FACT_COLLECTION_NAME = "facts";
@@ -23,6 +39,29 @@ class MongoProvider {
         this._findFactIndexCollection = null;
         //
         this._isConnected = false;
+    }
+
+    /**
+     * Проверяет интерфейс класса counterMaker на наличие требуемых методов
+     * @param {Object} counterMaker - Объект counterMaker для проверки
+     * @throws {Error} если counterMaker не соответствует требуемому интерфейсу
+     */
+    _validateCounterMakerInterface(counterMaker) {
+        if (!counterMaker) {
+            // Будем работать по умолчанию
+            return null;
+        }
+
+        if (typeof counterMaker !== 'object') {
+            throw new Error('counterMaker должен быть объектом');
+        }
+
+        // Проверяем наличие метода make
+        if (typeof counterMaker.make !== 'function') {
+            throw new Error('counterMaker должен иметь метод make(fact)');
+        }
+
+        return counterMaker;
     }
 
     // ============================================================================
@@ -299,11 +338,11 @@ class MongoProvider {
      * @param {Object} fact - факт
      * @returns {Promise<Array>} релевантные факты
      */
-    async getRelevantFacts(indexHashValues, factId = undefined, depthLimit = 1000, depthFromDate = undefined) {
+    async getRelevantFacts(indexHashValues, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
         this.checkConnection();
         const startTime = Date.now();
 
-        this.logger.debug(`Получение релевантных фактов для факта ${factId} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+        this.logger.debug(`Получение релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id
         // и результат объединить с фактом из коллекции facts
@@ -312,9 +351,9 @@ class MongoProvider {
                 "$in": indexHashValues
             }
         };
-        if (factId) {
+        if (fact) {
             matchQuery["_id.f"] = {
-                "$ne": factId
+                "$ne": fact._id
             };
         }
         if (depthFromDate) {
@@ -361,66 +400,25 @@ class MongoProvider {
         };
     }
 
+
     /**
-     * Получает счетчики по фактам для заданного факта
+     * Выдает выражение для вычисления счетчиков по фактам
      * @param {Object} fact - факт
-     * @returns {Promise<Array>} счетчики по фактам
+     * @returns {Promise<Array>} выражение для вычисления счетчиков по фактам
      */
-    async getRelevantFactCounters(indexHashValues, factId = undefined, depthLimit = 1000, depthFromDate = undefined) {
-        this.checkConnection();
-        const startTime = Date.now();
-
-        this.logger.debug(`Получение релевантных фактов для факта ${factId} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
-        // Сформировать агрегирующий запрос к коллекции factIndex,
-        // получить уникальные значения поля _id
-        // и результат объединить с фактом из коллекции facts
-        const matchQuery = {
-            "_id.h": {
-                "$in": indexHashValues
-            }
-        };
-        if (factId) {
-            matchQuery._id = {
-                "$ne": factId
-            };
+    getCountersExpression(fact) {
+        if (!this.counterMaker) {
+            return this.getDefaultCountersExpression();
         }
-        if (depthFromDate) {
-            matchQuery.d = {
-                "$gte": depthFromDate
-            };
-        }
-        const findOptions = {
-            batchSize: 5000,
-            readConcern: { level: "local" },
-            readPreference: { mode: "secondaryPreferred" },
-            comment: "getRelevantFactCounters - find",
-            projection: { "_id": 1 }
-        };
-        const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
+        return {"$facet": this.counterMaker.make(fact)};
+    }
 
-        // Если нет релевантных индексных значений, возвращаем пустую статистику
-        if (factIndexResult.length === 0) {
-            return {
-                result: [{
-                    total: [{ count: 0, sumA: 0 }],
-                    lastWeek: [{ count: 0, sumA: 0 }],
-                    lastHour: [{ count: 0, sumA: 0 }],
-                    lastDay: [{ count: 0, sumA: 0 }],
-                    conditionLastHour: [{ totalSum: 0 }]
-                }],
-                processingTime: Date.now() - startTime,
-            };
-        }
-
-        // Сформировать агрегирующий запрос к коллекции facts,
-        const queryFacts = {
-            "$match": {
-                "_id": {
-                    "$in": factIndexResult.map(item => item._id.f)
-                }
-            }
-        };
-        const statisticStageFacts = {
+    /**
+     * Выдает выражение для вычисления счетчиков по умолчанию
+     * @returns {Promise<Array>} выражение для вычисления счетчиков по умолчанию
+     */
+    getDefaultCountersExpression() {
+        return {
             "$facet": {
                 "total": [
                     {
@@ -501,8 +499,70 @@ class MongoProvider {
                 ]
             }
         };
+    }
+    
 
-        const aggregateQuery = [queryFacts, statisticStageFacts];
+    /**
+     * Получает счетчики по фактам для заданного факта
+     * @param {Object} fact - факт
+     * @returns {Promise<Array>} счетчики по фактам
+     */
+    async getRelevantFactCounters(indexHashValues, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
+        this.checkConnection();
+        const startTime = Date.now();
+
+        this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+        // Сформировать агрегирующий запрос к коллекции factIndex,
+        // получить уникальные значения поля _id
+        // и результат объединить с фактом из коллекции facts
+        const matchQuery = {
+            "_id.h": {
+                "$in": indexHashValues
+            }
+        };
+        if (fact) {
+            matchQuery._id = {
+                "$ne": fact._id
+            };
+        }
+        if (depthFromDate) {
+            matchQuery.d = {
+                "$gte": depthFromDate
+            };
+        }
+        const findOptions = {
+            batchSize: 5000,
+            readConcern: { level: "local" },
+            readPreference: { mode: "secondaryPreferred" },
+            comment: "getRelevantFactCounters - find",
+            projection: { "_id": 1 }
+        };
+        const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
+
+        // Если нет релевантных индексных значений, возвращаем пустую статистику
+        if (factIndexResult.length === 0) {
+            return {
+                result: [{
+                    total: [{ count: 0, sumA: 0 }],
+                    lastWeek: [{ count: 0, sumA: 0 }],
+                    lastHour: [{ count: 0, sumA: 0 }],
+                    lastDay: [{ count: 0, sumA: 0 }],
+                    conditionLastHour: [{ totalSum: 0 }]
+                }],
+                processingTime: Date.now() - startTime,
+            };
+        }
+
+        // Сформировать агрегирующий запрос к коллекции facts,
+        const queryFacts = {
+            "$match": {
+                "_id": {
+                    "$in": factIndexResult.map(item => item._id.f)
+                }
+            }
+        };
+
+        const aggregateQuery = [queryFacts, this.getCountersExpression(fact)];
 
         // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
 

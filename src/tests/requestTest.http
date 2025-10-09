@@ -26,7 +26,7 @@ Content-Type: application/json
 {{processedMessage}}
 
 
-### Обработка XML сообщения
+### Обработка IRIS XML сообщения
 POST http://{{host}}/api/v1/message/iris
 Content-Type: text/xml
 

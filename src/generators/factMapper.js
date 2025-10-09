@@ -135,7 +135,7 @@ class FactMapper {
     /**
      * Валидация структуры сообщения
      */
-    _validateMessageAndGetFactId(message) {
+    _validateMessage(message) {
         if (!message || typeof message !== 'object') {
             const error = new Error('Входное сообщение должно быть объектом. Полный объект: ' + message);
             error.code = ERROR_WRONG_MESSAGE_STRUCTURE;
@@ -151,7 +151,7 @@ class FactMapper {
             error.code = ERROR_WRONG_MESSAGE_STRUCTURE;
             throw error;
         }
-        return this.getFactId(message);
+        return true;
     }
 
     /**
@@ -191,7 +191,8 @@ class FactMapper {
      * @returns {Object} Преобразованный факт во внутренней структуре
      */
     mapMessageToFact(message, keepUnmappedFields=true){
-        const factId = this._validateMessageAndGetFactId(message);
+        this._validateMessage(message);
+        const factId = this.getFactId(message);
         const fact = {
             _id: factId,
             t: message.t,

@@ -1,6 +1,7 @@
 # Work
 *.xlsx
 messages/
+docs/
 
 # MongoDB
 mongodb/db/

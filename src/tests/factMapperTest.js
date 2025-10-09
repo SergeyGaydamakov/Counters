@@ -2,6 +2,7 @@ const FactMapper = require('../generators/factMapper');
 const fs = require('fs');
 const path = require('path');
 const Logger = require('../utils/logger');
+const { ERROR_MISSING_KEY_IN_MESSAGE } = require('../common/errors');
 
 /**
  * Тесты для модуля FactMapper
@@ -535,7 +536,7 @@ class FactMapperTest {
                 mapper.mapMessageToFact(messageWithoutKey);
                 this.assert(false, 'Валидация сообщения без ключевого поля', 'Должна была быть выброшена ошибка для сообщения без ключевого поля');
             } catch (error) {
-                this.assert(error.message.includes('не указан ключ'), 
+                this.assert(error.code == ERROR_MISSING_KEY_IN_MESSAGE, 
                     'Валидация сообщения без ключевого поля', 'Корректная ошибка для сообщения без ключевого поля');
             }
 
