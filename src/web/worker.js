@@ -10,6 +10,7 @@ const { createRoutes } = require('./routes');
 const { 
     requestLogger, 
     jsonValidator, 
+    irisXmlParser,
     errorHandler, 
     notFoundHandler, 
     responseMetadata 
@@ -41,6 +42,9 @@ app.use(compression());
 // Rate limiting
 const limiter = rateLimit(config.rateLimit);
 app.use('/api/', limiter);
+
+// Middleware для парсинга XML для IRIS маршрутов (ДО express.json)
+app.use(irisXmlParser);
 
 // Парсинг JSON с обработкой ошибок
 app.use(express.json({ 

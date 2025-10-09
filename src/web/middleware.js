@@ -1,4 +1,5 @@
 const Logger = require('../utils/logger');
+const xml2js = require('xml2js');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
@@ -59,6 +60,56 @@ const jsonValidator = (req, res, next) => {
                 message: error.message
             });
         }
+    } else {
+        next();
+    }
+};
+
+/**
+ * Middleware для парсинга XML запросов для IRIS маршрутов
+ * Должен быть размещен ДО express.json()
+ */
+const irisXmlParser = (req, res, next) => {
+    // Проверяем, что это IRIS маршрут и Content-Type XML
+    if (req.path.includes('/iris') && req.method === 'POST' && 
+        (req.is('application/xml') || req.is('text/xml'))) {
+        let data = '';
+        
+        req.on('data', chunk => {
+            data += chunk;
+        });
+        
+        req.on('end', () => {
+            try {
+                const parser = new xml2js.Parser({
+                    explicitArray: false,
+                    mergeAttrs: true,
+                    explicitRoot: false
+                });
+                
+                parser.parseString(data, (err, result) => {
+                    if (err) {
+                        logger.error('XML parsing error:', { error: err.message, data });
+                        return res.status(400).json({
+                            success: false,
+                            error: 'Ошибка парсинга XML',
+                            message: err.message
+                        });
+                    }
+                    
+                    req.body = result;
+                    logger.debug('XML parsed successfully:', { body: req.body });
+                    next();
+                });
+            } catch (error) {
+                logger.error('XML parsing error:', { error: error.message, data });
+                res.status(400).json({
+                    success: false,
+                    error: 'Ошибка парсинга XML',
+                    message: error.message
+                });
+            }
+        });
     } else {
         next();
     }
@@ -127,6 +178,7 @@ const responseMetadata = (req, res, next) => {
 module.exports = {
     requestLogger,
     jsonValidator,
+    irisXmlParser,
     errorHandler,
     notFoundHandler,
     responseMetadata
