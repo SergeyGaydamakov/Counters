@@ -94,12 +94,11 @@ function createRoutes(factController) {
             });
 
             res.json({
-                success: true,
                 messageType,
                 factId: result.fact._id,
-                processingTime: result.processingTime || { total: 0, message: 'No processing time available' },
                 counters: result.counters,
-                timestamp: new Date().toISOString()
+                processingTime: result.processingTime || { total: 0, message: 'No processing time available' },
+                debug: result.debug
             });
 
         } catch (error) {
@@ -187,9 +186,10 @@ function createRoutes(factController) {
             const jsonResponse = {
                 IRIS: {
                     FactId: result.fact._id,
-                    ProcessingTime: result.processingTime || { total: 0 },
                     Counters: result.counters,
-                    Timestamp: new Date().toISOString()
+                    Timestamp: new Date().toISOString(),
+                    ProcessingTime: result.processingTime || { total: 0 },
+                    debug: result.debug
                 },
                 _attributes: {
                     Version: '1',

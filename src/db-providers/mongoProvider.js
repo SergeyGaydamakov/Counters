@@ -579,14 +579,11 @@ class MongoProvider {
         // Если результат пустой, возвращаем пустую статистику
         if (result.length === 0) {
             return {
-                result: [{
-                    total: [{ count: 0, sumA: 0 }],
-                    lastWeek: [{ count: 0, sumA: 0 }],
-                    lastHour: [{ count: 0, sumA: 0 }],
-                    lastDay: [{ count: 0, sumA: 0 }],
-                    conditionLastHour: [{ totalSum: 0 }],
-                }],
+                result: [],
                 processingTime: Date.now() - startTime,
+                debug: {
+                    aggregateQuery: aggregateQuery,
+                }
             };
         }
 
@@ -594,6 +591,9 @@ class MongoProvider {
         return {
             result: result,
             processingTime: Date.now() - startTime,
+            debug: {
+                aggregateQuery: aggregateQuery,
+            }
         };
     }
 

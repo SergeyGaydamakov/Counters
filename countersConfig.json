@@ -1,27 +1,53 @@
 [
     {
-        "name": "i_CP_risk_mcc_same_mi_rus_1h",
-        "comment": "i_CP_risk_mcc_same_mi_rus_1h - подсчет количества",
+      "name": "counter_total",
+      "comment": "counter_total - подсчет количества",
+      "condition": {
+          "messageTypeId": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      },
+      "aggregate": [
+          {
+            "$group": {
+              "_id": null,
+              "cnt": { "$sum": 1 },
+              "sum": { "$sum": "$a" }
+            }
+          }
+        ]
+    },
+    {
+      "name": "counter1_odd",
+        "comment": "counter1_odd - нечетные значения f2",
         "condition": {
-            "messageTypeId": [50, 70]
+            "messageTypeId": [1]
         },
         "aggregate": [
             {
               "$match": {
-                "pin_flag": false,
-                "de22": { "$not": { "$regex": "^(01|81|10|82)" } },
-                "de3": { "$not": { "$regex": "^(5|2)" } },
-                "mti": { "$nin": ["0400", "0410", "0420", "0430"] },
-                "$or": [
-                  { "status": { "$ne": "R" } },
-                  { "status": null },
-                  { "status": { "$exists": false } }
-                ],
-                "mcc": { "$in": ["5813", "5812", "7273", "5732", "4812", "5211", "5094", "5944", "5411", "5499", "5814", "5311", "5541", "5331", "5999"] },
-                "de42": "{i_merchant_id}",
-                "token_flag": false,
-                "response": "00",
-                "country": "643"
+                "a": {"$gte": 1000},
+                "f2": { "$nin": ["value2", "value4", "value6", "value8", "value10"] },
+              }
+            },
+            {
+              "$group": {
+                "_id": null,
+                "cnt": { "$sum": 1 },
+                "sum": { "$sum": "$a" }
+              }
+            }
+          ]
+    },
+    {
+        "name": "counter2_even",
+        "comment": "counter2_even - четные значения f2",
+        "condition": {
+            "messageTypeId": [1]
+        },
+        "aggregate": [
+            {
+              "$match": {
+                "a": {"$gte": 1000},
+                "f2": { "$in": ["value2", "value4", "value6", "value8", "value10"] },
               }
             },
             {
@@ -34,36 +60,47 @@
           ]
     },
     {
-        "name": "i_CP_risk_mcc_same_mi_rus_all_1h",
-        "comment": "i_CP_risk_mcc_same_mi_rus_all_1h - сумма amount с другим набором MCC",
+        "name": "counter3_lte_1000",
+        "comment": "counter3_lte_1000 - значения a меньше или равны 1000",
         "condition": {
-            "messageTypeId": [50, 70]
+            "messageTypeId": [2]
         },
         "aggregate": [
             {
               "$match": {
-                "pin_flag": false,
-                "de22": { "$not": { "$regex": "^(01|81|10|82)" } },
-                "de3": { "$not": { "$regex": "^(5|2)" } },
-                "mti": { "$nin": ["0400", "0410", "0420", "0430"] },
-                "$or": [
-                  { "status": { "$ne": "R" } },
-                  { "status": null },
-                  { "status": { "$exists": false } }
-                ],
-                "mcc": { "$in": ["5732", "4812", "5211", "5094", "5944", "5411", "5499", "5814", "5311", "5541", "5331", "5999"] },
-                "de42": "{i_merchant_id}",
-                "token_flag": false,
-                "country": "643"
+                "a": {"$lte": 1000},
+                "f2": "$$f2"
               }
             },
             {
               "$group": {
                 "_id": null,
                 "cnt": { "$sum": 1 },
-                "sum": { "$sum": "$amount" }
+                "sum": { "$sum": "$a" }
               }
             }
-          ]
-    }
+        ]
+    },
+    {
+      "name": "counter4_gt_1000",
+      "comment": "counter4_gt_1000 - значения a больше 1000",
+      "condition": {
+          "messageTypeId": [2]
+      },
+      "aggregate": [
+          {
+            "$match": {
+              "a": {"$gt": 1000},
+              "f2": "$$f2"
+            }
+          },
+          {
+            "$group": {
+              "_id": null,
+              "cnt": { "$sum": 1 },
+              "sum": { "$sum": "$a" }
+            }
+          }
+      ]
+  }
 ]

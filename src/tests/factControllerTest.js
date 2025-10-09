@@ -590,6 +590,7 @@ class FactControllerTest {
                 "t": 1,
                 "d": {
                     "MessageId": "b9dfef143335323448e67f44",
+                    "id": "b9dfef143335323448e67f44",
                     "acc_identification_flag": 6268268,
                     "acc_prepaid": false,
                     "agreement": 5041469,

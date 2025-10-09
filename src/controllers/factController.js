@@ -125,7 +125,9 @@ class FactController {
                 relevantFacts: [],
                 saveFactResult: { success: true },
                 saveIndexResult: { success: true },
-                processingTime: null
+                processingTime: null,
+                debug: {
+                }
             };
         }
         const factIndexHashValues = factIndexes.map(index => index.h);
@@ -145,6 +147,9 @@ class FactController {
                 counters: factCountersResult.processingTime,
                 saveFact: factResult.processingTime,
                 saveIndex: indexResult.processingTime,
+            },
+            debug: {
+                aggregateQuery: factCountersResult?.debug?.aggregateQuery,
             }
         };
     }

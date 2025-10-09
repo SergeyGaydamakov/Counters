@@ -1,163 +1,72 @@
 [
   {
-    "fieldName": "Agg_submerchant_new",
-    "dateName": "Timestamp",
-    "indexTypeName": "Agg_submerchant_new",
+    "fieldName": "f1",
+    "dateName": "dt",
+    "indexTypeName": "f1",
     "indexType": 1,
     "indexValue": 1
   },
   {
-    "fieldName": "agg_uniqueMerchId",
-    "dateName": "Timestamp",
-    "indexTypeName": "agg_uniqueMerchId",
+    "fieldName": "f2",
+    "dateName": "dt",
+    "indexTypeName": "f2",
     "indexType": 2,
     "indexValue": 1
   },
   {
-    "fieldName": "agreement",
-    "dateName": "Timestamp",
-    "indexTypeName": "agreement",
+    "fieldName": "f3",
+    "dateName": "dt",
+    "indexTypeName": "f3",
     "indexType": 3,
     "indexValue": 1
   },
   {
-    "fieldName": "avia_passenger",
-    "dateName": "Timestamp",
-    "indexTypeName": "avia_passenger",
+    "fieldName": "f4",
+    "dateName": "dt",
+    "indexTypeName": "f4",
     "indexType": 4,
     "indexValue": 1
   },
   {
-    "fieldName": "crd_account_owner_siebel_id",
-    "dateName": "Timestamp",
-    "indexTypeName": "crd_account_owner_siebel_id",
+    "fieldName": "f5",
+    "dateName": "dt",
+    "indexTypeName": "f5",
     "indexType": 5,
     "indexValue": 1
   },
   {
-    "fieldName": "deviceId_CRC32",
-    "dateName": "Timestamp",
-    "indexTypeName": "deviceId_CRC32",
+    "fieldName": "f6",
+    "dateName": "dt",
+    "indexTypeName": "f6",
     "indexType": 6,
     "indexValue": 1
   },
   {
-    "fieldName": "email_CRC32",
-    "dateName": "Timestamp",
-    "indexTypeName": "email_CRC32",
+    "fieldName": "f7",
+    "dateName": "dt",
+    "indexTypeName": "f7",
     "indexType": 7,
     "indexValue": 1
   },
   {
-    "fieldName": "INN_recepient_CRC32",
-    "dateName": "Timestamp",
-    "indexTypeName": "INN_recepient_CRC32",
+    "fieldName": "f8",
+    "dateName": "dt",
+    "indexTypeName": "f8",
     "indexType": 8,
     "indexValue": 1
   },
   {
-    "fieldName": "IP",
-    "dateName": "Timestamp",
-    "indexTypeName": "IP",
+    "fieldName": "f9",
+    "dateName": "dt",
+    "indexTypeName": "f9",
     "indexType": 9,
     "indexValue": 1
   },
   {
-    "fieldName": "md_issBIN_3NumCntCode",
-    "dateName": "Timestamp",
-    "indexTypeName": "md_issBIN_3NumCntCode",
+    "fieldName": "f10",
+    "dateName": "dt",
+    "indexTypeName": "f10",
     "indexType": 10,
     "indexValue": 1
-  },
-  {
-    "fieldName": "ml_merchantId",
-    "dateName": "Timestamp",
-    "indexTypeName": "ml_merchantId",
-    "indexType": 11,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "orderId_CRC32",
-    "dateName": "Timestamp",
-    "indexTypeName": "orderId_CRC32",
-    "indexType": 12,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "p_basicFieldKey_CRC32",
-    "dateName": "Timestamp",
-    "indexTypeName": "p_basicFieldKey_CRC32",
-    "indexType": 13,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "PAN",
-    "dateName": "Timestamp",
-    "indexTypeName": "PAN",
-    "indexType": 14,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "PAN_dst",
-    "dateName": "Timestamp",
-    "indexTypeName": "PAN_dst",
-    "indexType": 15,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "paymentAccount_25",
-    "dateName": "Timestamp",
-    "indexTypeName": "paymentAccount_25",
-    "indexType": 16,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "phone",
-    "dateName": "Timestamp",
-    "indexTypeName": "phone",
-    "indexType": 17,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "s_client_id",
-    "dateName": "Timestamp",
-    "indexTypeName": "s_client_id",
-    "indexType": 18,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "s_client_id_dst",
-    "dateName": "Timestamp",
-    "indexTypeName": "s_client_id_dst",
-    "indexType": 19,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "s_customer_session_id",
-    "dateName": "Timestamp",
-    "indexTypeName": "s_customer_session_id",
-    "indexType": 20,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "s_organization_id",
-    "dateName": "Timestamp",
-    "indexTypeName": "s_organization_id",
-    "indexType": 21,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "s_web_user_id_CRC32",
-    "dateName": "Timestamp",
-    "indexTypeName": "s_web_user_id_CRC32",
-    "indexType": 22,
-    "indexValue": 1
-  },
-  {
-    "fieldName": "ssoId",
-    "dateName": "Timestamp",
-    "indexTypeName": "ssoId",
-    "indexType": 23,
-    "indexValue": 1
   }
-]
+  ]
