@@ -13,6 +13,7 @@ const Logger = require('../utils/logger');
  * @property {string} comment - Комментарий к счетчику
  * @property {Object} condition - Условия применения счетчика к факту
  * @property {Array} aggregate - Массив операций MongoDB aggregate для счетчика
+ * @property {Array} [variables] - Опциональный массив переменных для инициализации при агрегации
  */
 class MongoCounters {
     constructor(configPathOrConfigArray = null) {
@@ -20,7 +21,7 @@ class MongoCounters {
         this._counterConfig = [];
         
         if (!configPathOrConfigArray) {
-            this.logger.info('Конфигурация счетчиков не задана. Счетчики не будут создаваться.');
+            this.logger.warn('Конфигурация счетчиков не задана. Счетчики не будут создаваться.');
             return;
         }
         
@@ -28,12 +29,12 @@ class MongoCounters {
         if (Array.isArray(configPathOrConfigArray)) {
             // Инициализация через массив конфигурации
             this._counterConfig = this._validateConfig(configPathOrConfigArray);
-            this.logger.info(`Инициализирован с массивом конфигурации счетчиков. Количество счетчиков: ${this._counterConfig.length}`);
+            this.logger.info(`Конфигурация счетчиков инициализирована объектом. Количество счетчиков: ${this._counterConfig.length}`);
         } else if (typeof configPathOrConfigArray === 'string') {
             // Инициализация через путь к файлу
             this._counterConfig = this._loadConfig(configPathOrConfigArray);
         } else {
-            this.logger.info('Конфигурация счетчиков не задана. Счетчики не будут создаваться.');
+            this.logger.warn('Конфигурация счетчиков не задана. Счетчики будут создаваться по умолчанию.');
             return;
         }
     }
@@ -99,6 +100,20 @@ class MongoCounters {
                 const stage = counter.aggregate[j];
                 if (!stage || typeof stage !== 'object') {
                     throw new Error(`Счетчик ${i}, этап aggregate ${j} должен быть объектом`);
+                }
+            }
+
+            // Проверяем атрибут variables (опциональный)
+            if (counter.variables !== undefined) {
+                if (!Array.isArray(counter.variables)) {
+                    throw new Error(`Счетчик ${i} должен содержать поле 'variables' типа array, если оно указано`);
+                }
+                
+                // Проверяем, что все элементы variables являются строками
+                for (let k = 0; k < counter.variables.length; k++) {
+                    if (typeof counter.variables[k] !== 'string') {
+                        throw new Error(`Счетчик ${i}, переменная ${k} должна быть строкой`);
+                    }
                 }
             }
         }
@@ -213,29 +228,43 @@ class MongoCounters {
     /**
      * Создает структуру счетчиков для факта
      * @param {Object} fact - Факт для обработки
-     * @returns {Object} Структура для использования в MongoDB $facet aggregate запросе
+     * @returns {Object|null} Объект с полями facetStages и variables, или null если нет подходящих счетчиков
+     * @returns {Object} facetStages - Структура для использования в MongoDB $facet aggregate запросе
+     * @returns {Array<string>} variables - Массив уникальных переменных из всех подходящих счетчиков
      */
     make(fact) {
         if (!fact || !fact.d) {
             this.logger.warn('Передан некорректный факт для создания счетчиков');
-            return {};
+            return null;
         }
 
         const facetStages = {};
+        const variablesSet = new Set();
         let matchedCountersCount = 0;
 
         // Проходим по всем счетчикам и проверяем условия
         for (const counter of this._counterConfig) {
             if (this._matchesCondition(fact, counter.condition)) {
+                if (counter.variables && counter.variables.length) {
+                    counter.variables.forEach(variable => variablesSet.add(variable));
+                }
                 facetStages[counter.name] = counter.aggregate;
                 matchedCountersCount++;
                 this.logger.debug(`Счетчик '${counter.name}' подходит для факта ${fact._id}`);
             }
         }
 
-        this.logger.debug(`Для факта ${fact._id} найдено подходящих счетчиков: ${matchedCountersCount} из ${this._counterConfig.length}`);
+        // this.logger.info(`Для факта ${fact._id} найдено подходящих счетчиков: ${matchedCountersCount} из ${this._counterConfig.length}`);
+        // this.logger.info(`Факт: ${JSON.stringify(fact)}`);
 
-        return facetStages;
+        if (matchedCountersCount > 0) {
+            return {
+                facetStages: facetStages,
+                variables: Array.from(variablesSet)
+            };
+        }
+        
+        return null;
     }
 
     /**

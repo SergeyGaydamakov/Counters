@@ -87,7 +87,7 @@ class FactController {
                 processingTime: null
             };
         }
-        const factIndexHashValues = factIndexes.map(index => index.h);
+        const factIndexHashValues = factIndexes.map(index => index._id.h);
         const startTime = Date.now();
         const [relevantFactsResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFacts(factIndexHashValues, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
@@ -130,7 +130,7 @@ class FactController {
                 }
             };
         }
-        const factIndexHashValues = factIndexes.map(index => index.h);
+        const factIndexHashValues = factIndexes.map(index => index._id.h);
         const startTime = Date.now();
         const [factCountersResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFactCounters(factIndexHashValues, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),

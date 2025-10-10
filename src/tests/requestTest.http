@@ -26,6 +26,27 @@ Content-Type: application/json
 {{processedMessage}}
 
 
+### Обработка тестового сообщения типа messageType
+POST http://{{host}}/api/v1/message/{{messageType}}/json
+Content-Type: application/json
+
+{
+  "id": "2bc902747112fdf768e81748",
+  "messageTypeId": {{messageType}},
+  "amount": 3113715,
+  "dt": "2025-06-10T13:12:31.695Z",
+  "f1": "1234567890",
+  "f2": "value1",
+  "f3": 2,
+  "f4": "1234567890",
+  "f5": "1234567890",
+  "f6": "1234567890",
+  "f12": "1234567890",
+  "f20": "1234567890",
+  "f21": "1234567890",
+  "f22": "1234567890"
+}
+
 ### Обработка IRIS XML сообщения
 POST http://{{host}}/api/v1/message/iris
 Content-Type: text/xml

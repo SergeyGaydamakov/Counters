@@ -20,14 +20,15 @@ class MongoProvider {
      * - Возвращаемый объект должен содержать только массивы в качестве значений (для $facet)
      */
     constructor(connectionString, databaseName, mongoCounters) {
+        // Создаем логгер для этого провайдера
+        this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
+        
         this.connectionString = connectionString;
         this.databaseName = databaseName;
         
         // Проверяем интерфейс mongoCounters перед присваиванием
-        this.mongoCounters = this._validateMongoCountersInterface(mongoCounters);
+        this._mongoCounters = this._validateMongoCountersInterface(mongoCounters);
         
-        // Создаем логгер для этого провайдера
-        this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.FACT_COLLECTION_NAME = "facts";
         this.FACT_INDEX_COLLECTION_NAME = "factIndex";
         this._counterClient = null;
@@ -47,8 +48,10 @@ class MongoProvider {
      * @throws {Error} если mongoCounters не соответствует требуемому интерфейсу
      */
     _validateMongoCountersInterface(mongoCounters) {
+        this.logger.info('**** Проверка интерфейса mongoCounters...');
         if (!mongoCounters) {
             // Будем работать по умолчанию
+            this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики не будут создаваться.');
             return null;
         }
 
@@ -407,10 +410,19 @@ class MongoProvider {
      * @returns {Promise<Array>} выражение для вычисления счетчиков по фактам
      */
     getCountersExpression(fact) {
-        if (!this.mongoCounters) {
+        if (!this._mongoCounters) {
+            this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
             return this.getDefaultCountersExpression();
         }
-        return {"$facet": this.mongoCounters.make(fact)};
+        const countersResult = this._mongoCounters.make(fact);
+        if (!countersResult) {
+            this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
+            return null;
+        }
+        return {
+            facetStages: countersResult.facetStages,
+            variables: countersResult.variables
+        };
     }
 
     /**
@@ -512,6 +524,16 @@ class MongoProvider {
         const startTime = Date.now();
 
         this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+
+        const countersExpression = this.getCountersExpression(fact);
+        if (!countersExpression) {
+            this.logger.warn('Для указанного факта ${fact?._id} с типом ${fact?._t} нет подходящих счетчиков.');
+            return {
+                result: [],
+                processingTime: Date.now() - startTime,
+            };
+        }
+
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id
         // и результат объединить с фактом из коллекции facts
@@ -538,17 +560,12 @@ class MongoProvider {
             projection: { "_id": 1 }
         };
         const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
+        // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
 
         // Если нет релевантных индексных значений, возвращаем пустую статистику
         if (factIndexResult.length === 0) {
             return {
-                result: [{
-                    total: [{ count: 0, sumA: 0 }],
-                    lastWeek: [{ count: 0, sumA: 0 }],
-                    lastHour: [{ count: 0, sumA: 0 }],
-                    lastDay: [{ count: 0, sumA: 0 }],
-                    conditionLastHour: [{ totalSum: 0 }]
-                }],
+                result: [],
                 processingTime: Date.now() - startTime,
             };
         }
@@ -561,18 +578,33 @@ class MongoProvider {
                 }
             }
         };
-
-        const aggregateQuery = [queryFacts, this.getCountersExpression(fact)];
-
-        // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
-
-        // Выполнить агрегирующий запрос
+        const aggregateQuery = [queryFacts];
+        if (countersExpression && countersExpression.facetStages) {
+            aggregateQuery.push({"$facet": countersExpression.facetStages});
+        }
+        // Добавить переменные в запрос
+        let parameters = null;
+        if (countersExpression && countersExpression.variables) {
+            parameters = {};
+            countersExpression.variables.forEach(variable => {
+                parameters[variable] = fact.d[variable];
+            });
+        }
+        
+        // Опции агрегирующего запроса
         const aggregateOptions = {
             batchSize: 5000,
             readConcern: { level: "local" },
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - aggregate",
         };
+        if (parameters) {
+            aggregateOptions.let = parameters;
+        }
+
+        // Выполнить агрегирующий запрос
+        this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
+        this.logger.info(`Агрегационный запрос: ${JSON.stringify(aggregateQuery)}`);
         const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
         this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
 
@@ -580,7 +612,7 @@ class MongoProvider {
         if (result.length === 0) {
             return {
                 result: [],
-                processingTime: Date.now() - startTime,
+                processingTime: 0,
                 debug: {
                     aggregateQuery: aggregateQuery,
                 }

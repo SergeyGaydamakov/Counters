@@ -1,4 +1,4 @@
-const { MongoProvider, MessageGenerator, FactIndexer, FactMapper } = require('../index');
+const { MongoProvider, MessageGenerator, FactIndexer, FactMapper, MongoCounters } = require('../index');
 const Logger = require('../utils/logger');
 const config = require('../common/config');
 
@@ -8,9 +8,29 @@ const config = require('../common/config');
 class MongoProviderTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
+        this.countersConfig = [
+            {
+                name: "total",
+                comment: "Общий счетчик для всех типов сообщений",
+                condition: {},
+                aggregate: [
+                    {
+                        "$group": {
+                            "_id": null,
+                            "count": { "$sum": 1 },
+                            "sumA": { "$sum": "$d.amount" }
+                        }
+                    }
+                ],
+                variables: []
+            }
+        ];
+        this.mongoCounters = new MongoCounters(this.countersConfig);
+
         this.provider = new MongoProvider(
             config.database.connectionString,
-            'mongoProviderTestDB'
+            'mongoProviderTestDB',
+            this.mongoCounters
         );
         
         // Минимальная конфигурация полей для тестов (6 первых полей)
@@ -1820,35 +1840,12 @@ class MongoProviderTest {
                 throw new Error('Метод должен возвращать массив');
             }
 
-            if (counters.length === 0) {
-                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            // Проверяем, что метод возвращает корректную структуру
+            if (counters.length) {
+                throw new Error('Не должно быть совпадений, счетчков быть не должно.');
             }
-
-            const result = counters[0];
-            
-            if (!result.total || !Array.isArray(result.total)) {
-                throw new Error('Результат должен содержать массив total');
-            }
-
-            if (result.total.length === 0) {
-                throw new Error('Массив total не должен быть пустым');
-            }
-
-            const totalStats = result.total[0];
-            
-            if (typeof totalStats.count !== 'number') {
-                throw new Error('Поле count должно быть числом');
-            }
-
-            if (typeof totalStats.sumA !== 'number') {
-                throw new Error('Поле sumA должно быть числом');
-            }
-
-            // Поскольку нет совпадений, count должен быть 0
-            if (totalStats.count > 0) {
-                this.logger.debug(`   Найдено ${totalStats.count} релевантных фактов (ожидалось 0)`);
-                // Это не критическая ошибка, так как метод может находить факты по частичным совпадениям
-            }
+            // Если нет совпадений, это нормально для данного теста
+            this.logger.debug('   Нет совпадений - это ожидаемое поведение для уникальных значений');
 
             this.testResults.passed++;
             this.logger.debug('   ✓ Успешно');

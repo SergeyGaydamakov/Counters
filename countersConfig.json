@@ -10,10 +10,11 @@
             "$group": {
               "_id": null,
               "cnt": { "$sum": 1 },
-              "sum": { "$sum": "$a" }
+              "sum": { "$sum": "$d.a" }
             }
           }
-        ]
+        ],
+      "variables": []
     },
     {
       "name": "counter1_odd",
@@ -24,18 +25,19 @@
         "aggregate": [
             {
               "$match": {
-                "a": {"$gte": 1000},
-                "f2": { "$nin": ["value2", "value4", "value6", "value8", "value10"] },
+                "d.a": {"$gte": 1000},
+                "d.f2": { "$nin": ["value2", "value4", "value6", "value8", "value10"] }
               }
             },
             {
               "$group": {
                 "_id": null,
                 "cnt": { "$sum": 1 },
-                "sum": { "$sum": "$a" }
+                "sum": { "$sum": "$d.a" }
               }
             }
-          ]
+          ],
+      "variables": []
     },
     {
         "name": "counter2_even",
@@ -46,18 +48,19 @@
         "aggregate": [
             {
               "$match": {
-                "a": {"$gte": 1000},
-                "f2": { "$in": ["value2", "value4", "value6", "value8", "value10"] },
+                "d.a": {"$gte": 1000},
+                "d.f2": { "$in": ["value2", "value4", "value6", "value8", "value10"] }
               }
             },
             {
               "$group": {
                 "_id": null,
                 "cnt": { "$sum": 1 },
-                "sum": { "$sum": "$amount" }
+                "sum": { "$sum": "$d.a" }
               }
             }
-          ]
+          ],
+      "variables": []
     },
     {
         "name": "counter3_lte_1000",
@@ -68,18 +71,19 @@
         "aggregate": [
             {
               "$match": {
-                "a": {"$lte": 1000},
-                "f2": "$$f2"
+                "d.a": {"$lte": 1000},
+                "d.f2": "$$f2"
               }
             },
             {
               "$group": {
                 "_id": null,
                 "cnt": { "$sum": 1 },
-                "sum": { "$sum": "$a" }
+                "sum": { "$sum": "$d.a" }
               }
             }
-        ]
+        ],
+      "variables": ["f2"]
     },
     {
       "name": "counter4_gt_1000",
@@ -90,17 +94,18 @@
       "aggregate": [
           {
             "$match": {
-              "a": {"$gt": 1000},
-              "f2": "$$f2"
+              "d.a": {"$gt": 1000},
+              "d.f2": "$$f2"
             }
           },
           {
             "$group": {
               "_id": null,
               "cnt": { "$sum": 1 },
-              "sum": { "$sum": "$a" }
+              "sum": { "$sum": "$d.a" }
             }
           }
-      ]
+      ],
+      "variables": ["f2"]
   }
 ]

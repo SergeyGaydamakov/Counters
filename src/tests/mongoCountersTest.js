@@ -27,7 +27,9 @@ class MongoCountersTest {
         this.testMongoOperators('5. Тест MongoDB операторов...');
         this.testMakeMethod('6. Тест метода make...');
         this.testHelperMethods('7. Тест вспомогательных методов...');
-        this.testErrorHandling('8. Тест обработки ошибок...');
+        this.testVariablesValidation('8. Тест валидации атрибута variables...');
+        this.testVariablesInMake('9. Тест работы с переменными в методе make...');
+        this.testErrorHandling('10. Тест обработки ошибок...');
         
         this.printResults();
     }
@@ -142,8 +144,10 @@ class MongoCountersTest {
 
             const result1 = mongoCounters.make(fact1);
             this.assert(typeof result1 === 'object', 'make возвращает объект');
-            this.assert(result1.counter_50_70 !== undefined, 'Счетчик counter_50_70 применен к факту с messageTypeId = 50');
-            this.assert(result1.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
+            this.assert(result1.facetStages !== undefined, 'make возвращает объект с полем facetStages');
+            this.assert(result1.variables !== undefined, 'make возвращает объект с полем variables');
+            this.assert(result1.facetStages.counter_50_70 !== undefined, 'Счетчик counter_50_70 применен к факту с messageTypeId = 50');
+            this.assert(result1.facetStages.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
 
             // Тест факта с messageTypeId = 60 (не подходит)
             const fact2 = {
@@ -154,8 +158,8 @@ class MongoCountersTest {
             };
 
             const result2 = mongoCounters.make(fact2);
-            this.assert(result2.counter_50_70 === undefined, 'Счетчик counter_50_70 не применен к факту с messageTypeId = 60');
-            this.assert(result2.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
+            this.assert(result2.facetStages.counter_50_70 === undefined, 'Счетчик counter_50_70 не применен к факту с messageTypeId = 60');
+            this.assert(result2.facetStages.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
         } catch (error) {
             this.assert(false, 'Сопоставление условий', `Ошибка: ${error.message}`);
         }
@@ -213,9 +217,9 @@ class MongoCountersTest {
 
             const result1 = mongoCounters.make(fact1);
             this.assert(typeof result1 === 'object', 'make возвращает объект');
-            this.assert(result1.counter_nin !== undefined, 'Счетчик с $nin применен');
-            this.assert(result1.counter_regex !== undefined, 'Счетчик с $regex применен');
-            this.assert(result1.counter_or !== undefined, 'Счетчик с $or применен');
+            this.assert(result1.facetStages.counter_nin !== undefined, 'Счетчик с $nin применен');
+            this.assert(result1.facetStages.counter_regex !== undefined, 'Счетчик с $regex применен');
+            this.assert(result1.facetStages.counter_or !== undefined, 'Счетчик с $or применен');
 
             // Тест с оператором $regex
             const fact2 = {
@@ -226,7 +230,7 @@ class MongoCountersTest {
             };
 
             const result2 = mongoCounters.make(fact2);
-            this.assert(result2.counter_regex !== undefined, 'Счетчик с $regex применен для корректного значения');
+            this.assert(result2.facetStages.counter_regex !== undefined, 'Счетчик с $regex применен для корректного значения');
 
             // Тест с оператором $or
             const fact3 = {
@@ -237,7 +241,7 @@ class MongoCountersTest {
             };
 
             const result3 = mongoCounters.make(fact3);
-            this.assert(result3.counter_or !== undefined, 'Счетчик с $or применен');
+            this.assert(result3.facetStages.counter_or !== undefined, 'Счетчик с $or применен');
         } catch (error) {
             this.assert(false, 'MongoDB операторы', `Ошибка: ${error.message}`);
         }
@@ -274,9 +278,11 @@ class MongoCountersTest {
             const result = mongoCounters.make(fact);
             
             this.assert(typeof result === 'object', 'make возвращает объект');
-            this.assert(result.test_counter !== undefined, 'Счетчик создан для подходящего факта');
-            this.assert(Array.isArray(result.test_counter), 'Результат счетчика является массивом');
-            this.assert(result.test_counter.length === 2, 'Количество этапов aggregate корректно');
+            this.assert(result.facetStages !== undefined, 'make возвращает объект с полем facetStages');
+            this.assert(result.variables !== undefined, 'make возвращает объект с полем variables');
+            this.assert(result.facetStages.test_counter !== undefined, 'Счетчик создан для подходящего факта');
+            this.assert(Array.isArray(result.facetStages.test_counter), 'Результат счетчика является массивом');
+            this.assert(result.facetStages.test_counter.length === 2, 'Количество этапов aggregate корректно');
 
             // Тест с неподходящим фактом
             const unsuitableFact = {
@@ -288,8 +294,7 @@ class MongoCountersTest {
 
             const unsuitableResult = mongoCounters.make(unsuitableFact);
             
-            this.assert(typeof unsuitableResult === 'object', 'make возвращает объект для неподходящего факта');
-            this.assert(Object.keys(unsuitableResult).length === 0, 'Для неподходящего факта не создано счетчиков');
+            this.assert(unsuitableResult === null, 'make возвращает null для неподходящего факта');
         } catch (error) {
             this.assert(false, 'Метод make', `Ошибка: ${error.message}`);
         }
@@ -335,6 +340,172 @@ class MongoCountersTest {
     }
 
     /**
+     * Тест валидации атрибута variables
+     */
+    testVariablesValidation(title) {
+        this.logger.info(title);
+        try {
+            // Тест с корректным массивом variables
+            const configWithValidVariables = [
+                {
+                    name: 'counter_with_variables',
+                    comment: 'Счетчик с переменными',
+                    condition: { messageTypeId: [50] },
+                    aggregate: [{ $count: 'total' }],
+                    variables: ['f2', 'f3', 'f4']
+                },
+                {
+                    name: 'counter_without_variables',
+                    comment: 'Счетчик без переменных',
+                    condition: { messageTypeId: [60] },
+                    aggregate: [{ $count: 'total' }]
+                },
+                {
+                    name: 'counter_with_empty_variables',
+                    comment: 'Счетчик с пустым массивом переменных',
+                    condition: { messageTypeId: [70] },
+                    aggregate: [{ $count: 'total' }],
+                    variables: []
+                }
+            ];
+
+            const mongoCounters = new MongoCounters(configWithValidVariables);
+            this.assert(mongoCounters instanceof MongoCounters, 'Конструктор создает экземпляр с корректными variables');
+            this.assert(mongoCounters.getCounterCount() === 3, 'Количество счетчиков корректно');
+
+            // Тест с некорректными variables (не массив)
+            try {
+                const configWithInvalidVariables = [
+                    {
+                        name: 'counter_invalid_variables',
+                        comment: 'Счетчик с некорректными переменными',
+                        condition: { messageTypeId: [50] },
+                        aggregate: [{ $count: 'total' }],
+                        variables: 'not_an_array'
+                    }
+                ];
+                new MongoCounters(configWithInvalidVariables);
+                this.assert(false, 'Валидация variables (не массив)', 'Должна была быть выброшена ошибка валидации');
+            } catch (error) {
+                this.assert(error.message.includes('variables') && error.message.includes('array'), 
+                    'Валидация variables (не массив)', 'Корректная ошибка валидации');
+            }
+
+            // Тест с некорректными элементами variables (не строки)
+            try {
+                const configWithInvalidVariableTypes = [
+                    {
+                        name: 'counter_invalid_variable_types',
+                        comment: 'Счетчик с некорректными типами переменных',
+                        condition: { messageTypeId: [50] },
+                        aggregate: [{ $count: 'total' }],
+                        variables: ['f2', 123, 'f4']
+                    }
+                ];
+                new MongoCounters(configWithInvalidVariableTypes);
+                this.assert(false, 'Валидация variables (не строки)', 'Должна была быть выброшена ошибка валидации');
+            } catch (error) {
+                this.assert(error.message.includes('переменная') && error.message.includes('строкой'), 
+                    'Валидация variables (не строки)', 'Корректная ошибка валидации');
+            }
+
+            // Тест с null в variables
+            try {
+                const configWithNullVariables = [
+                    {
+                        name: 'counter_null_variables',
+                        comment: 'Счетчик с null в переменных',
+                        condition: { messageTypeId: [50] },
+                        aggregate: [{ $count: 'total' }],
+                        variables: ['f2', null, 'f4']
+                    }
+                ];
+                new MongoCounters(configWithNullVariables);
+                this.assert(false, 'Валидация variables (null)', 'Должна была быть выброшена ошибка валидации');
+            } catch (error) {
+                this.assert(error.message.includes('переменная') && error.message.includes('строкой'), 
+                    'Валидация variables (null)', 'Корректная ошибка валидации');
+            }
+
+        } catch (error) {
+            this.assert(false, 'Валидация variables', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест работы с переменными в методе make
+     */
+    testVariablesInMake(title) {
+        this.logger.info(title);
+        try {
+            const config = [
+                {
+                    name: 'counter_with_variables_1',
+                    comment: 'Счетчик с переменными 1',
+                    condition: { messageTypeId: [50] },
+                    aggregate: [{ $count: 'total' }],
+                    variables: ['f2', 'f3']
+                },
+                {
+                    name: 'counter_with_variables_2',
+                    comment: 'Счетчик с переменными 2',
+                    condition: { messageTypeId: [50] },
+                    aggregate: [{ $count: 'total' }],
+                    variables: ['f3', 'f4']
+                },
+                {
+                    name: 'counter_without_variables',
+                    comment: 'Счетчик без переменных',
+                    condition: { messageTypeId: [60] },
+                    aggregate: [{ $count: 'total' }]
+                }
+            ];
+
+            const mongoCounters = new MongoCounters(config);
+
+            // Тест с фактом, который подходит для счетчиков с переменными
+            const fact1 = {
+                _id: 'test1',
+                t: 50,
+                c: new Date(),
+                d: { messageTypeId: 50 }
+            };
+
+            const result1 = mongoCounters.make(fact1);
+            this.assert(typeof result1 === 'object', 'make возвращает объект');
+            this.assert(result1.facetStages !== undefined, 'make возвращает объект с полем facetStages');
+            this.assert(result1.variables !== undefined, 'make возвращает объект с полем variables');
+            this.assert(Array.isArray(result1.variables), 'variables является массивом');
+            
+            // Проверяем, что переменные собраны корректно (уникальные значения)
+            this.assert(result1.variables.length === 3, 'Количество уникальных переменных корректно');
+            this.assert(result1.variables.includes('f2'), 'Переменная f2 присутствует');
+            this.assert(result1.variables.includes('f3'), 'Переменная f3 присутствует');
+            this.assert(result1.variables.includes('f4'), 'Переменная f4 присутствует');
+            
+            // Проверяем, что счетчики созданы
+            this.assert(result1.facetStages.counter_with_variables_1 !== undefined, 'Счетчик counter_with_variables_1 создан');
+            this.assert(result1.facetStages.counter_with_variables_2 !== undefined, 'Счетчик counter_with_variables_2 создан');
+
+            // Тест с фактом, который подходит только для счетчика без переменных
+            const fact2 = {
+                _id: 'test2',
+                t: 60,
+                c: new Date(),
+                d: { messageTypeId: 60 }
+            };
+
+            const result2 = mongoCounters.make(fact2);
+            this.assert(typeof result2 === 'object', 'make возвращает объект для факта без переменных');
+            this.assert(result2.facetStages.counter_without_variables !== undefined, 'Счетчик counter_without_variables создан');
+            this.assert(result2.variables.length === 0, 'variables пустой для счетчика без переменных');
+
+        } catch (error) {
+            this.assert(false, 'Работа с переменными в make', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
      * Тест обработки ошибок
      */
     testErrorHandling(title) {
@@ -373,8 +544,7 @@ class MongoCountersTest {
             // Тест с null фактом
             try {
                 const result = mongoCounters.make(null);
-                this.assert(typeof result === 'object', 'make обрабатывает null факт');
-                this.assert(Object.keys(result).length === 0, 'make возвращает пустой объект для null факта');
+                this.assert(result === null, 'make возвращает null для null факта');
             } catch (error) {
                 this.assert(false, 'Обработка null факта', `Неожиданная ошибка: ${error.message}`);
             }
@@ -383,8 +553,7 @@ class MongoCountersTest {
             try {
                 const factWithoutD = { _id: 'test', t: 50, c: new Date() };
                 const result = mongoCounters.make(factWithoutD);
-                this.assert(typeof result === 'object', 'make обрабатывает факт без поля d');
-                this.assert(Object.keys(result).length === 0, 'make возвращает пустой объект для факта без поля d');
+                this.assert(result === null, 'make возвращает null для факта без поля d');
             } catch (error) {
                 this.assert(false, 'Обработка факта без поля d', `Неожиданная ошибка: ${error.message}`);
             }
