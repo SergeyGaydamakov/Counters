@@ -13,8 +13,7 @@
               "sum": { "$sum": "$d.a" }
             }
           }
-        ],
-      "variables": []
+        ]
     },
     {
       "name": "counter1_odd",
@@ -36,8 +35,7 @@
                 "sum": { "$sum": "$d.a" }
               }
             }
-          ],
-      "variables": []
+          ]
     },
     {
         "name": "counter2_even",
@@ -59,8 +57,7 @@
                 "sum": { "$sum": "$d.a" }
               }
             }
-          ],
-      "variables": []
+          ]
     },
     {
         "name": "counter3_lte_1000",
@@ -82,8 +79,7 @@
                 "sum": { "$sum": "$d.a" }
               }
             }
-        ],
-      "variables": ["f2"]
+        ]
     },
     {
       "name": "counter4_gt_1000",
@@ -105,7 +101,6 @@
               "sum": { "$sum": "$d.a" }
             }
           }
-      ],
-      "variables": ["f2"]
+      ]
   }
 ]

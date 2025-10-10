@@ -148,9 +148,7 @@ class FactController {
                 saveFact: factResult.processingTime,
                 saveIndex: indexResult.processingTime,
             },
-            debug: {
-                aggregateQuery: factCountersResult?.debug?.aggregateQuery,
-            }
+            debug: factCountersResult?.debug
         };
     }
 }

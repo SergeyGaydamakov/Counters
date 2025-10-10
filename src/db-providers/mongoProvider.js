@@ -1,3 +1,7 @@
+/**
+ * MongoDB Node Driver:
+ * https://www.mongodb.com/docs/drivers/node/current/
+ */
 const { MongoClient, ObjectId } = require('mongodb');
 const Logger = require('../utils/logger');
 
@@ -414,15 +418,23 @@ class MongoProvider {
             this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
             return this.getDefaultCountersExpression();
         }
-        const countersResult = this._mongoCounters.make(fact);
-        if (!countersResult) {
+        const countersExpression = this._mongoCounters.make(fact);
+        if (!countersExpression) {
             this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
             return null;
         }
-        return {
-            facetStages: countersResult.facetStages,
-            variables: countersResult.variables
-        };
+        // Замена параметров в выражении счетчиков на значения атрибутов из факта
+        // Например, если в выражении счетчиков есть параметр "$$f2", то он будет заменен на значение атрибута "f2" из факта
+        const countersExpressionString = JSON.stringify(countersExpression);
+        if (!countersExpressionString.includes('$$')) {
+            return countersExpression;
+        }
+        // Создаем глубокую копию выражения счетчиков
+        const processedExpression = JSON.parse(countersExpressionString);
+        // Рекурсивно заменяем переменные в объекте
+        this._replaceVariablesRecursive(processedExpression, fact.d);
+
+        return processedExpression;
     }
 
     /**
@@ -512,7 +524,68 @@ class MongoProvider {
             }
         };
     }
-    
+
+    /**
+     * Заменяет переменные в выражении счетчиков на значения из факта
+     * 
+     * Пример использования:
+     * Конфигурация счетчика с переменными:
+     * {
+     *   "name": "user_transactions",
+     *   "condition": { "userId": "$$userId" },
+     *   "aggregation": [
+     *     { "$match": { "userId": "$$userId" } },
+     *     { "$group": { "_id": null, "count": { "$sum": 1 } } }
+     *   ]
+     * }
+     * 
+     * Факт: { "d": { "userId": "12345", "amount": 100 } }
+     * 
+     * Результат замены:
+     * {
+     *   "condition": { "userId": "12345" },
+     *   "aggregation": [
+     *     { "$match": { "userId": "12345" } },
+     *     { "$group": { "_id": null, "count": { "$sum": 1 } } }
+     *   ]
+     * }
+     * 
+     * Рекурсивно заменяет переменные в объекте MongoDB агрегации
+     * @param {*} obj - объект для обработки
+     * @param {Object} factData - данные факта для замены переменных
+     */
+    _replaceVariablesRecursive(obj, factData) {
+        if (obj === null || obj === undefined) {
+            return;
+        }
+
+        if (Array.isArray(obj)) {
+            // Если это массив, обрабатываем каждый элемент
+            obj.forEach(item => this._replaceVariablesRecursive(item, factData));
+        } else if (typeof obj === 'object') {
+            // Если это объект, обрабатываем каждое свойство
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    const value = obj[key];
+                    
+                    if (typeof value === 'string' && value.startsWith('$$')) {
+                        // Если значение начинается с $$, это переменная
+                        const variableName = value.substring(2); // убираем $$
+                        if (factData.hasOwnProperty(variableName)) {
+                            // Заменяем переменную на значение из факта
+                            obj[key] = factData[variableName];
+                            this.logger.debug(`Заменена переменная ${value} на значение: ${factData[variableName]}`);
+                        } else {
+                            this.logger.warn(`Переменная ${value} не найдена в данных факта`);
+                        }
+                    } else {
+                        // Рекурсивно обрабатываем вложенные объекты
+                        this._replaceVariablesRecursive(value, factData);
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Получает счетчики по фактам для заданного факта
@@ -537,18 +610,18 @@ class MongoProvider {
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id
         // и результат объединить с фактом из коллекции facts
-        const matchQuery = {
+        const findFactMatchQuery = {
             "_id.h": {
                 "$in": indexHashValues
             }
         };
         if (fact) {
-            matchQuery._id = {
+            findFactMatchQuery._id = {
                 "$ne": fact._id
             };
         }
         if (depthFromDate) {
-            matchQuery.d = {
+            findFactMatchQuery.d = {
                 "$gte": depthFromDate
             };
         }
@@ -559,7 +632,7 @@ class MongoProvider {
             comment: "getRelevantFactCounters - find",
             projection: { "_id": 1 }
         };
-        const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
+        const factIndexResult = await this._findFactIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
         // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
 
         // Если нет релевантных индексных значений, возвращаем пустую статистику
@@ -582,14 +655,6 @@ class MongoProvider {
         if (countersExpression && countersExpression.facetStages) {
             aggregateQuery.push({"$facet": countersExpression.facetStages});
         }
-        // Добавить переменные в запрос
-        let parameters = null;
-        if (countersExpression && countersExpression.variables) {
-            parameters = {};
-            countersExpression.variables.forEach(variable => {
-                parameters[variable] = fact.d[variable];
-            });
-        }
         
         // Опции агрегирующего запроса
         const aggregateOptions = {
@@ -598,9 +663,6 @@ class MongoProvider {
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - aggregate",
         };
-        if (parameters) {
-            aggregateOptions.let = parameters;
-        }
 
         // Выполнить агрегирующий запрос
         this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
@@ -624,6 +686,7 @@ class MongoProvider {
             result: result,
             processingTime: Date.now() - startTime,
             debug: {
+                findFactMatchQuery: findFactMatchQuery,
                 aggregateQuery: aggregateQuery,
             }
         };

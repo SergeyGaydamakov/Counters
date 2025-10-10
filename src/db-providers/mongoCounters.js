@@ -13,7 +13,6 @@ const Logger = require('../utils/logger');
  * @property {string} comment - Комментарий к счетчику
  * @property {Object} condition - Условия применения счетчика к факту
  * @property {Array} aggregate - Массив операций MongoDB aggregate для счетчика
- * @property {Array} [variables] - Опциональный массив переменных для инициализации при агрегации
  */
 class MongoCounters {
     constructor(configPathOrConfigArray = null) {
@@ -103,19 +102,6 @@ class MongoCounters {
                 }
             }
 
-            // Проверяем атрибут variables (опциональный)
-            if (counter.variables !== undefined) {
-                if (!Array.isArray(counter.variables)) {
-                    throw new Error(`Счетчик ${i} должен содержать поле 'variables' типа array, если оно указано`);
-                }
-                
-                // Проверяем, что все элементы variables являются строками
-                for (let k = 0; k < counter.variables.length; k++) {
-                    if (typeof counter.variables[k] !== 'string') {
-                        throw new Error(`Счетчик ${i}, переменная ${k} должна быть строкой`);
-                    }
-                }
-            }
         }
         
         this.logger.info(`Конфигурация счетчиков валидна. Количество счетчиков: ${counterConfig.length}`);
@@ -228,9 +214,8 @@ class MongoCounters {
     /**
      * Создает структуру счетчиков для факта
      * @param {Object} fact - Факт для обработки
-     * @returns {Object|null} Объект с полями facetStages и variables, или null если нет подходящих счетчиков
+     * @returns {Object|null} Объект с полем facetStages, или null если нет подходящих счетчиков
      * @returns {Object} facetStages - Структура для использования в MongoDB $facet aggregate запросе
-     * @returns {Array<string>} variables - Массив уникальных переменных из всех подходящих счетчиков
      */
     make(fact) {
         if (!fact || !fact.d) {
@@ -239,15 +224,11 @@ class MongoCounters {
         }
 
         const facetStages = {};
-        const variablesSet = new Set();
         let matchedCountersCount = 0;
 
         // Проходим по всем счетчикам и проверяем условия
         for (const counter of this._counterConfig) {
             if (this._matchesCondition(fact, counter.condition)) {
-                if (counter.variables && counter.variables.length) {
-                    counter.variables.forEach(variable => variablesSet.add(variable));
-                }
                 facetStages[counter.name] = counter.aggregate;
                 matchedCountersCount++;
                 this.logger.debug(`Счетчик '${counter.name}' подходит для факта ${fact._id}`);
@@ -259,8 +240,7 @@ class MongoCounters {
 
         if (matchedCountersCount > 0) {
             return {
-                facetStages: facetStages,
-                variables: Array.from(variablesSet)
+                facetStages: facetStages
             };
         }
         
