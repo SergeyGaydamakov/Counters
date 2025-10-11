@@ -13,7 +13,7 @@ class ApiTester {
     /**
      * Выполняет HTTP запрос
      */
-    async makeRequest(method, path, data = null, rawData = false) {
+    async makeRequest(method, path, data = null, xmlData = false) {
         return new Promise((resolve, reject) => {
             const url = new URL(path, this.baseUrl);
             const options = {
@@ -22,12 +22,12 @@ class ApiTester {
                 path: url.pathname + url.search,
                 method: method,
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': xmlData ? 'application/xml' : 'application/json'
                 }
             };
 
             if (data) {
-                const jsonData = rawData ? data : JSON.stringify(data);
+                const jsonData = xmlData ? data : JSON.stringify(data);
                 options.headers['Content-Length'] = Buffer.byteLength(jsonData);
             }
 
@@ -61,7 +61,7 @@ class ApiTester {
             });
 
             if (data) {
-                const jsonData = rawData ? data : JSON.stringify(data);
+                const jsonData = xmlData ? data : JSON.stringify(data);
                 req.write(jsonData);
             }
 
@@ -96,7 +96,7 @@ class ApiTester {
         this.logger.info(`🔍 Тестирование JSON сообщения типа: ${messageType}`);
         
         const testData = messageData || {
-            userId: 'test_user_123',
+            id: 'test_user_123',
             productId: 'test_product_456',
             amount: 99.99,
             currency: 'USD',
@@ -133,16 +133,19 @@ class ApiTester {
     async testIrisMessage(messageType = 'test_iris') {
         this.logger.info(`🔍 Тестирование IRIS сообщения типа: ${messageType}`);
         
-        const testData = {
-            irisData: 'test_iris_string_data',
-            additionalInfo: 'test_metadata'
-        };
+        const testData = `
+<IRIS Version="1" Message="ModelRequest" MessageTypeId="1" MessageId="3323123" custom="test">
+<id>test_user_123</id>
+<productId>R</productId>
+<amount>99.99</amount>
+<currency>USD</currency>
+</IRIS>`;
 
         try {
-            const response = await this.makeRequest('POST', `/api/v1/message/${messageType}/iris`, testData);
+            const response = await this.makeRequest('POST', `/api/v1/message/iris`, testData, true);
             
-            if (response.statusCode === 501) {
-                this.logger.info('✅ IRIS endpoint корректно возвращает 501 (не реализовано)', response.data);
+            if (response.statusCode === 200) {
+                this.logger.info('✅ IRIS endpoint корректно возвращает 200', response.data);
                 return true;
             } else {
                 this.logger.error('❌ Неожиданный ответ IRIS endpoint', response);

@@ -145,6 +145,10 @@ class CounterProducer {
             return false;
         }
 
+        if (!condition) {
+            return true;
+        }
+
         // Проверяем каждое условие
         for (const [field, expectedValue] of Object.entries(condition)) {
             const actualValue = this._getValueByPath(fact, field);
@@ -285,6 +289,58 @@ class CounterProducer {
         }
         
         return null;
+    }
+
+    /**
+     * Получает счетчики для факта
+     * @param {Object} fact - Факт для обработки
+     * @returns {Object|null} Объект с полем factCounters, или null если нет подходящих счетчиков
+     * @returns {Object} factCounters - Массив счетчиков для факта
+     */
+    getFactCounters(fact) {
+        if (!fact || !fact.d) {
+            this.logger.warn('Передан некорректный факт для получения счетчиков');
+            return null;
+        }
+
+        const factCounters = [];
+        let matchedIndexTypeNames = new Set();
+
+        // Проходим по всем счетчикам и проверяем условия
+        for (const counter of this._counterConfig) {
+            if (this._matchesCondition(fact, counter.computationConditions)) {
+                if (!counter.attributes) {
+                    this.logger.warn(`Счетчик '${counter.name}' не имеет атрибутов (attributes). Счетчик не будет добавлен.`);
+                    continue;
+                }
+                factCounters.push(counter);
+                /*
+                const matchStage = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : null;
+                const groupStage = { "$group": counter.attributes };
+                groupStage["$group"]["_id"] = null;
+                facetStages[counter.name] = [];
+                if (matchStage) {
+                    facetStages[counter.name].push(matchStage);
+                }
+                if (groupStage) {
+                    facetStages[counter.name].push(groupStage);
+                }
+                */
+                matchedIndexTypeNames.add(counter.indexTypeName);
+                this.logger.debug(`Счетчик '${counter.name}' подходит для факта ${fact._id}`);
+            } else {
+                this.logger.debug(`Счетчик '${counter.name}' не подходит для факта ${fact._id} по условиям ${JSON.stringify(counter.computationConditions)}`);
+            }
+        }
+
+        // this.logger.debug(`Для факта ${fact._id} найдено подходящих счетчиков: ${factCounters.length} из ${this._counterConfig.length}`);
+        // this.logger.debug(`facetStages: ${JSON.stringify(facetStages)}`);
+
+        if (!factCounters.length) {
+            return null;
+        }
+        
+        return factCounters;
     }
 
     /**

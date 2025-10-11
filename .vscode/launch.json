@@ -1,0 +1,51 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug test:counters",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/tests/counterProducerTest.js",
+            "env": {
+                "LOG_LEVEL": "DEBUG"
+            },
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "outputCapture": "std"
+        },
+        {
+            "name": "Debug test:counters (with breakpoints)",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/tests/counterProducerTest.js",
+            "env": {
+                "LOG_LEVEL": "DEBUG"
+            },
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "outputCapture": "std",
+            "stopOnEntry": true
+        },
+        {
+            "name": "Debug all tests",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/tests/mongoProviderTest.js",
+            "env": {
+                "LOG_LEVEL": "DEBUG"
+            },
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "outputCapture": "std"
+        }
+    ]
+}

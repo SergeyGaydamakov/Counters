@@ -87,7 +87,7 @@ class FactController {
                 processingTime: null
             };
         }
-        const factIndexTypeAndValueList = factIndexes.map(index => ({ hashValue: index._id.h, indexType: index.it, indexTypeName: this.factIndexer.getIndexTypeName(index.it) }));
+        const factIndexTypeAndValueList = factIndexes.map(index => ({ hashValue: index._id.h, index: this.factIndexer.getIndexDescription(index.it) }));
         const startTime = Date.now();
         const [relevantFactsResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFacts(factIndexTypeAndValueList, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
@@ -131,13 +131,14 @@ class FactController {
                 }
             };
         }
-        const factIndexTypeAndValueList = factIndexes.map(index => ({ hashValue: index._id.h, indexType: index.it, indexTypeName: this.factIndexer.getIndexTypeName(index.it) }));
+        const factIndexTypeAndValueList = factIndexes.map(index => ({ hashValue: index._id.h, index: this.factIndexer.getIndexDescription(index.it) }));
         const startTime = Date.now();
         const [factCountersResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFactCounters(factIndexTypeAndValueList, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
             this.dbProvider.saveFact(fact),
             this.dbProvider.saveFactIndexList(factIndexes)
         ]);
+        this.logger.debug(`***************************************** 0`);
         return {
             fact,
             counters: factCountersResult.result,

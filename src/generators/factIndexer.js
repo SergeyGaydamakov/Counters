@@ -148,7 +148,7 @@ class FactIndexer {
             }
 
             // Проверяем на наличие лишних полей
-            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName'];
+            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName', 'limit'];
             const extraFields = Object.keys(configItem).filter(key => !allowedFields.includes(key));
             if (extraFields.length > 0) {
                 throw new Error(`Элемент конфигурации ${index}: содержит недопустимые поля: ${extraFields.join(', ')}`);
@@ -178,16 +178,16 @@ class FactIndexer {
     }
 
     /**
-     * Получает название типа индекса по его типу
+     * Получает описание индекса по его типу
      * @param {number} indexType - тип индекса
-     * @returns {string} название типа индекса
+     * @returns {Object} описание индекса (объект конфигурации)
      */
-    getIndexTypeName(indexType) {
-        const indexItem = this._indexConfig.find(configItem => configItem.indexType === indexType);
-        if (!indexItem) {
+    getIndexDescription(indexType) {
+        const indexDescription = this._indexConfig.find(configItem => configItem.indexType === indexType);
+        if (!indexDescription) {
             throw new Error(`Тип индекса ${indexType} не найден в конфигурации.`);
         }
-        return indexItem.indexTypeName;
+        return indexDescription;
     }
 
     /**

@@ -4,56 +4,64 @@
     "dateName": "dt",
     "indexTypeName": "idx_f1",
     "indexType": 1,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 1000
   },
   {
     "fieldName": "f2",
     "dateName": "dt",
     "indexTypeName": "idx_f2",
     "indexType": 2,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 500
   },
   {
     "fieldName": "f3",
     "dateName": "dt",
     "indexTypeName": "idx_f3",
     "indexType": 3,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 1000
   },
   {
     "fieldName": "f4",
     "dateName": "dt",
     "indexTypeName": "idx_f4",
     "indexType": 4,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 1000
   },
   {
     "fieldName": "f5",
     "dateName": "dt",
     "indexTypeName": "idx_f5",
     "indexType": 5,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 200
   },
   {
     "fieldName": "f6",
     "dateName": "dt",
     "indexTypeName": "idx_f6",
     "indexType": 6,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 500
   },
   {
     "fieldName": "f7",
     "dateName": "dt",
     "indexTypeName": "idx_f7",
     "indexType": 7,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 1000
   },
   {
     "fieldName": "f8",
     "dateName": "dt",
     "indexTypeName": "idx_f8",
     "indexType": 8,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 1000
   },
   {
     "fieldName": "f9",
@@ -67,6 +75,7 @@
     "dateName": "dt",
     "indexTypeName": "idx_f10",
     "indexType": 10,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 1000
   }
   ]

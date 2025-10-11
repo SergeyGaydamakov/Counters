@@ -14,64 +14,55 @@ class MongoProviderTest {
                 comment: "Общий счетчик для всех типов сообщений",
                 indexTypeName: "test_type_1",
                 computationConditions: {},
-                evaluationConditions: [
-                    {
-                        "$group": {
-                            "_id": null,
-                            "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$d.amount" }
-                        }
-                    }
-                ],
-                variables: []
+                evaluationConditions: null,
+                attributes: {
+                    "count": { "$sum": 1 },
+                    "sumA": { "$sum": "$d.amount" }
+                }
+            },
+            {
+                name: "total1",
+                comment: "Общий счетчик для всех типов сообщений",
+                indexTypeName: "test_type_1",
+                computationConditions: {"d.f1": "value1"},
+                evaluationConditions: null,
+                attributes: {
+                    "count": { "$sum": 1 },
+                    "sumA": { "$sum": "$d.amount" }
+                }
             },
             {
                 name: "total2",
                 comment: "Дополнительный счетчик для типа 2",
                 indexTypeName: "test_type_2",
                 computationConditions: {},
-                evaluationConditions: [
-                    {
-                        "$group": {
-                            "_id": null,
-                            "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$d.amount" }
-                        }
-                    }
-                ],
-                variables: []
+                evaluationConditions: null,
+                attributes: {
+                    "count": { "$sum": 1 },
+                    "sumA": { "$sum": "$d.amount" }
+                }
             },
             {
                 name: "total3",
                 comment: "Дополнительный счетчик для типа 3",
                 indexTypeName: "test_type_3",
                 computationConditions: {},
-                evaluationConditions: [
-                    {
-                        "$group": {
-                            "_id": null,
-                            "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$d.amount" }
-                        }
-                    }
-                ],
-                variables: []
+                evaluationConditions: null,
+                attributes: {
+                    "count": { "$sum": 1 },
+                    "sumA": { "$sum": "$d.amount" }
+                }
             },
             {
                 name: "total4",
                 comment: "Дополнительный счетчик для типа 4",
                 indexTypeName: "test_type_4",
                 computationConditions: {},
-                evaluationConditions: [
-                    {
-                        "$group": {
-                            "_id": null,
-                            "count": { "$sum": 1 },
-                            "sumA": { "$sum": "$d.amount" }
-                        }
-                    }
-                ],
-                variables: []
+                evaluationConditions: null,
+                attributes: {
+                    "count": { "$sum": 1 },
+                    "sumA": { "$sum": "$d.amount" }
+                }
             }
         ];
         this.mongoCounters = new CounterProducer(this.countersConfig);
@@ -158,28 +149,32 @@ class MongoProviderTest {
                 dateName: "dt",
                 indexTypeName: "test_type_1",
                 indexType: 1,
-                indexValue: 1
+                indexValue: 1,
+                limit: 100
             },
             {
                 fieldName: "f2",
                 dateName: "dt",
                 indexTypeName: "test_type_2",
                 indexType: 2,
-                indexValue: 2
+                indexValue: 2,
+                limit: 100
             },
             {
                 fieldName: "f3",
                 dateName: "dt",
                 indexTypeName: "test_type_3",
                 indexType: 3,
-                indexValue: 1
+                indexValue: 1,
+                limit: 100
             },
             {
                 fieldName: "f4",
                 dateName: "dt",
                 indexTypeName: "test_type_4",
                 indexType: 4,
-                indexValue: 1
+                indexValue: 1,
+                limit: 100
             }
         ];
         
@@ -204,7 +199,6 @@ class MongoProviderTest {
             await this.testDisconnection('2. Тест отключения от MongoDB...');
             await this.testReconnection('3. Тест переподключения к MongoDB...');
             await this.testCheckConnection('4. Тест проверки подключения...');
-
             // Тесты создания базы данных
             await this.testCreateDatabase('5. Тест создания базы данных...');
 
@@ -231,7 +225,6 @@ class MongoProviderTest {
             await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
             await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
             await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
-
             // Тесты получения релевантных счетчиков фактов
             await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
             await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
@@ -242,7 +235,7 @@ class MongoProviderTest {
             
             // Тесты статистики
             await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
-            await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
+            await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');  
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
@@ -944,10 +937,11 @@ class MongoProviderTest {
      */
     async testGetRelevantFacts(title) {
         this.logger.debug(title);
-        
+        // this.logger.debug("Тест временно отключен из-за нестабильного выполнения при пакетной работе"+title);
+
         try {
-            this.provider.clearFactsCollection();
-            this.provider.clearFactIndexCollection();
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
 
             // Создаем тестовые факты с известными значениями полей
             const testFacts = [
@@ -1018,8 +1012,7 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact);
             const relevantFacts = factsResult.result;
@@ -1133,8 +1126,7 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact);
             const relevantFacts = factsResult.result;
@@ -1233,8 +1225,7 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, searchFact);
             const relevantFacts = factsResult.result;
@@ -1331,8 +1322,7 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, searchFact, 2);
             const relevantFacts = factsResult.result;
@@ -1437,8 +1427,7 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact, undefined, cutoffDate);
             const relevantFacts = factsResult.result;
@@ -1551,8 +1540,7 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact, 1, cutoffDate);
             const relevantFacts = factsResult.result;
@@ -1592,9 +1580,12 @@ class MongoProviderTest {
      * Тест получения релевантных счетчиков фактов - базовый тест
      */
     async testGetRelevantFactCounters(title) {
-        this.logger.debug(title);
+        this.logger.info(title);
         
         try {
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
+            
             // Создаем тестовые факты с известными значениями полей
             const testFacts = [
                 {
@@ -1664,33 +1655,27 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact);
             const counters = countersResult.result;
+            this.logger.info(`*** countersResult: ${JSON.stringify(counters)}`);
 
-            // Проверяем результаты
-            if (!Array.isArray(counters)) {
-                throw new Error('Метод должен возвращать массив');
+            // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
+            if (typeof counters !== 'object' || counters === null) {
+                throw new Error('Метод должен возвращать объект');
             }
 
-            if (counters.length === 0) {
-                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            if (Object.keys(counters).length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один счетчик');
             }
 
-            const result = counters[0];
-            
-            // Проверяем структуру результата
-            if (!result.total || !Array.isArray(result.total)) {
-                throw new Error('Результат должен содержать массив total');
+            // Проверяем структуру результата - теперь счетчики находятся напрямую в объекте
+            if (!counters.total) {
+                throw new Error('Результат должен содержать счетчик total');
             }
 
-            if (result.total.length === 0) {
-                throw new Error('Массив total не должен быть пустым');
-            }
-
-            const totalStats = result.total[0];
+            const totalStats = counters.total;
             
             // Проверяем поля в total
             if (typeof totalStats.count !== 'number') {
@@ -1707,7 +1692,7 @@ class MongoProviderTest {
             }
 
             // Проверяем сумму значений поля amount
-            const expectedSumA = 100 + 200 + 300; // Сумма amount для релевантных фактов
+            const expectedSumA = 100 + 200; // Сумма amount для счетчика count по индексу test_type_1 = counter-fact-001 + counter-fact-002
             if (totalStats.sumA !== expectedSumA) {
                 throw new Error(`Ожидалась сумма amount = ${expectedSumA}, получена ${totalStats.sumA}`);
             }
@@ -1798,31 +1783,26 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact);
             const counters = countersResult.result;
 
-            if (!Array.isArray(counters)) {
-                throw new Error('Метод должен возвращать массив');
+            // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
+            if (typeof counters !== 'object' || counters === null) {
+                throw new Error('Метод должен возвращать объект');
             }
 
-            if (counters.length === 0) {
-                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            if (Object.keys(counters).length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один счетчик');
             }
 
-            const result = counters[0];
-            
-            if (!result.total || !Array.isArray(result.total)) {
-                throw new Error('Результат должен содержать массив total');
+            // Проверяем структуру результата - теперь счетчики находятся напрямую в объекте
+            if (!counters.total) {
+                throw new Error('Результат должен содержать счетчик total');
             }
 
-            if (result.total.length === 0) {
-                throw new Error('Массив total не должен быть пустым');
-            }
-
-            const totalStats = result.total[0];
+            const totalStats = counters.total;
             
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
@@ -1915,19 +1895,19 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, searchFact);
             const counters = countersResult.result;
 
-            if (!Array.isArray(counters)) {
-                throw new Error('Метод должен возвращать массив');
+            // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
+            if (typeof counters !== 'object' || counters === null) {
+                throw new Error('Метод должен возвращать объект');
             }
 
             // Проверяем, что метод возвращает корректную структуру
-            if (counters.length) {
-                throw new Error('Не должно быть совпадений, счетчков быть не должно.');
+            if (Object.keys(counters).length > 0) {
+                throw new Error('Не должно быть совпадений, счетчиков быть не должно.');
             }
             // Если нет совпадений, это нормально для данного теста
             this.logger.debug('   Нет совпадений - это ожидаемое поведение для уникальных значений');
@@ -1948,6 +1928,9 @@ class MongoProviderTest {
         this.logger.debug(title);
         
         try {
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
+
             // Создаем тестовые факты с разными датами
             const baseDate = new Date('2024-01-01');
             const testFacts = [
@@ -2012,31 +1995,27 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, searchFact, 2);
             const counters = countersResult.result;
+            this.logger.debug(`*** Получены счетчики: ${JSON.stringify(counters)}`);
 
-            if (!Array.isArray(counters)) {
-                throw new Error('Метод должен возвращать массив');
+            // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
+            if (typeof counters !== 'object' || counters === null) {
+                throw new Error('Метод должен возвращать объект');
             }
 
-            if (counters.length === 0) {
-                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            if (Object.keys(counters).length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один счетчик');
             }
 
-            const result = counters[0];
-            
-            if (!result.total || !Array.isArray(result.total)) {
-                throw new Error('Результат должен содержать массив total');
+            // Проверяем структуру результата - теперь счетчики находятся напрямую в объекте
+            if (!counters.total) {
+                throw new Error('Результат должен содержать счетчик total');
             }
 
-            if (result.total.length === 0) {
-                throw new Error('Массив total не должен быть пустым');
-            }
-
-            const totalStats = result.total[0];
+            const totalStats = counters.total;
             
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
@@ -2143,31 +2122,26 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact, undefined, cutoffDate);
             const counters = countersResult.result;
 
-            if (!Array.isArray(counters)) {
-                throw new Error('Метод должен возвращать массив');
+            // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
+            if (typeof counters !== 'object' || counters === null) {
+                throw new Error('Метод должен возвращать объект');
             }
 
-            if (counters.length === 0) {
-                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            if (Object.keys(counters).length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один счетчик');
             }
 
-            const result = counters[0];
-            
-            if (!result.total || !Array.isArray(result.total)) {
-                throw new Error('Результат должен содержать массив total');
+            // Проверяем структуру результата - теперь счетчики находятся напрямую в объекте
+            if (!counters.total) {
+                throw new Error('Результат должен содержать счетчик total');
             }
 
-            if (result.total.length === 0) {
-                throw new Error('Массив total не должен быть пустым');
-            }
-
-            const totalStats = result.total[0];
+            const totalStats = counters.total;
             
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
@@ -2269,31 +2243,26 @@ class MongoProviderTest {
             const searchFactIndexValues = this.indexer.index(searchFact);
             const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+                index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact, 1, cutoffDate);
             const counters = countersResult.result;
 
-            if (!Array.isArray(counters)) {
-                throw new Error('Метод должен возвращать массив');
+            // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
+            if (typeof counters !== 'object' || counters === null) {
+                throw new Error('Метод должен возвращать объект');
             }
 
-            if (counters.length === 0) {
-                throw new Error('Должен быть возвращен хотя бы один элемент статистики');
+            if (Object.keys(counters).length === 0) {
+                throw new Error('Должен быть возвращен хотя бы один счетчик');
             }
 
-            const result = counters[0];
-            
-            if (!result.total || !Array.isArray(result.total)) {
-                throw new Error('Результат должен содержать массив total');
+            // Проверяем структуру результата - теперь счетчики находятся напрямую в объекте
+            if (!counters.total) {
+                throw new Error('Результат должен содержать счетчик total');
             }
 
-            if (result.total.length === 0) {
-                throw new Error('Массив total не должен быть пустым');
-            }
-
-            const totalStats = result.total[0];
+            const totalStats = counters.total;
             
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');

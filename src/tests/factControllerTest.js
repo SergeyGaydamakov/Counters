@@ -265,8 +265,7 @@ class FactControllerTest {
             const testFactIndexValues = this.controller.factIndexer.index(testFact);
             const testFactIndexTypeAndValueList = testFactIndexValues.map(index => ({ 
                 hashValue: index._id.h, 
-                indexType: index.it, 
-                indexTypeName: this.controller.factIndexer.getIndexTypeName(index.it) 
+                index: this.controller.factIndexer.getIndexDescription(index.it)
             }));
             const excludedFact = testFacts[1];
             const factsResult = await this.provider.getRelevantFacts(testFactIndexTypeAndValueList, excludedFact);
@@ -406,8 +405,8 @@ class FactControllerTest {
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
 
-            // Создаем тестовое событие
-            const testEvent = {
+            // Создаем тестовое сообщение
+            const testMessage = {
                 t: 1,
                 d: {
                     dt: new Date('2024-01-01T00:00:00.000Z'),
@@ -418,7 +417,7 @@ class FactControllerTest {
             };
 
             // Вызываем метод processMessage
-            const result = await this.controller.processMessage(testEvent);
+            const result = await this.controller.processMessage(testMessage);
 
             // Проверяем структуру результата
             if (!result || typeof result !== 'object') {
@@ -447,7 +446,7 @@ class FactControllerTest {
             }
 
             // Проверяем, что relevantFacts является массивом
-            if (!Array.isArray(result.relevantFacts)) {
+            if (!result.relevantFacts || !Array.isArray(result.relevantFacts)) {
                 throw new Error('Поле relevantFacts должно быть массивом');
             }
 
@@ -481,8 +480,8 @@ class FactControllerTest {
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
 
-            // Создаем тестовое событие
-            const testEvent = {
+            // Создаем тестовое сообщение
+            const testMessage = {
                 t: 1,
                 d: {
                     dt: new Date('2024-01-01T00:00:00.000Z'),
@@ -493,12 +492,14 @@ class FactControllerTest {
             };
 
             // Вызываем метод processMessageWithCounters
-            const result = await this.controller.processMessageWithCounters(testEvent);
+            const result = await this.controller.processMessageWithCounters(testMessage);
+            this.logger.debug(`*** 1`);
 
             // Проверяем структуру результата
             if (!result || typeof result !== 'object') {
                 throw new Error('processMessageWithCounters должен возвращать объект');
             }
+            this.logger.debug(`*** 2`);
 
             // Проверяем наличие обязательных полей в результате
             const requiredFields = ['fact', 'counters', 'saveFactResult', 'saveIndexResult'];
@@ -507,11 +508,13 @@ class FactControllerTest {
                     throw new Error(`Отсутствует обязательное поле: ${field}`);
                 }
             }
+            this.logger.debug(`*** 3`);
 
             // Проверяем структуру факта
             if (!result.fact || typeof result.fact !== 'object') {
                 throw new Error('Поле fact должно быть объектом');
             }
+            this.logger.debug(`*** 4`);
 
             // Проверяем обязательные поля факта
             const factRequiredFields = ['_id', 't', 'c', 'd'];
@@ -520,17 +523,20 @@ class FactControllerTest {
                     throw new Error(`Отсутствует обязательное поле в факте: ${field}`);
                 }
             }
+            this.logger.debug(`*** 5`);
 
             // Проверяем, что counters является массивом
-            if (!Array.isArray(result.counters)) {
-                throw new Error('Поле counters должно быть массивом');
+            if (!result.counters ||  typeof result.counters !== 'object') {
+                throw new Error('Поле counters должно быть объектом');
             }
 
+            this.logger.debug(`*** 6`);
             // Проверяем, что saveFactResult содержит информацию о сохранении
             if (!result.saveFactResult || typeof result.saveFactResult !== 'object') {
                 throw new Error('Поле saveFactResult должно быть объектом');
             }
 
+            this.logger.debug(`*** 7`);
             // Проверяем, что saveIndexResult содержит информацию о сохранении индексов
             if (!result.saveIndexResult || typeof result.saveIndexResult !== 'object') {
                 throw new Error('Поле saveIndexResult должно быть объектом');
