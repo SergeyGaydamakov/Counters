@@ -12,7 +12,55 @@ class MongoProviderTest {
             {
                 name: "total",
                 comment: "Общий счетчик для всех типов сообщений",
-                indexTypeName: "total_index",
+                indexTypeName: "test_type_1",
+                computationConditions: {},
+                evaluationConditions: [
+                    {
+                        "$group": {
+                            "_id": null,
+                            "count": { "$sum": 1 },
+                            "sumA": { "$sum": "$d.amount" }
+                        }
+                    }
+                ],
+                variables: []
+            },
+            {
+                name: "total2",
+                comment: "Дополнительный счетчик для типа 2",
+                indexTypeName: "test_type_2",
+                computationConditions: {},
+                evaluationConditions: [
+                    {
+                        "$group": {
+                            "_id": null,
+                            "count": { "$sum": 1 },
+                            "sumA": { "$sum": "$d.amount" }
+                        }
+                    }
+                ],
+                variables: []
+            },
+            {
+                name: "total3",
+                comment: "Дополнительный счетчик для типа 3",
+                indexTypeName: "test_type_3",
+                computationConditions: {},
+                evaluationConditions: [
+                    {
+                        "$group": {
+                            "_id": null,
+                            "count": { "$sum": 1 },
+                            "sumA": { "$sum": "$d.amount" }
+                        }
+                    }
+                ],
+                variables: []
+            },
+            {
+                name: "total4",
+                comment: "Дополнительный счетчик для типа 4",
+                indexTypeName: "test_type_4",
                 computationConditions: {},
                 evaluationConditions: [
                     {

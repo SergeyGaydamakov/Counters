@@ -354,8 +354,26 @@ class MongoProvider {
 
         this.logger.debug(`Получение релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
         
-        // Извлекаем хеши из списка индексных значений
-        const indexHashValues = indexTypeAndValueList.map(item => item.hashValue);
+        // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
+        const countersInfo = this.getCountersInfo(fact);
+        if (!countersInfo) {
+            this.logger.warn('Для указанного факта ${fact?._id} с типом ${fact?._t} нет подходящих счетчиков.');
+            return {
+                result: [],
+                processingTime: Date.now() - startTime,
+            };
+        }
+
+        // Убираем из поиска лишние индексы, поэтому получаем список хешей значений индексов факта для индексов из счетчиков
+        const indexHashValues = [];
+        countersInfo.indexTypeNames.forEach(item => {
+            const index = indexTypeAndValueList.find(index => index.indexTypeName === item);
+            if (!index) {
+                this.logger.warn(`Тип индекса ${item} не найден в списке индексных значений.`);
+            } else {
+                indexHashValues.push(index.hashValue);
+            }
+        });
         
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id
@@ -535,7 +553,7 @@ class MongoProvider {
                     }
                 ]
             },
-            "indexTypeNames": ["f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10"]
+            "indexTypeNames": ["test_type_1", "test_type_2", "test_type_3", "test_type_4", "test_type_5", "test_type_6", "test_type_7", "test_type_8", "test_type_9", "test_type_10"]
         };
     }
 
@@ -615,9 +633,6 @@ class MongoProvider {
 
         this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
 
-        // Извлекаем хеши из списка индексных значений
-        const indexHashValues = indexTypeAndValueList.map(item => item.hashValue);
-
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         const countersInfo = this.getCountersInfo(fact);
         if (!countersInfo) {
@@ -627,6 +642,17 @@ class MongoProvider {
                 processingTime: Date.now() - startTime,
             };
         }
+
+        // Убираем из поиска лишние индексы, поэтому получаем список хешей значений индексов факта для индексов из счетчиков
+        const indexHashValues = [];
+        countersInfo.indexTypeNames.forEach(item => {
+            const index = indexTypeAndValueList.find(index => index.indexTypeName === item);
+            if (!index) {
+                this.logger.warn(`Тип индекса ${item} не найден в списке индексных значений.`);
+            } else {
+                indexHashValues.push(index.hashValue);
+            }
+        });
 
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id
