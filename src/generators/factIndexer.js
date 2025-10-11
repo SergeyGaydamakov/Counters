@@ -178,6 +178,32 @@ class FactIndexer {
     }
 
     /**
+     * Перевод [indexTypeName] в [indexType]
+     * 
+     * @param {string[]} indexTypeNames - массив названий типов индексов
+     * @returns {number[]} массив типов индексов
+     */
+    indexTypeNamesToIndexTypes(indexTypeNames) {
+        if (!Array.isArray(indexTypeNames)) {
+            throw new Error('Параметр indexTypeNames должен быть массивом');
+        }
+        if (indexTypeNames.length === 0) {
+            throw new Error('Параметр indexTypeNames не может быть пустым');
+        }
+        const indexTypes = new Set();
+        indexTypeNames.forEach(indexTypeName => {
+            const indexItem = this._indexConfig.find(configItem => configItem.indexTypeName === indexTypeName);
+            if (!indexItem) {
+                this.logger.warn(`Тип индекса ${indexTypeName} не найден в конфигурации.`);
+                return;
+            }
+            indexTypes.add(indexItem.indexType);
+        });
+        return Array.from(indexTypes);
+    }
+   
+
+    /**
      * Хеш функция для создания уникального индекса из типа и значения поля
      * @param {number|string} indexType - тип/номер поля (it)
      * @param {string} indexValue - значение поля (f)

@@ -18,7 +18,6 @@ GET http://{{host}}/health
 GET http://{{host}}/api/v1/message/{{messageType}}/json
 
 ### Обработка сообщения типа messageType
-
 @processedMessage = {{newMessage.response.body.$}}
 POST http://{{host}}/api/v1/message/{{messageType}}/json
 Content-Type: application/json

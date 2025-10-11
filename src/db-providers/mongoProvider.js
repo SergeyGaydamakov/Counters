@@ -95,10 +95,10 @@ class MongoProvider {
                 },
                 appName: "CounterTest",
                 // monitorCommands: true,
-                // minPoolSize: 10,
-                // maxPoolSize: 100,
-                // maxIdleTimeMS: 10000,
-                // maxConnecting: 10,
+                minPoolSize: 30,
+                maxPoolSize: 300,
+                maxIdleTimeMS: 60000,
+                maxConnecting: 25,
                 serverSelectionTimeoutMS: 30000,
             };
             this._counterClient = new MongoClient(this.connectionString, defaultOptions);
@@ -413,37 +413,43 @@ class MongoProvider {
      * @param {Object} fact - факт
      * @returns {Promise<Array>} выражение для вычисления счетчиков по фактам
      */
-    getCountersExpression(fact) {
+    getCountersInfo(fact) {
         if (!this._mongoCounters) {
             this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
-            return this.getDefaultCountersExpression();
+            return this.getDefaultCountersInfo();
         }
-        const countersExpression = this._mongoCounters.make(fact);
-        if (!countersExpression) {
+        const countersInfo = this._mongoCounters.make(fact);
+        if (!countersInfo) {
             this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
             return null;
         }
         // Замена параметров в выражении счетчиков на значения атрибутов из факта
         // Например, если в выражении счетчиков есть параметр "$$f2", то он будет заменен на значение атрибута "f2" из факта
-        const countersExpressionString = JSON.stringify(countersExpression);
-        if (!countersExpressionString.includes('$$')) {
-            return countersExpression;
+        const facetStagesString = JSON.stringify(countersInfo.facetStages);
+        if (!facetStagesString.includes('$$')) {
+            return {
+                facetStages: countersInfo.facetStages,
+                indexTypeNames: countersInfo.indexTypeNames
+            };
         }
         // Создаем глубокую копию выражения счетчиков
-        const processedExpression = JSON.parse(countersExpressionString);
+        const parameterizedFacetStages = JSON.parse(facetStagesString);
         // Рекурсивно заменяем переменные в объекте
-        this._replaceVariablesRecursive(processedExpression, fact.d);
+        this._replaceParametersRecursive(parameterizedFacetStages, fact.d);
 
-        return processedExpression;
+        return {
+            facetStages: parameterizedFacetStages,
+            indexTypeNames: countersInfo.indexTypeNames
+        };
     }
 
     /**
      * Выдает выражение для вычисления счетчиков по умолчанию
      * @returns {Promise<Array>} выражение для вычисления счетчиков по умолчанию
      */
-    getDefaultCountersExpression() {
+    getDefaultCountersInfo() {
         return {
-            "$facet": {
+            "facetStages": {
                 "total": [
                     {
                         "$group": {
@@ -521,7 +527,8 @@ class MongoProvider {
                         }
                     }
                 ]
-            }
+            },
+            "indexTypeNames": ["f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10"]
         };
     }
 
@@ -554,14 +561,14 @@ class MongoProvider {
      * @param {*} obj - объект для обработки
      * @param {Object} factData - данные факта для замены переменных
      */
-    _replaceVariablesRecursive(obj, factData) {
+    _replaceParametersRecursive(obj, factData) {
         if (obj === null || obj === undefined) {
             return;
         }
 
         if (Array.isArray(obj)) {
             // Если это массив, обрабатываем каждый элемент
-            obj.forEach(item => this._replaceVariablesRecursive(item, factData));
+            obj.forEach(item => this._replaceParametersRecursive(item, factData));
         } else if (typeof obj === 'object') {
             // Если это объект, обрабатываем каждое свойство
             for (const key in obj) {
@@ -580,7 +587,7 @@ class MongoProvider {
                         }
                     } else {
                         // Рекурсивно обрабатываем вложенные объекты
-                        this._replaceVariablesRecursive(value, factData);
+                        this._replaceParametersRecursive(value, factData);
                     }
                 }
             }
@@ -598,8 +605,9 @@ class MongoProvider {
 
         this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
 
-        const countersExpression = this.getCountersExpression(fact);
-        if (!countersExpression) {
+        // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
+        const countersInfo = this.getCountersInfo(fact);
+        if (!countersInfo) {
             this.logger.warn('Для указанного факта ${fact?._id} с типом ${fact?._t} нет подходящих счетчиков.');
             return {
                 result: [],
@@ -630,7 +638,7 @@ class MongoProvider {
             readConcern: { level: "local" },
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - find",
-            projection: { "_id": 1 }
+            projection: { "_id": 1, "it": 1 }
         };
         const factIndexResult = await this._findFactIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
         // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
@@ -643,7 +651,7 @@ class MongoProvider {
             };
         }
 
-        // Сформировать агрегирующий запрос к коллекции facts,
+        // Сформировать агрегирующий запрос к коллекции facts 
         const queryFacts = {
             "$match": {
                 "_id": {
@@ -651,9 +659,12 @@ class MongoProvider {
                 }
             }
         };
-        const aggregateQuery = [queryFacts];
-        if (countersExpression && countersExpression.facetStages) {
-            aggregateQuery.push({"$facet": countersExpression.facetStages});
+
+        const aggregateQuery = [
+            queryFacts
+        ];
+        if (countersInfo && countersInfo.facetStages) {
+            aggregateQuery.push({"$facet": countersInfo.facetStages});
         }
         
         // Опции агрегирующего запроса

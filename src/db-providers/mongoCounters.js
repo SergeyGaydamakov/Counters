@@ -11,8 +11,9 @@ const Logger = require('../utils/logger');
  * Структура конфигурации счетчика:
  * @property {string} name - Имя счетчика
  * @property {string} comment - Комментарий к счетчику
- * @property {Object} condition - Условия применения счетчика к факту
- * @property {Array} aggregate - Массив операций MongoDB aggregate для счетчика
+ * @property {string} indexTypeName - Название типа индекса
+ * @property {Object} computationConditions - Условия применения счетчика к факту
+ * @property {Array} evaluationConditions - Массив операций MongoDB aggregate для счетчика
  */
 class MongoCounters {
     constructor(configPathOrConfigArray = null) {
@@ -86,19 +87,19 @@ class MongoCounters {
                 throw new Error(`Счетчик ${i} должен содержать поле 'name' типа string`);
             }
 
-            if (!counter.condition || typeof counter.condition !== 'object') {
-                throw new Error(`Счетчик ${i} должен содержать поле 'condition' типа object`);
+            if (!counter.computationConditions || typeof counter.computationConditions !== 'object') {
+                throw new Error(`Счетчик ${i} должен содержать поле 'computationConditions' типа object`);
             }
 
-            if (!Array.isArray(counter.aggregate)) {
-                throw new Error(`Счетчик ${i} должен содержать поле 'aggregate' типа array`);
+            if (!Array.isArray(counter.evaluationConditions)) {
+                throw new Error(`Счетчик ${i} должен содержать поле 'evaluationConditions' типа array`);
             }
 
-            // Проверяем, что aggregate содержит валидные MongoDB операции
-            for (let j = 0; j < counter.aggregate.length; j++) {
-                const stage = counter.aggregate[j];
+            // Проверяем, что evaluationConditions содержит валидные MongoDB операции
+            for (let j = 0; j < counter.evaluationConditions.length; j++) {
+                const stage = counter.evaluationConditions[j];
                 if (!stage || typeof stage !== 'object') {
-                    throw new Error(`Счетчик ${i}, этап aggregate ${j} должен быть объектом`);
+                    throw new Error(`Счетчик ${i}, этап evaluationConditions ${j} должен быть объектом`);
                 }
             }
 
@@ -225,11 +226,13 @@ class MongoCounters {
 
         const facetStages = {};
         let matchedCountersCount = 0;
+        let matchedIndexTypeNames = new Set();
 
         // Проходим по всем счетчикам и проверяем условия
         for (const counter of this._counterConfig) {
-            if (this._matchesCondition(fact, counter.condition)) {
-                facetStages[counter.name] = counter.aggregate;
+            if (this._matchesCondition(fact, counter.computationConditions)) {
+                facetStages[counter.name] = counter.evaluationConditions;
+                matchedIndexTypeNames.add(counter.indexTypeName);
                 matchedCountersCount++;
                 this.logger.debug(`Счетчик '${counter.name}' подходит для факта ${fact._id}`);
             }
@@ -240,7 +243,8 @@ class MongoCounters {
 
         if (matchedCountersCount > 0) {
             return {
-                facetStages: facetStages
+                facetStages: facetStages,
+                indexTypeNames: Array.from(matchedIndexTypeNames)
             };
         }
         

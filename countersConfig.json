@@ -2,10 +2,11 @@
     {
       "name": "counter_total",
       "comment": "counter_total - подсчет количества",
-      "condition": {
+      "indexTypeName": "idx_f1",
+      "computationConditions": {
           "messageTypeId": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       },
-      "aggregate": [
+      "evaluationConditions": [
           {
             "$group": {
               "_id": null,
@@ -18,10 +19,11 @@
     {
       "name": "counter1_odd",
         "comment": "counter1_odd - нечетные значения f2",
-        "condition": {
+        "indexTypeName": "idx_f1",
+        "computationConditions": {
             "messageTypeId": [1]
         },
-        "aggregate": [
+        "evaluationConditions": [
             {
               "$match": {
                 "d.a": {"$gte": 1000},
@@ -40,10 +42,11 @@
     {
         "name": "counter2_even",
         "comment": "counter2_even - четные значения f2",
-        "condition": {
+        "indexTypeName": "idx_f1",
+        "computationConditions": {
             "messageTypeId": [1]
         },
-        "aggregate": [
+        "evaluationConditions": [
             {
               "$match": {
                 "d.a": {"$gte": 1000},
@@ -62,10 +65,11 @@
     {
         "name": "counter3_lte_1000",
         "comment": "counter3_lte_1000 - значения a меньше или равны 1000",
-        "condition": {
+        "indexTypeName": "idx_f2",
+        "computationConditions": {
             "messageTypeId": [2]
         },
-        "aggregate": [
+        "evaluationConditions": [
             {
               "$match": {
                 "d.a": {"$lte": 1000},
@@ -84,10 +88,11 @@
     {
       "name": "counter4_gt_1000",
       "comment": "counter4_gt_1000 - значения a больше 1000",
-      "condition": {
+      "indexTypeName": "idx_f2",
+      "computationConditions": {
           "messageTypeId": [2]
       },
-      "aggregate": [
+      "evaluationConditions": [
           {
             "$match": {
               "d.a": {"$gt": 1000},

@@ -56,14 +56,16 @@ class MongoCountersTest {
                 {
                     name: 'test_counter_1',
                     comment: 'Тестовый счетчик 1',
-                    condition: { messageTypeId: [50, 70] },
-                    aggregate: [{ $match: { status: 'A' } }, { $count: 'total' }]
+                    indexTypeName: 'test_index_1',
+                    computationConditions: { messageTypeId: [50, 70] },
+                    evaluationConditions: [{ $match: { status: 'A' } }, { $count: 'total' }]
                 },
                 {
                     name: 'test_counter_2',
                     comment: 'Тестовый счетчик 2',
-                    condition: { messageTypeId: [60] },
-                    aggregate: [{ $match: { status: 'R' } }, { $count: 'rejected' }]
+                    indexTypeName: 'test_index_2',
+                    computationConditions: { messageTypeId: [60] },
+                    evaluationConditions: [{ $match: { status: 'R' } }, { $count: 'rejected' }]
                 }
             ];
 
@@ -119,14 +121,16 @@ class MongoCountersTest {
                 {
                     name: 'counter_50_70',
                     comment: 'Счетчик для типов 50 и 70',
-                    condition: { messageTypeId: [50, 70] },
-                    aggregate: [{ $count: 'total' }]
+                    indexTypeName: 'counter_50_70_index',
+                    computationConditions: { messageTypeId: [50, 70] },
+                    evaluationConditions: [{ $count: 'total' }]
                 },
                 {
                     name: 'counter_status_a',
                     comment: 'Счетчик для статуса A',
-                    condition: { status: 'A' },
-                    aggregate: [{ $count: 'approved' }]
+                    indexTypeName: 'counter_status_a_index',
+                    computationConditions: { status: 'A' },
+                    evaluationConditions: [{ $count: 'approved' }]
                 }
             ];
 
@@ -172,24 +176,27 @@ class MongoCountersTest {
                 {
                     name: 'counter_nin',
                     comment: 'Счетчик с оператором $nin',
-                    condition: { 
+                    indexTypeName: 'counter_nin_index',
+                    computationConditions: { 
                         mti: { $nin: ['0400', '0410'] },
                         status: { $ne: 'R' }
                     },
-                    aggregate: [{ $count: 'total' }]
+                    evaluationConditions: [{ $count: 'total' }]
                 },
                 {
                     name: 'counter_regex',
                     comment: 'Счетчик с оператором $regex',
-                    condition: { 
+                    indexTypeName: 'counter_regex_index',
+                    computationConditions: { 
                         de22: { $not: { $regex: '^(01|81)' } }
                     },
-                    aggregate: [{ $count: 'total' }]
+                    evaluationConditions: [{ $count: 'total' }]
                 },
                 {
                     name: 'counter_or',
                     comment: 'Счетчик с оператором $or',
-                    condition: { 
+                    indexTypeName: 'counter_or_index',
+                    computationConditions: { 
                         status: { 
                             $or: [
                                 { $ne: 'R' },
@@ -198,7 +205,7 @@ class MongoCountersTest {
                             ]
                         }
                     },
-                    aggregate: [{ $count: 'total' }]
+                    evaluationConditions: [{ $count: 'total' }]
                 }
             ];
 
@@ -254,8 +261,9 @@ class MongoCountersTest {
                 {
                     name: 'test_counter',
                     comment: 'Тестовый счетчик',
-                    condition: { messageTypeId: [50] },
-                    aggregate: [
+                    indexTypeName: 'test_counter_index',
+                    computationConditions: { messageTypeId: [50] },
+                    evaluationConditions: [
                         { $match: { status: 'A' } },
                         { $group: { _id: null, count: { $sum: 1 } } }
                     ]
@@ -306,14 +314,16 @@ class MongoCountersTest {
                 {
                     name: 'counter1',
                     comment: 'Счетчик 1',
-                    condition: { type: 1 },
-                    aggregate: [{ $count: 'total' }]
+                    indexTypeName: 'counter1_index',
+                    computationConditions: { type: 1 },
+                    evaluationConditions: [{ $count: 'total' }]
                 },
                 {
                     name: 'counter2',
                     comment: 'Счетчик 2',
-                    condition: { type: 2 },
-                    aggregate: [{ $count: 'total' }]
+                    indexTypeName: 'counter2_index',
+                    computationConditions: { type: 2 },
+                    evaluationConditions: [{ $count: 'total' }]
                 }
             ];
 
@@ -346,9 +356,9 @@ class MongoCountersTest {
             // Тест с некорректной конфигурацией
             const invalidConfigs = [
                 'not_an_array',
-                [{ name: 'test' }], // отсутствует condition
-                [{ name: 'test', condition: {} }], // отсутствует aggregate
-                [{ name: 'test', condition: {}, aggregate: 'not_array' }] // aggregate не массив
+                [{ name: 'test' }], // отсутствует computationConditions
+                [{ name: 'test', computationConditions: {} }], // отсутствует evaluationConditions
+                [{ name: 'test', computationConditions: {}, evaluationConditions: 'not_array' }] // evaluationConditions не массив
             ];
 
             for (const invalidConfig of invalidConfigs) {
@@ -366,8 +376,9 @@ class MongoCountersTest {
                 {
                     name: 'test_counter',
                     comment: 'Тестовый счетчик',
-                    condition: { messageTypeId: [50] },
-                    aggregate: [{ $count: 'total' }]
+                    indexTypeName: 'test_counter_index',
+                    computationConditions: { messageTypeId: [50] },
+                    evaluationConditions: [{ $count: 'total' }]
                 }
             ];
 

@@ -12,8 +12,9 @@ class MongoProviderTest {
             {
                 name: "total",
                 comment: "Общий счетчик для всех типов сообщений",
-                condition: {},
-                aggregate: [
+                indexTypeName: "total_index",
+                computationConditions: {},
+                evaluationConditions: [
                     {
                         "$group": {
                             "_id": null,
