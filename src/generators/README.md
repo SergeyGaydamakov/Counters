@@ -1,6 +1,6 @@
-# MongoCounters
+# CounterProducer
 
-Класс `MongoCounters` предназначен для создания счетчиков на основе конфигурации и фактов. Он анализирует факты и определяет, какие счетчики должны быть применены на основе условий в конфигурации.
+Класс `CounterProducer` предназначен для создания счетчиков на основе конфигурации и фактов. Он анализирует факты и определяет, какие счетчики должны быть применены на основе условий в конфигурации.
 
 ## Основные возможности
 
@@ -14,10 +14,10 @@
 ### Инициализация
 
 ```javascript
-const { MongoCounters } = require('./src/index');
+const { CounterProducer } = require('./src/index');
 
 // Инициализация с файлом конфигурации
-const mongoCounters = new MongoCounters('./countersConfig.json');
+const mongoCounters = new CounterProducer('./countersConfig.json');
 
 // Инициализация с массивом конфигурации
 const config = [
@@ -31,7 +31,7 @@ const config = [
         ]
     }
 ];
-const mongoCounters2 = new MongoCounters(config);
+const mongoCounters2 = new CounterProducer(config);
 ```
 
 ### Создание счетчиков для факта
@@ -59,7 +59,7 @@ const counters = mongoCounters.make(fact);
 const names = mongoCounters.getCounterNames();
 
 // Получить конфигурацию конкретного счетчика
-const config = mongoCounters.getCounterConfig('payment_counter');
+const config = mongoCounters.getCounterDescription('payment_counter');
 
 // Получить количество счетчиков
 const count = mongoCounters.getCounterCount();

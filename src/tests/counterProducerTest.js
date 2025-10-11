@@ -1,10 +1,10 @@
-const MongoCounters = require('../db-providers/mongoCounters');
+const CounterProducer = require('../generators/counterProducer');
 const Logger = require('../utils/logger');
 
 /**
- * Тесты для класса MongoCounters
+ * Тесты для класса CounterProducer
  */
-class MongoCountersTest {
+class CounterProducerTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.testResults = {
@@ -18,7 +18,7 @@ class MongoCountersTest {
      * Запускает все тесты
      */
     runAllTests() {
-        this.logger.info('=== Запуск тестов MongoCounters ===');
+        this.logger.info('=== Запуск тестов CounterProducer ===');
         
         this.testConstructorWithArray('1. Тест конструктора с массивом конфигурации...');
         this.testConstructorWithFile('2. Тест конструктора с файлом конфигурации...');
@@ -58,24 +58,34 @@ class MongoCountersTest {
                     comment: 'Тестовый счетчик 1',
                     indexTypeName: 'test_index_1',
                     computationConditions: { messageTypeId: [50, 70] },
-                    evaluationConditions: [{ $match: { status: 'A' } }, { $count: 'total' }]
+                    evaluationConditions: null,
+                    attributes: {
+                        cnt: { $sum: 1 },
+                        sum: { $sum: '$amount' }
+                    }
                 },
                 {
                     name: 'test_counter_2',
                     comment: 'Тестовый счетчик 2',
                     indexTypeName: 'test_index_2',
                     computationConditions: { messageTypeId: [60] },
-                    evaluationConditions: [{ $match: { status: 'R' } }, { $count: 'rejected' }]
+                    evaluationConditions: {
+                        status: 'R'
+                    },
+                    attributes: {
+                        cnt: { $sum: 1 },
+                        rejected: { $sum: 1 }
+                    }
                 }
             ];
 
-            const mongoCounters = new MongoCounters(config);
+            const mongoCounters = new CounterProducer(config);
             
-            this.assert(mongoCounters instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
+            this.assert(mongoCounters instanceof CounterProducer, 'Конструктор создает экземпляр CounterProducer');
             this.assert(mongoCounters.getCounterCount() === 2, 'Количество счетчиков корректно');
             
-            this.assert(mongoCounters.getCounterConfig('test_counter_1') !== null, 'Счетчик test_counter_1 найден');
-            this.assert(mongoCounters.getCounterConfig('test_counter_2') !== null, 'Счетчик test_counter_2 найден');
+            this.assert(mongoCounters.getCounterDescription('test_counter_1') !== null, 'Счетчик test_counter_1 найден');
+            this.assert(mongoCounters.getCounterDescription('test_counter_2') !== null, 'Счетчик test_counter_2 найден');
         } catch (error) {
             this.assert(false, 'Конструктор с массивом', `Ошибка: ${error.message}`);
         }
@@ -87,9 +97,15 @@ class MongoCountersTest {
     testConstructorWithFile(title) {
         this.logger.info(title);
         try {
-            const mongoCounters = new MongoCounters('./countersConfig.json');
+            let mongoCounters = null;
+            // В зависимости от способа запуска разные пути к файлу, не исправлять и не удалять!
+            try {
+                mongoCounters = new CounterProducer('../../countersConfig.json');
+            } catch (error) {
+                mongoCounters = new CounterProducer('./countersConfig.json');
+            }
             
-            this.assert(mongoCounters instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
+            this.assert(mongoCounters instanceof CounterProducer, 'Конструктор создает экземпляр CounterProducer');
             this.assert(mongoCounters.getCounterCount() > 0, 'Количество счетчиков корректно');
         } catch (error) {
             this.assert(false, 'Конструктор с файлом', `Ошибка: ${error.message}`);
@@ -102,9 +118,9 @@ class MongoCountersTest {
     testConstructorWithoutConfig(title) {
         this.logger.info(title);
         try {
-            const mongoCounters = new MongoCounters();
+            const mongoCounters = new CounterProducer();
             
-            this.assert(mongoCounters instanceof MongoCounters, 'Конструктор создает экземпляр MongoCounters');
+            this.assert(mongoCounters instanceof CounterProducer, 'Конструктор создает экземпляр CounterProducer');
             this.assert(mongoCounters.getCounterCount() === 0, 'Количество счетчиков равно 0');            
         } catch (error) {
             this.assert(false, 'Конструктор без конфигурации', `Ошибка: ${error.message}`);
@@ -123,18 +139,28 @@ class MongoCountersTest {
                     comment: 'Счетчик для типов 50 и 70',
                     indexTypeName: 'counter_50_70_index',
                     computationConditions: { t: [50, 70] },
-                    evaluationConditions: [{ $count: 'd.total' }]
+                    evaluationConditions: null,
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        sum: { $sum: '$d.a' }
+                    }
                 },
                 {
                     name: 'counter_status_a',
                     comment: 'Счетчик для статуса A',
                     indexTypeName: 'counter_status_a_index',
                     computationConditions: { "d.status": 'A' },
-                    evaluationConditions: [{ $count: 'd.approved' }]
+                    evaluationConditions: {
+                        "d.a": { $gte: 1000 }
+                    },
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        approved: { $sum: 1 }
+                    }
                 }
             ];
 
-            const mongoCounters = new MongoCounters(config);
+            const mongoCounters = new CounterProducer(config);
 
             // Тест факта с messageTypeId = 50
             const fact1 = {
@@ -183,7 +209,11 @@ class MongoCountersTest {
                         mti: { $nin: ['0400', '0410'] },
                         status: { $ne: 'R' }
                     },
-                    evaluationConditions: [{ $count: 'total' }]
+                    evaluationConditions: null,
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        total: { $sum: 1 }
+                    }
                 },
                 {
                     name: 'counter_regex',
@@ -192,7 +222,13 @@ class MongoCountersTest {
                     computationConditions: { 
                         de22: { $not: { $regex: '^(01|81)' } }
                     },
-                    evaluationConditions: [{ $count: 'total' }]
+                    evaluationConditions: {
+                        "d.a": { $gte: 1000 }
+                    },
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        total: { $sum: 1 }
+                    }
                 },
                 {
                     name: 'counter_or',
@@ -207,11 +243,17 @@ class MongoCountersTest {
                             ]
                         }
                     },
-                    evaluationConditions: [{ $count: 'total' }]
+                    evaluationConditions: {
+                        "d.f2": { $nin: ['value2', 'value4'] }
+                    },
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        total: { $sum: 1 }
+                    }
                 }
             ];
 
-            const mongoCounters = new MongoCounters(config);
+            const mongoCounters = new CounterProducer(config);
 
             // Тест с оператором $nin
             const fact1 = {
@@ -265,14 +307,17 @@ class MongoCountersTest {
                     comment: 'Тестовый счетчик',
                     indexTypeName: 'test_counter_index',
                     computationConditions: { t: [50] },
-                    evaluationConditions: [
-                        { $match: { status: 'A' } },
-                        { $group: { _id: null, count: { $sum: 1 } } }
-                    ]
+                    evaluationConditions: {
+                        status: 'A'
+                    },
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        count: { $sum: 1 }
+                    }
                 }
             ];
 
-            const mongoCounters = new MongoCounters(config);
+            const mongoCounters = new CounterProducer(config);
 
             // Тест с подходящим фактом
             const fact = {
@@ -318,26 +363,36 @@ class MongoCountersTest {
                     comment: 'Счетчик 1',
                     indexTypeName: 'counter1_index',
                     computationConditions: { type: 1 },
-                    evaluationConditions: [{ $count: 'total' }]
+                    evaluationConditions: null,
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        total: { $sum: 1 }
+                    }
                 },
                 {
                     name: 'counter2',
                     comment: 'Счетчик 2',
                     indexTypeName: 'counter2_index',
                     computationConditions: { type: 2 },
-                    evaluationConditions: [{ $count: 'total' }]
+                    evaluationConditions: {
+                        "d.a": { $gte: 1000 }
+                    },
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        total: { $sum: 1 }
+                    }
                 }
             ];
 
-            const mongoCounters = new MongoCounters(config);
+            const mongoCounters = new CounterProducer(config);
 
             // Тест getCounterConfig
-            const config1 = mongoCounters.getCounterConfig('counter1');
-            this.assert(config1 !== null, 'getCounterConfig возвращает конфигурацию для существующего счетчика');
-            this.assert(config1.name === 'counter1', 'getCounterConfig возвращает правильную конфигурацию');
+            const config1 = mongoCounters.getCounterDescription('counter1');
+            this.assert(config1 !== null, 'getCounterDescription возвращает конфигурацию для существующего счетчика');
+            this.assert(config1.name === 'counter1', 'getCounterDescription возвращает правильную конфигурацию');
 
-            const configNotFound = mongoCounters.getCounterConfig('nonexistent');
-            this.assert(configNotFound === null, 'getCounterConfig возвращает null для несуществующего счетчика');
+            const configNotFound = mongoCounters.getCounterDescription('nonexistent');
+            this.assert(configNotFound === null, 'getCounterDescription возвращает null для несуществующего счетчика');
 
             // Тест getCounterCount
             const count = mongoCounters.getCounterCount();
@@ -357,20 +412,28 @@ class MongoCountersTest {
         try {
             // Тест с некорректной конфигурацией
             const invalidConfigs = [
-                'not_an_array',
                 [{ name: 'test' }], // отсутствует computationConditions
                 [{ name: 'test', computationConditions: {} }], // отсутствует evaluationConditions
-                [{ name: 'test', computationConditions: {}, evaluationConditions: 'not_array' }] // evaluationConditions не массив
+                [{ name: 'test', computationConditions: {}, evaluationConditions: 'not_valid' }] // evaluationConditions не массив, объект или null
             ];
 
             for (const invalidConfig of invalidConfigs) {
                 try {
-                    new MongoCounters(invalidConfig);
+                    new CounterProducer(invalidConfig);
                     this.assert(false, 'Обработка некорректной конфигурации', 'Должна была быть выброшена ошибка валидации');
                 } catch (error) {
                     this.assert(error.message.includes('должен') || error.message.includes('не найден'), 
                         'Обработка некорректной конфигурации', 'Корректная ошибка валидации');
                 }
+            }
+
+            // Тест с некорректным типом конфигурации (строка)
+            try {
+                new CounterProducer('not_an_array');
+                this.assert(false, 'Обработка строки как конфигурации', 'Должна была быть выброшена ошибка');
+            } catch (error) {
+                this.assert(error.message.includes('должен') || error.message.includes('не найден'), 
+                    'Обработка строки как конфигурации', 'Корректная ошибка валидации');
             }
 
             // Тест с некорректным фактом
@@ -380,11 +443,15 @@ class MongoCountersTest {
                     comment: 'Тестовый счетчик',
                     indexTypeName: 'test_counter_index',
                     computationConditions: { messageTypeId: [50] },
-                    evaluationConditions: [{ $count: 'total' }]
+                    evaluationConditions: null,
+                    attributes: { 
+                        cnt: { $sum: 1 },
+                        count: { $sum: 1 }
+                    }
                 }
             ];
 
-            const mongoCounters = new MongoCounters(config);
+            const mongoCounters = new CounterProducer(config);
 
             // Тест с null фактом
             try {
@@ -412,7 +479,7 @@ class MongoCountersTest {
      * Выводит результаты тестирования
      */
     printResults() {
-        this.logger.info('\n=== Результаты тестирования MongoCounters ===');
+        this.logger.info('\n=== Результаты тестирования CounterProducer ===');
         this.logger.info(`Пройдено: ${this.testResults.passed}`);
         this.logger.info(`Провалено: ${this.testResults.failed}`);
         
@@ -437,8 +504,8 @@ class MongoCountersTest {
 
 // Запуск тестов, если файл выполняется напрямую
 if (require.main === module) {
-    const test = new MongoCountersTest();
+    const test = new CounterProducerTest();
     test.runAllTests();
 }
 
-module.exports = MongoCountersTest;
+module.exports = CounterProducerTest;

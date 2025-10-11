@@ -1,4 +1,4 @@
-const { MongoProvider, MessageGenerator, FactIndexer, FactMapper, MongoCounters } = require('../index');
+const { MongoProvider, MessageGenerator, FactIndexer, FactMapper, CounterProducer } = require('../index');
 const Logger = require('../utils/logger');
 const config = require('../common/config');
 
@@ -74,7 +74,7 @@ class MongoProviderTest {
                 variables: []
             }
         ];
-        this.mongoCounters = new MongoCounters(this.countersConfig);
+        this.mongoCounters = new CounterProducer(this.countersConfig);
 
         this.provider = new MongoProvider(
             config.database.connectionString,

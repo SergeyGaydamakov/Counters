@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const Logger = require('../utils/logger');
-const { MongoProvider, FactController, MongoCounters } = require('../index');
+const { MongoProvider, FactController, CounterProducer } = require('../index');
 const config = require('../common/config');
 const { createRoutes } = require('./routes');
 const { 
@@ -93,7 +93,7 @@ async function initialize() {
         logger.info(`📊 MongoDB: ${config.database.connectionString}/${config.database.databaseName}`);
 
         // Создаем экземпляр счетчиков для этого Worker'а
-        mongoCounters = new MongoCounters(config.facts.counterConfigPath);
+        mongoCounters = new CounterProducer(config.facts.counterConfigPath);
         
         // Создаем собственный экземпляр провайдера данных для этого Worker'а
         // Это обеспечивает полную изоляцию между Worker'ами

@@ -1,6 +1,6 @@
 // Импортируем систему логирования
 const Logger = require('./utils/logger');
-const { MongoProvider, FactController, MongoCounters } = require('./index');
+const { MongoProvider, FactController, CounterProducer } = require('./index');
 
 // Загружаем переменные окружения из .env файла
 const dotenv = require('dotenv');
@@ -123,7 +123,7 @@ async function main(){
     }
     try {
         let factCount = 0;
-        const mongoCounters = new MongoCounters(counterConfigPath);
+        const mongoCounters = new CounterProducer(counterConfigPath);
         // Создаем провайдер данных
         mongoProvider = new MongoProvider(connectionString, databaseName, mongoCounters);
         await mongoProvider.connect();
