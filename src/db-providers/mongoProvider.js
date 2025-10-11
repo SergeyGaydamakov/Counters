@@ -37,12 +37,6 @@ class MongoProvider {
         this.FACT_INDEX_COLLECTION_NAME = "factIndex";
         this._counterClient = null;
         this._counterDb = null;
-        // Разные коллекции для работы в разных потоках
-        this._updateFactsCollection = null;
-        this._updateFactIndexCollection = null;
-        this._findFactsCollection = null;
-        this._findFactIndexCollection = null;
-        //
         this._isConnected = false;
     }
 
@@ -98,16 +92,12 @@ class MongoProvider {
                 minPoolSize: 30,
                 maxPoolSize: 300,
                 maxIdleTimeMS: 60000,
-                maxConnecting: 25,
-                serverSelectionTimeoutMS: 30000,
+                maxConnecting: 30,
+                serverSelectionTimeoutMS: 60000,
             };
             this._counterClient = new MongoClient(this.connectionString, defaultOptions);
             await this._counterClient.connect();
             this._counterDb = this._counterClient.db(this.databaseName);
-            this._updateFactsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
-            this._updateFactIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
-            this._findFactsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
-            this._findFactIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
 
             this._isConnected = true;
 
@@ -142,10 +132,6 @@ class MongoProvider {
             // Очищаем все ссылки на объекты
             this._counterClient = null;
             this._counterDb = null;
-            this._updateFactsCollection = null;
-            this._updateFactIndexCollection = null;
-            this._findFactsCollection = null;
-            this._findFactIndexCollection = null;
             this._isConnected = false;
 
             this.logger.debug('✓ Все соединения с MongoDB закрыты');
@@ -188,6 +174,9 @@ class MongoProvider {
 
         const startTime = Date.now();
         try {
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            
             const filter = { _id: fact._id };
             const updateOperation = { $set: fact };
 
@@ -203,7 +192,7 @@ class MongoProvider {
                 comment: "saveFact",
                 upsert: true,
             };
-            const result = await this._updateFactsCollection.updateOne(
+            const result = await factsCollection.updateOne(
                 filter,
                 updateOperation,
                 updateOptions
@@ -227,7 +216,7 @@ class MongoProvider {
                     comment: "saveFact - find",
                     projection: { _id: 1 }
                 };
-                const doc = await this._updateFactsCollection.findOne(filter, findOptions);
+                const doc = await factsCollection.findOne(filter, findOptions);
                 factId = doc?._id;
             }
 
@@ -286,6 +275,9 @@ class MongoProvider {
         try {
             this.logger.debug(`Начинаем обработку ${factIndexValues.length} индексных значений...`);
 
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+
             // Bulk вставка индексных значений с обработкой дубликатов
             const bulkWriteOptions = {
                 readConcern: { level: "local" },
@@ -299,7 +291,7 @@ class MongoProvider {
                 ordered: false,
                 upsert: true,
             };
-            const indexBulk = this._updateFactIndexCollection.initializeUnorderedBulkOp(bulkWriteOptions);
+            const indexBulk = factIndexCollection.initializeUnorderedBulkOp(bulkWriteOptions);
 
             factIndexValues.forEach(indexValue => {
                 const indexFilter = {
@@ -400,8 +392,12 @@ class MongoProvider {
             comment: "getRelevantFactCounters - find",
             projection: { "_id": 1 }
         };
+        // Создаем локальные ссылки на коллекции для этого запроса
+        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        
         // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
-        const relevantFactIds = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
+        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
         // Сформировать агрегирующий запрос к коллекции facts,
         const aggregateQuery = [
             {
@@ -422,7 +418,7 @@ class MongoProvider {
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - aggregate",
         };
-        const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(5000).toArray();
+        const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(5000).toArray();
         this.logger.debug(`✓ Получено ${result.length} фактов`);
         // this.logger.debug(JSON.stringify(result, null, 2));
         // Возвращаем массив фактов
@@ -687,7 +683,11 @@ class MongoProvider {
             comment: "getRelevantFactCounters - find",
             projection: { "_id": 1, "it": 1 }
         };
-        const relevantFactIds = await this._findFactIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
+        // Создаем локальные ссылки на коллекции для этого запроса
+        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        
+        const relevantFactIds = await factIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
         // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
 
         // Если нет релевантных индексных значений, возвращаем пустую статистику
@@ -725,7 +725,7 @@ class MongoProvider {
         // Выполнить агрегирующий запрос
         // this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
         // this.logger.info(`Агрегационный запрос: ${JSON.stringify(aggregateQuery)}`);
-        const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
+        const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
         this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
 
         // Если результат пустой, возвращаем пустую статистику
@@ -777,6 +777,9 @@ class MongoProvider {
         }
 
         try {
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            
             const deleteOptions = {
                 readConcern: { level: "local" },
                 readPreference: "primary",
@@ -787,7 +790,7 @@ class MongoProvider {
                 },
                 comment: "clearFactCollection",
             };
-            const result = await this._updateFactsCollection.deleteMany({}, deleteOptions);
+            const result = await factsCollection.deleteMany({}, deleteOptions);
             this.logger.debug(`✓ Удалено ${result.deletedCount} фактов из коллекции ${this.FACT_COLLECTION_NAME}`);
             return result;
         } catch (error) {
@@ -806,7 +809,10 @@ class MongoProvider {
         }
 
         try {
-            const result = await this._updateFactsCollection.countDocuments();
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            
+            const result = await factsCollection.countDocuments();
             return result;
         } catch (error) {
             this.logger.error('✗ Ошибка при подсчете числа документов в коллекции фактов:', error.message);
@@ -821,13 +827,16 @@ class MongoProvider {
      */
     async findFacts(filter = {}) {
         try {
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            
             const findOptions = {
                 batchSize: 5000,
                 readConcern: { level: "local" },
                 readPreference: { mode: "secondaryPreferred" },
                 comment: "findFacts"
             };
-            const facts = await this._findFactsCollection.find(filter, findOptions).toArray();
+            const facts = await factsCollection.find(filter, findOptions).toArray();
             this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
             return facts;
         } catch (error) {
@@ -846,6 +855,9 @@ class MongoProvider {
         }
 
         try {
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            
             const deleteOptions = {
                 readConcern: { level: "local" },
                 readPreference: "primary",
@@ -856,7 +868,7 @@ class MongoProvider {
                 },
                 comment: "clearFactIndexCollection",
             };
-            const result = await this._updateFactIndexCollection.deleteMany({}, deleteOptions);
+            const result = await factIndexCollection.deleteMany({}, deleteOptions);
             this.logger.debug(`✓ Удалено ${result.deletedCount} индексных значений из коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
             return result;
         } catch (error) {
@@ -875,7 +887,10 @@ class MongoProvider {
         }
 
         try {
-            const result = await this._updateFactIndexCollection.countDocuments();
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            
+            const result = await factIndexCollection.countDocuments();
             return result;
         } catch (error) {
             this.logger.error('✗ Ошибка при подсчете числа документов в коллекции индексных значений:', error.message);
@@ -1073,9 +1088,12 @@ class MongoProvider {
 
             this.logger.debug(`Создание индексов для коллекции фактов ${this.FACT_COLLECTION_NAME}...`);
 
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            
             for (const indexSpec of indexesToCreate) {
                 try {
-                    await this._updateFactsCollection.createIndex(indexSpec.key, indexSpec.options);
+                    await factsCollection.createIndex(indexSpec.key, indexSpec.options);
                     this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
                     successCount++;
                 } catch (error) {
@@ -1266,9 +1284,12 @@ class MongoProvider {
 
             this.logger.debug(`Создание индексов для коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME}...`);
 
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            
             for (const indexSpec of indexesToCreate) {
                 try {
-                    await this._updateFactIndexCollection.createIndex(indexSpec.key, indexSpec.options);
+                    await factIndexCollection.createIndex(indexSpec.key, indexSpec.options);
                     this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
                     successCount++;
                 } catch (error) {
@@ -1311,7 +1332,10 @@ class MongoProvider {
         }
 
         try {
-            const sample = await this._updateFactIndexCollection.findOne({});
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            
+            const sample = await factIndexCollection.findOne({});
 
             if (!sample) {
                 this.logger.debug(`В коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME} пусто!`);

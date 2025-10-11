@@ -233,7 +233,6 @@ class MongoCounters {
             this.logger.warn('Передан некорректный факт для создания счетчиков');
             return null;
         }
-        this.logger.info(`Поиск счетчиков для факта ${JSON.stringify(fact)}`);
 
         const facetStages = {};
         let matchedCountersCount = 0;
@@ -249,8 +248,8 @@ class MongoCounters {
             }
         }
 
-        this.logger.info(`Для факта ${fact._id} найдено подходящих счетчиков: ${matchedCountersCount} из ${this._counterConfig.length}`);
-        this.logger.info(`facetStages: ${JSON.stringify(facetStages)}`);
+        // this.logger.info(`Для факта ${fact._id} найдено подходящих счетчиков: ${matchedCountersCount} из ${this._counterConfig.length}`);
+        // this.logger.info(`facetStages: ${JSON.stringify(facetStages)}`);
 
         if (matchedCountersCount > 0) {
             return {

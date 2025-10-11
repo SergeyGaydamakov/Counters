@@ -122,15 +122,15 @@ class MongoCountersTest {
                     name: 'counter_50_70',
                     comment: 'Счетчик для типов 50 и 70',
                     indexTypeName: 'counter_50_70_index',
-                    computationConditions: { messageTypeId: [50, 70] },
-                    evaluationConditions: [{ $count: 'total' }]
+                    computationConditions: { t: [50, 70] },
+                    evaluationConditions: [{ $count: 'd.total' }]
                 },
                 {
                     name: 'counter_status_a',
                     comment: 'Счетчик для статуса A',
                     indexTypeName: 'counter_status_a_index',
-                    computationConditions: { status: 'A' },
-                    evaluationConditions: [{ $count: 'approved' }]
+                    computationConditions: { "d.status": 'A' },
+                    evaluationConditions: [{ $count: 'd.approved' }]
                 }
             ];
 
@@ -141,14 +141,14 @@ class MongoCountersTest {
                 _id: 'test1',
                 t: 50,
                 c: new Date(),
-                d: { messageTypeId: 50, status: 'A' }
+                d: { status: 'A' }
             };
 
             const result1 = mongoCounters.make(fact1);
             this.assert(typeof result1 === 'object', 'make возвращает объект');
             this.assert(result1.facetStages !== undefined, 'make возвращает объект с полем facetStages');
-            this.assert(result1.facetStages.counter_50_70 !== undefined, 'Счетчик counter_50_70 применен к факту с messageTypeId = 50');
-            this.assert(result1.facetStages.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
+            this.assert(result1.facetStages?.counter_50_70 !== undefined, 'Счетчик counter_50_70 применен к факту с messageTypeId = 50');
+            this.assert(result1.facetStages?.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
 
             // Тест факта с messageTypeId = 60 (не подходит)
             const fact2 = {
@@ -159,8 +159,10 @@ class MongoCountersTest {
             };
 
             const result2 = mongoCounters.make(fact2);
-            this.assert(result2.facetStages.counter_50_70 === undefined, 'Счетчик counter_50_70 не применен к факту с messageTypeId = 60');
-            this.assert(result2.facetStages.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
+            this.assert(typeof result2 === 'object', 'make возвращает объект 2');
+            this.assert(result2.facetStages !== undefined, 'make возвращает объект 2 с полем facetStages');
+            this.assert(result2.facetStages?.counter_50_70 === undefined, 'Счетчик counter_50_70 не применен к факту с messageTypeId = 60');
+            this.assert(result2.facetStages?.counter_status_a !== undefined, 'Счетчик counter_status_a применен к факту со статусом A');
         } catch (error) {
             this.assert(false, 'Сопоставление условий', `Ошибка: ${error.message}`);
         }
@@ -262,7 +264,7 @@ class MongoCountersTest {
                     name: 'test_counter',
                     comment: 'Тестовый счетчик',
                     indexTypeName: 'test_counter_index',
-                    computationConditions: { messageTypeId: [50] },
+                    computationConditions: { t: [50] },
                     evaluationConditions: [
                         { $match: { status: 'A' } },
                         { $group: { _id: null, count: { $sum: 1 } } }
@@ -284,9 +286,9 @@ class MongoCountersTest {
             
             this.assert(typeof result === 'object', 'make возвращает объект');
             this.assert(result.facetStages !== undefined, 'make возвращает объект с полем facetStages');
-            this.assert(result.facetStages.test_counter !== undefined, 'Счетчик создан для подходящего факта');
-            this.assert(Array.isArray(result.facetStages.test_counter), 'Результат счетчика является массивом');
-            this.assert(result.facetStages.test_counter.length === 2, 'Количество этапов aggregate корректно');
+            this.assert(result.facetStages?.test_counter !== undefined, 'Счетчик создан для подходящего факта');
+            this.assert(Array.isArray(result.facetStages?.test_counter), 'Результат счетчика является массивом');
+            this.assert(result.facetStages?.test_counter?.length === 2, 'Количество этапов aggregate корректно');
 
             // Тест с неподходящим фактом
             const unsuitableFact = {

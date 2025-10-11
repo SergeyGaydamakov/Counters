@@ -62,5 +62,7 @@ if (cluster.isMaster) {
 
 } else {
     // Запускаем воркер
+    // Каждый Worker работает в отдельном процессе Node.js
+    // и создает свои собственные экземпляры MongoProvider, FactController и MongoCounters
     require('./worker.js');
 }

@@ -23,7 +23,8 @@ dotenv.config();
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 const app = express();
 
-// Глобальная переменная для хранения провайдера и контроллера
+// Переменные для хранения экземпляров провайдера и контроллера
+// Каждый Worker имеет свои собственные экземпляры для изоляции
 let mongoProvider = null;
 let factController = null;
 let mongoCounters = null;
@@ -85,13 +86,17 @@ if (config.logging.enableRequestLogging) {
 app.use(jsonValidator);
 
 // Функция инициализации
+// Каждый Worker создает свои собственные экземпляры для полной изоляции
 async function initialize() {
     try {
         logger.info(`🔌 Воркер ${process.pid} инициализируется...`);
         logger.info(`📊 MongoDB: ${config.database.connectionString}/${config.database.databaseName}`);
 
+        // Создаем экземпляр счетчиков для этого Worker'а
         mongoCounters = new MongoCounters(config.facts.counterConfigPath);
-        // Создаем провайдер данных
+        
+        // Создаем собственный экземпляр провайдера данных для этого Worker'а
+        // Это обеспечивает полную изоляцию между Worker'ами
         mongoProvider = new MongoProvider(
             config.database.connectionString, 
             config.database.databaseName,
@@ -100,7 +105,7 @@ async function initialize() {
         await mongoProvider.connect();
         logger.info(`✅ MongoDB подключен в воркере ${process.pid}`);
 
-        // Создаем контроллер фактов
+        // Создаем собственный экземпляр контроллера фактов для этого Worker'а
         factController = new FactController(
             mongoProvider, 
             config.facts.fieldConfigPath, 
@@ -124,6 +129,7 @@ async function initialize() {
         });
 
         // Graceful shutdown
+        // Каждый Worker завершает работу со своим собственным экземпляром MongoProvider
         const gracefulShutdown = async (signal) => {
             logger.info(`📡 Воркер ${process.pid} получил сигнал ${signal}, завершаю работу...`);
             
