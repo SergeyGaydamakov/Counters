@@ -4,7 +4,7 @@
       "comment": "counter_total - подсчет количества",
       "indexTypeName": "idx_f1",
       "computationConditions": {
-          "messageTypeId": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+          "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       },
       "evaluationConditions": [
           {
@@ -21,7 +21,7 @@
         "comment": "counter1_odd - нечетные значения f2",
         "indexTypeName": "idx_f1",
         "computationConditions": {
-            "messageTypeId": [1]
+            "t": [1]
         },
         "evaluationConditions": [
             {
@@ -44,7 +44,7 @@
         "comment": "counter2_even - четные значения f2",
         "indexTypeName": "idx_f1",
         "computationConditions": {
-            "messageTypeId": [1]
+            "t": [1]
         },
         "evaluationConditions": [
             {
@@ -67,7 +67,7 @@
         "comment": "counter3_lte_1000 - значения a меньше или равны 1000",
         "indexTypeName": "idx_f2",
         "computationConditions": {
-            "messageTypeId": [2]
+            "t": [2]
         },
         "evaluationConditions": [
             {
@@ -90,7 +90,7 @@
       "comment": "counter4_gt_1000 - значения a больше 1000",
       "indexTypeName": "idx_f2",
       "computationConditions": {
-          "messageTypeId": [2]
+          "t": [2]
       },
       "evaluationConditions": [
           {

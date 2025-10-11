@@ -104,7 +104,8 @@ class FactController {
                 relevantFacts: relevantFactsResult.processingTime,
                 saveFact: factResult.processingTime,
                 saveIndex: indexResult.processingTime,
-            }
+            },
+            debug: relevantFactsResult?.debug
         };
     }
 

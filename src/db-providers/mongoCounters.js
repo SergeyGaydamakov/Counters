@@ -110,6 +110,18 @@ class MongoCounters {
     }
 
     /**
+     * Функция возвращает значение поля по пути с точками
+     * 
+     * @param {Object} obj - объект для обработки
+     * @param {string} path - путь к полю c точками
+     * @returns {any} значение поля
+     */
+    _getValueByPath(obj, path) {
+        const fields = path.split('.');
+        return fields.reduce((acc, field) => acc[field], obj);
+    }
+
+    /**
      * Проверяет, подходит ли факт под условие счетчика
      * @param {Object} fact - Факт для проверки
      * @param {Object} condition - Условие счетчика
@@ -120,11 +132,9 @@ class MongoCounters {
             return false;
         }
 
-        const factData = fact.d;
-        
         // Проверяем каждое условие
         for (const [field, expectedValue] of Object.entries(condition)) {
-            const actualValue = factData[field];
+            const actualValue = this._getValueByPath(fact, field);
             
             if (Array.isArray(expectedValue)) {
                 // Если ожидаемое значение - массив, проверяем вхождение
@@ -223,6 +233,7 @@ class MongoCounters {
             this.logger.warn('Передан некорректный факт для создания счетчиков');
             return null;
         }
+        this.logger.info(`Поиск счетчиков для факта ${JSON.stringify(fact)}`);
 
         const facetStages = {};
         let matchedCountersCount = 0;
@@ -238,8 +249,8 @@ class MongoCounters {
             }
         }
 
-        // this.logger.info(`Для факта ${fact._id} найдено подходящих счетчиков: ${matchedCountersCount} из ${this._counterConfig.length}`);
-        // this.logger.info(`Факт: ${JSON.stringify(fact)}`);
+        this.logger.info(`Для факта ${fact._id} найдено подходящих счетчиков: ${matchedCountersCount} из ${this._counterConfig.length}`);
+        this.logger.info(`facetStages: ${JSON.stringify(facetStages)}`);
 
         if (matchedCountersCount > 0) {
             return {

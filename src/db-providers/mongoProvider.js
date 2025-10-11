@@ -401,13 +401,13 @@ class MongoProvider {
             projection: { "_id": 1 }
         };
         // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
-        const factIndexResult = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
+        const relevantFactIds = await this._findFactIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
         // Сформировать агрегирующий запрос к коллекции facts,
         const aggregateQuery = [
             {
                 "$match": {
                     "_id": {
-                        "$in": factIndexResult.map(item => item._id.f)
+                        "$in": relevantFactIds.map(item => item._id.f)
                     }
                 }
             }
@@ -429,6 +429,14 @@ class MongoProvider {
         return {
             result: result,
             processingTime: Date.now() - startTime,
+            debug: {
+                totalIndexCount: indexTypeAndValueList?.length,
+                countersFactCount: Object.keys(countersInfo?.facetStages).length,
+                countersIndexCount: countersInfo?.indexTypeNames?.length,
+                filteredIndexCount: indexHashValues?.length,
+                relevantFactsCount: relevantFactIds.length,
+                aggregateQuery: aggregateQuery,
+            }
         };
     }
 
@@ -679,11 +687,11 @@ class MongoProvider {
             comment: "getRelevantFactCounters - find",
             projection: { "_id": 1, "it": 1 }
         };
-        const factIndexResult = await this._findFactIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
+        const relevantFactIds = await this._findFactIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
         // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
 
         // Если нет релевантных индексных значений, возвращаем пустую статистику
-        if (factIndexResult.length === 0) {
+        if (relevantFactIds.length === 0) {
             return {
                 result: [],
                 processingTime: Date.now() - startTime,
@@ -694,7 +702,7 @@ class MongoProvider {
         const queryFacts = {
             "$match": {
                 "_id": {
-                    "$in": factIndexResult.map(item => item._id.f)
+                    "$in": relevantFactIds.map(item => item._id.f)
                 }
             }
         };
@@ -715,8 +723,8 @@ class MongoProvider {
         };
 
         // Выполнить агрегирующий запрос
-        this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
-        this.logger.info(`Агрегационный запрос: ${JSON.stringify(aggregateQuery)}`);
+        // this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
+        // this.logger.info(`Агрегационный запрос: ${JSON.stringify(aggregateQuery)}`);
         const result = await this._findFactsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
         this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
 
@@ -726,6 +734,12 @@ class MongoProvider {
                 result: [],
                 processingTime: 0,
                 debug: {
+                    totalIndexCount: indexTypeAndValueList?.length,
+                    countersFactCount: Object.keys(countersInfo?.facetStages).length,
+                    countersIndexCount: countersInfo?.indexTypeNames?.length,
+                    filteredIndexCount: indexHashValues?.length,
+                    relevantFactsCount: relevantFactIds?.length,
+                    findFactMatchQuery: findFactMatchQuery,
                     aggregateQuery: aggregateQuery,
                 }
             };
@@ -736,6 +750,11 @@ class MongoProvider {
             result: result,
             processingTime: Date.now() - startTime,
             debug: {
+                totalIndexCount: indexTypeAndValueList?.length,
+                countersFactCount: Object.keys(countersInfo?.facetStages).length,
+                countersIndexCount: countersInfo?.indexTypeNames?.length,
+                filteredIndexCount: indexHashValues?.length,
+                relevantFactsCount: relevantFactIds?.length,
                 findFactMatchQuery: findFactMatchQuery,
                 aggregateQuery: aggregateQuery,
             }
