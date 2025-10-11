@@ -342,14 +342,21 @@ class MongoProvider {
 
     /**
      * Получает релевантные факты для заданного факта с целью вычисления счетчиков
+     * @param {Array<Object>} indexTypeAndValueList - массив объектов с информацией об индексных значениях
      * @param {Object} fact - факт
+     * @param {number} depthLimit - максимальное количество фактов для получения
+     * @param {Date} depthFromDate - дата, с которой начинать поиск фактов
      * @returns {Promise<Array>} релевантные факты
      */
-    async getRelevantFacts(indexHashValues, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
+    async getRelevantFacts(indexTypeAndValueList, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
         this.checkConnection();
         const startTime = Date.now();
 
         this.logger.debug(`Получение релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+        
+        // Извлекаем хеши из списка индексных значений
+        const indexHashValues = indexTypeAndValueList.map(item => item.hashValue);
+        
         // Сформировать агрегирующий запрос к коллекции factIndex,
         // получить уникальные значения поля _id
         // и результат объединить с фактом из коллекции facts
@@ -596,14 +603,20 @@ class MongoProvider {
 
     /**
      * Получает счетчики по фактам для заданного факта
+     * @param {Array<Object>} indexTypeAndValueList - массив объектов с информацией об индексных значениях
      * @param {Object} fact - факт
+     * @param {number} depthLimit - максимальное количество фактов для получения
+     * @param {Date} depthFromDate - дата, с которой начинать поиск фактов
      * @returns {Promise<Array>} счетчики по фактам
      */
-    async getRelevantFactCounters(indexHashValues, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
+    async getRelevantFactCounters(indexTypeAndValueList, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
         this.checkConnection();
         const startTime = Date.now();
 
         this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+
+        // Извлекаем хеши из списка индексных значений
+        const indexHashValues = indexTypeAndValueList.map(item => item.hashValue);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         const countersInfo = this.getCountersInfo(fact);

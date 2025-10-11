@@ -178,30 +178,17 @@ class FactIndexer {
     }
 
     /**
-     * Перевод [indexTypeName] в [indexType]
-     * 
-     * @param {string[]} indexTypeNames - массив названий типов индексов
-     * @returns {number[]} массив типов индексов
+     * Получает название типа индекса по его типу
+     * @param {number} indexType - тип индекса
+     * @returns {string} название типа индекса
      */
-    indexTypeNamesToIndexTypes(indexTypeNames) {
-        if (!Array.isArray(indexTypeNames)) {
-            throw new Error('Параметр indexTypeNames должен быть массивом');
+    getIndexTypeName(indexType) {
+        const indexItem = this._indexConfig.find(configItem => configItem.indexType === indexType);
+        if (!indexItem) {
+            throw new Error(`Тип индекса ${indexType} не найден в конфигурации.`);
         }
-        if (indexTypeNames.length === 0) {
-            throw new Error('Параметр indexTypeNames не может быть пустым');
-        }
-        const indexTypes = new Set();
-        indexTypeNames.forEach(indexTypeName => {
-            const indexItem = this._indexConfig.find(configItem => configItem.indexTypeName === indexTypeName);
-            if (!indexItem) {
-                this.logger.warn(`Тип индекса ${indexTypeName} не найден в конфигурации.`);
-                return;
-            }
-            indexTypes.add(indexItem.indexType);
-        });
-        return Array.from(indexTypes);
+        return indexItem.indexTypeName;
     }
-   
 
     /**
      * Хеш функция для создания уникального индекса из типа и значения поля

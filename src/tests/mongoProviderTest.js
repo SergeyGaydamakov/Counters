@@ -968,8 +968,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0]; // test-fact-001 с f1='value1', f2='value2', f5='value5'
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact);
             const relevantFacts = factsResult.result;
             
             // Проверяем результаты
@@ -1079,8 +1083,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact);
             const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
@@ -1175,8 +1183,12 @@ class MongoProviderTest {
 
             // Тестируем поиск - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, searchFact);
             const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
@@ -1269,8 +1281,12 @@ class MongoProviderTest {
             // Тестируем поиск с ограничением по количеству
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, searchFact, 2);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, searchFact, 2);
             const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
@@ -1371,8 +1387,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact, undefined, cutoffDate);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact, undefined, cutoffDate);
             const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
@@ -1481,8 +1501,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const factsResult = await this.provider.getRelevantFacts(searchFactIndexHashValues, excludedFact, 1, cutoffDate);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact, 1, cutoffDate);
             const relevantFacts = factsResult.result;
 
             if (!Array.isArray(relevantFacts)) {
@@ -1590,8 +1614,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0]; // counter-fact-001 с f1='value1', f2='value2', f5='value5'
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact);
             const counters = countersResult.result;
 
             // Проверяем результаты
@@ -1720,8 +1748,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact);
             const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
@@ -1833,8 +1865,12 @@ class MongoProviderTest {
 
             // Тестируем получение счетчиков - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, searchFact);
             const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
@@ -1926,8 +1962,12 @@ class MongoProviderTest {
             // Тестируем получение счетчиков с ограничением по количеству
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, searchFact, 2);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, searchFact, 2);
             const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
@@ -2053,8 +2093,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact, undefined, cutoffDate);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact, undefined, cutoffDate);
             const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
@@ -2175,8 +2219,12 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexHashValues = searchFactIndexValues.map(index => index._id.h);
-            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexHashValues, excludedFact, 1, cutoffDate);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
+                hashValue: index._id.h, 
+                indexType: index.it, 
+                indexTypeName: this.indexer.getIndexTypeName(index.it) 
+            }));
+            const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact, 1, cutoffDate);
             const counters = countersResult.result;
 
             if (!Array.isArray(counters)) {
