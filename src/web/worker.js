@@ -15,6 +15,7 @@ const {
     notFoundHandler, 
     responseMetadata 
 } = require('./middleware');
+const Diagnostics = require('../utils/diagnostics');
 
 // Загружаем переменные окружения
 const dotenv = require('dotenv');
@@ -22,6 +23,30 @@ dotenv.config();
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 const app = express();
+
+// Логируем запуск воркера
+logger.info(`🚀 Воркер ${process.pid} загружается...`);
+logger.info(`📋 Режим запуска: ${require.main === module ? 'прямой' : 'кластер'}`);
+
+// Глобальные обработчики ошибок для воркера
+process.on('uncaughtException', (error) => {
+    logger.error(`❌ Необработанная ошибка в воркере ${process.pid}:`, error.message);
+    logger.error(`📋 Детали:`, error);
+    logger.error(`🔧 Воркер будет завершен для предотвращения нестабильной работы`);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error(`❌ Необработанное отклонение Promise в воркере ${process.pid}:`, reason);
+    logger.error(`📋 Promise:`, promise);
+    logger.error(`🔧 Проверьте асинхронные операции и обработку ошибок`);
+});
+
+// Обработка предупреждений
+process.on('warning', (warning) => {
+    logger.warn(`⚠️  Предупреждение в воркере ${process.pid}:`, warning.message);
+    logger.warn(`📋 Детали:`, warning);
+});
 
 // Переменные для хранения экземпляров провайдера и контроллера
 // Каждый Worker имеет свои собственные экземпляры для изоляции
@@ -42,8 +67,8 @@ app.use(cors(config.cors));
 app.use(compression());
 
 // Rate limiting
-const limiter = rateLimit(config.rateLimit);
-app.use('/api/', limiter);
+// const limiter = rateLimit(config.rateLimit);
+// app.use('/api/', limiter);
 
 // Middleware для парсинга XML для IRIS маршрутов (ДО express.json)
 app.use(irisXmlParser);
@@ -91,21 +116,51 @@ async function initialize() {
     try {
         logger.info(`🔌 Воркер ${process.pid} инициализируется...`);
         logger.info(`📊 MongoDB: ${config.database.connectionString}/${config.database.databaseName}`);
+        logger.info(`🌐 Порт: ${config.port}`);
+        logger.info(`📁 Конфигурационные файлы:`);
+        logger.info(`   - Счетчики: ${config.facts.counterConfigPath || 'не указан'}`);
+        logger.info(`   - Поля: ${config.facts.fieldConfigPath || 'не указан'}`);
+        logger.info(`   - Индексы: ${config.facts.indexConfigPath || 'не указан'}`);
+
+        // Запускаем диагностику системы
+        const diagnostics = new Diagnostics(logger);
+        const diagnosticResults = await diagnostics.runFullDiagnostics(config);
+        diagnostics.logDiagnostics(diagnosticResults);
+
+        // Проверяем критические ошибки
+        const criticalErrors = diagnosticResults.recommendations.filter(rec => rec.type === 'error');
+        if (criticalErrors.length > 0) {
+            logger.error(`❌ Обнаружены критические ошибки, инициализация прервана:`);
+            criticalErrors.forEach(error => {
+                logger.error(`   - ${error.message}: ${error.details}`);
+            });
+            throw new Error(`Критические ошибки конфигурации: ${criticalErrors.map(e => e.message).join(', ')}`);
+        }
 
         // Создаем экземпляр счетчиков для этого Worker'а
+        logger.info(`🔧 Создаю экземпляр счетчиков...`);
         mongoCounters = new CounterProducer(config.facts.counterConfigPath);
         
         // Создаем собственный экземпляр провайдера данных для этого Worker'а
         // Это обеспечивает полную изоляцию между Worker'ами
+        logger.info(`🔧 Подключаюсь к MongoDB...`);
         mongoProvider = new MongoProvider(
             config.database.connectionString, 
             config.database.databaseName,
             mongoCounters
         );
-        await mongoProvider.connect();
+        
+        // Добавляем таймаут для подключения к MongoDB
+        const connectPromise = mongoProvider.connect();
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Таймаут подключения к MongoDB (30 секунд)')), 30000);
+        });
+        
+        await Promise.race([connectPromise, timeoutPromise]);
         logger.info(`✅ MongoDB подключен в воркере ${process.pid}`);
 
         // Создаем собственный экземпляр контроллера фактов для этого Worker'а
+        logger.info(`🔧 Инициализирую FactController...`);
         factController = new FactController(
             mongoProvider, 
             config.facts.fieldConfigPath, 
@@ -115,6 +170,7 @@ async function initialize() {
         logger.info(`✅ FactController инициализирован в воркере ${process.pid}`);
 
         // Подключаем API маршруты с инициализированным контроллером
+        logger.info(`🔧 Настраиваю API маршруты...`);
         app.use(createRoutes(factController));
 
         // 404 handler
@@ -124,8 +180,26 @@ async function initialize() {
         app.use(errorHandler);
 
         // Запускаем сервер
+        logger.info(`🔧 Запускаю HTTP сервер на порту ${config.port}...`);
         const server = app.listen(config.port, () => {
             logger.info(`🚀 Воркер ${process.pid} запущен на порту ${config.port}`);
+            logger.info(`🌐 API доступно по адресу: http://localhost:${config.port}/api/v1/health`);
+            
+            // Отправляем сообщение мастеру о готовности
+            if (process.send) {
+                process.send({ type: 'worker-ready', pid: process.pid, port: config.port });
+            }
+        });
+
+        // Обработка ошибок сервера
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                logger.error(`❌ Порт ${config.port} уже используется другим процессом`);
+                logger.error(`🔧 Проверьте запущенные процессы: netstat -an | findstr :${config.port}`);
+            } else {
+                logger.error(`❌ Ошибка HTTP сервера:`, err.message);
+            }
+            process.exit(1);
         });
 
         // Graceful shutdown
@@ -135,8 +209,12 @@ async function initialize() {
             
             server.close(async () => {
                 if (mongoProvider) {
-                    await mongoProvider.disconnect();
-                    logger.info(`✅ MongoDB отключен в воркере ${process.pid}`);
+                    try {
+                        await mongoProvider.disconnect();
+                        logger.info(`✅ MongoDB отключен в воркере ${process.pid}`);
+                    } catch (error) {
+                        logger.error(`❌ Ошибка при отключении от MongoDB:`, error.message);
+                    }
                 }
                 logger.info(`✅ Воркер ${process.pid} завершен`);
                 process.exit(0);
@@ -147,7 +225,38 @@ async function initialize() {
         process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
     } catch (error) {
-        logger.error(`❌ Ошибка инициализации воркера ${process.pid}:`, error);
+        logger.error(`❌ Ошибка инициализации воркера ${process.pid}:`, error.message);
+        logger.error(`📋 Детали ошибки:`);
+        logger.error(`   - Тип: ${error.constructor.name}`);
+        logger.error(`   - Сообщение: ${error.message}`);
+        logger.error(`   - Код: ${error.code || 'не указан'}`);
+        
+        // Отправляем сообщение мастеру об ошибке
+        if (process.send) {
+            process.send({ 
+                type: 'worker-error', 
+                pid: process.pid, 
+                error: error.message,
+                code: error.code
+            });
+        }
+        
+        if (error.code === 'ECONNREFUSED') {
+            logger.error(`🔧 MongoDB недоступен. Проверьте:`);
+            logger.error(`   1. Запущен ли MongoDB: netstat -an | findstr :27020`);
+            logger.error(`   2. Правильность строки подключения: ${config.database.connectionString}`);
+            logger.error(`   3. Доступность хоста и порта MongoDB`);
+        } else if (error.code === 'EADDRINUSE') {
+            logger.error(`🔧 Порт ${config.port} уже используется. Проверьте:`);
+            logger.error(`   1. Запущенные процессы: netstat -an | findstr :${config.port}`);
+            logger.error(`   2. Остановите конфликтующие процессы`);
+        } else if (error.message.includes('не найден')) {
+            logger.error(`🔧 Конфигурационные файлы недоступны. Проверьте:`);
+            logger.error(`   1. Существование файлов конфигурации`);
+            logger.error(`   2. Правильность путей в переменных окружения`);
+            logger.error(`   3. Права доступа к файлам`);
+        }
+        
         console.error('Полная ошибка:', error);
         console.error('Stack trace:', error.stack);
         process.exit(1);
@@ -156,5 +265,8 @@ async function initialize() {
 
 // Запуск если файл выполняется напрямую
 if (require.main === module) {
+    initialize();
+} else {
+    // Если файл загружается как модуль (в кластере), также запускаем инициализацию
     initialize();
 }
