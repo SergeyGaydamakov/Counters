@@ -240,7 +240,7 @@ class CounterProducer {
     }
 
     /**
-     * Создает структуру счетчиков для факта
+     * Старый метод. Создает структуру счетчиков для факта
      * @param {Object} fact - Факт для обработки
      * @returns {Object|null} Объект с полем facetStages, или null если нет подходящих счетчиков
      * @returns {Object} facetStages - Структура для использования в MongoDB $facet aggregate запросе
@@ -292,7 +292,7 @@ class CounterProducer {
     }
 
     /**
-     * Получает счетчики для факта
+     * Новый метод. Получает счетчики для факта
      * @param {Object} fact - Факт для обработки
      * @returns {Object|null} Объект с полем factCounters, или null если нет подходящих счетчиков
      * @returns {Object} factCounters - Массив счетчиков для факта
@@ -304,8 +304,6 @@ class CounterProducer {
         }
 
         const factCounters = [];
-        let matchedIndexTypeNames = new Set();
-
         // Проходим по всем счетчикам и проверяем условия
         for (const counter of this._counterConfig) {
             if (this._matchesCondition(fact, counter.computationConditions)) {
@@ -314,19 +312,6 @@ class CounterProducer {
                     continue;
                 }
                 factCounters.push(counter);
-                /*
-                const matchStage = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : null;
-                const groupStage = { "$group": counter.attributes };
-                groupStage["$group"]["_id"] = null;
-                facetStages[counter.name] = [];
-                if (matchStage) {
-                    facetStages[counter.name].push(matchStage);
-                }
-                if (groupStage) {
-                    facetStages[counter.name].push(groupStage);
-                }
-                */
-                matchedIndexTypeNames.add(counter.indexTypeName);
                 this.logger.debug(`Счетчик '${counter.name}' подходит для факта ${fact._id}`);
             } else {
                 this.logger.debug(`Счетчик '${counter.name}' не подходит для факта ${fact._id} по условиям ${JSON.stringify(counter.computationConditions)}`);

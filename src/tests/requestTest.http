@@ -28,7 +28,7 @@ Content-Type: application/json
 ### Обработка тестового сообщения типа messageType
 POST http://{{host}}/api/v1/message/{{messageType}}/json
 Content-Type: application/json
-Debug-Mode: false
+Debug-Mode: true
 
 {
   "id": "2bc902747112fdf768e81748",
