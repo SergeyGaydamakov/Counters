@@ -124,12 +124,12 @@ class FactControllerTest {
             await this.testRunBasic('1. Тест базового выполнения метода run...');
             await this.testRunWithExistingFacts('2. Тест выполнения с существующими фактами...');
             await this.testProcessMessage('3. Тест метода processMessage...');
-            await this.testProcessMessageWithCounters('6. Тест метода processMessageWithCounters...');
-            await this.testRunMultipleTimes('4. Тест многократного выполнения...');
-            await this.testRunWithEmptyDatabase('5. Тест выполнения с пустой базой данных...');
-            await this.testRunErrorHandling('6. Тест обработки ошибок...');
+            await this.testProcessMessageWithCounters('4. Тест метода processMessageWithCounters...');
+            await this.testRunMultipleTimes('5. Тест многократного выполнения...');
+            await this.testRunWithEmptyDatabase('6. Тест выполнения с пустой базой данных...');
+            await this.testRunErrorHandling('7. Тест обработки ошибок...');
 
-            await this.testRunProcessMessage('7. Тест обработки реального сообщения...');
+            await this.testRunProcessMessage('8. Тест обработки реального сообщения...');
 
             // Отключение от базы данных
             await this.provider.disconnect();
@@ -263,12 +263,9 @@ class FactControllerTest {
 
             // Тестируем getRelevantFacts напрямую
             const testFactIndexValues = this.controller.factIndexer.index(testFact);
-            const testFactIndexTypeAndValueList = testFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
-                index: this.controller.factIndexer.getIndexDescription(index.it)
-            }));
+            const testHashValuesForSearch = this.controller.factIndexer.getHashValuesForSearch(testFactIndexValues);
             const excludedFact = testFacts[1];
-            const factsResult = await this.provider.getRelevantFacts(testFactIndexTypeAndValueList, excludedFact);
+            const factsResult = await this.provider.getRelevantFacts(testHashValuesForSearch, excludedFact);
             const relevantFacts = factsResult.result;
 
             // Проверяем, что relevantFacts содержит существующие факты

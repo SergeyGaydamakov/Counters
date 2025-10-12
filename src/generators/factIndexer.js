@@ -178,25 +178,12 @@ class FactIndexer {
     }
 
     /**
-     * Получает описание индекса по его типу
-     * @param {number} indexType - тип индекса
-     * @returns {Object} описание индекса (объект конфигурации)
-     */
-    getIndexDescription(indexType) {
-        const indexDescription = this._indexConfig.find(configItem => configItem.indexType === indexType);
-        if (!indexDescription) {
-            throw new Error(`Тип индекса ${indexType} не найден в конфигурации.`);
-        }
-        return indexDescription;
-    }
-
-    /**
      * Хеш функция для создания уникального индекса из типа и значения поля
      * @param {number|string} indexType - тип/номер поля (it)
      * @param {string} indexValue - значение поля (f)
      * @returns {string} SHA-256 хеш в hex формате
      */
-    _hash(indexType, indexValue) {
+    _hashHex(indexType, indexValue) {
         const input = `${indexType}:${indexValue}`;
         return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('hex');
     }
@@ -265,7 +252,7 @@ class FactIndexer {
                 // Вычисляем значение индекса в зависимости от indexValue
                 if (configItem.indexValue === this.INDEX_VALUE_HASH) {
                     // Хеш от типа индекса и значения поля
-                    indexValue = this._hash(configItem.indexType, fact.d[fieldName]);
+                    indexValue = this._hashHex(configItem.indexType, fact.d[fieldName]);
                 } else if (configItem.indexValue === this.INDEX_VALUE_VALUE) {
                     // Само значение поля
                     indexValue = `${configItem.indexType}:${String(fact.d[fieldName])}`;
@@ -310,6 +297,18 @@ class FactIndexer {
         this.logger.debug(`Создано ${indexValues.length} индексных значений`);
 
         return indexValues;
+    }
+
+    /**
+     * Получение хешей значений индексов для поиска релевантных фактов
+     * @param {object[]} indexValues - массив индексных значений, который получен из метода index
+     * @returns {object[]} массив объектов с хешем значения индекса и индексом из конфигурации
+     */
+    getHashValuesForSearch(indexValues) {
+        return indexValues.map(value => ({
+            hashValue: value._id.h,
+            index: this._indexConfig.find(configItem => configItem.indexType === value.it)
+        }));
     }
 
     /**

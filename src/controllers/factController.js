@@ -35,7 +35,7 @@ class FactController {
 
         // Значения хеша
         this.factIndexer._indexConfig.forEach(config => {
-            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hash(config.indexType, '1234567890')}`);
+            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hashHex(config.indexType, '1234567890')}`);
         });
     }
 
@@ -87,10 +87,10 @@ class FactController {
                 processingTime: null
             };
         }
-        const factIndexTypeAndValueList = factIndexes.map(index => ({ hashValue: index._id.h, index: this.factIndexer.getIndexDescription(index.it) }));
+        const hashValuesForSearch = this.factIndexer.getHashValuesForSearch(factIndexes);
         const startTime = Date.now();
         const [relevantFactsResult, factResult, indexResult] = await Promise.all([
-            this.dbProvider.getRelevantFacts(factIndexTypeAndValueList, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
+            this.dbProvider.getRelevantFacts(hashValuesForSearch, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
             this.dbProvider.saveFact(fact),
             this.dbProvider.saveFactIndexList(factIndexes)
         ]);
@@ -131,12 +131,10 @@ class FactController {
                 }
             };
         }
-        const factIndexTypeAndValueList = factIndexes.map(index => (
-            { hashValue: index._id.h, index: this.factIndexer.getIndexDescription(index.it) })
-        );
+        const hashValuesForSearch = this.factIndexer.getHashValuesForSearch(factIndexes);
         const startTime = Date.now();
         const [factCountersResult, factResult, indexResult] = await Promise.all([
-            this.dbProvider.getRelevantFactCounters(factIndexTypeAndValueList, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE, debugMode),
+            this.dbProvider.getRelevantFactCounters(hashValuesForSearch, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE, debugMode),
             this.dbProvider.saveFact(fact),
             this.dbProvider.saveFactIndexList(factIndexes)
         ]);
