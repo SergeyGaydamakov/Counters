@@ -16,10 +16,10 @@ class FactController {
         if (!dbProvider) {
             throw new Error('dbProvider обязателен для инициализации FactController');
         }
-        
+
         // Создаем логгер для этого контроллера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
-        
+
         // Проверяем, что dbProvider имеет необходимые методы
         const requiredMethods = ['saveFact', 'saveFactIndexList', 'getRelevantFacts', 'getRelevantFactCounters'];
         for (const method of requiredMethods) {
@@ -27,15 +27,15 @@ class FactController {
                 throw new Error(`dbProvider должен иметь метод '${method}'`);
             }
         }
-        
+
         this.dbProvider = dbProvider;
         this.messageGenerator = new MessageGenerator(fieldConfigPathOrObject, targetSize);
         this.factIndexer = new FactIndexer(indexConfigPathOrObject);
         this.factMapper = new FactMapper(fieldConfigPathOrObject);
-        
+
         // Значения хеша
         this.factIndexer._indexConfig.forEach(config => {
-            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hash(config.indexType,'1234567890')}`);
+            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hash(config.indexType, '1234567890')}`);
         });
     }
 
@@ -114,7 +114,7 @@ class FactController {
      * @param {Object} message - сообщение
      * @returns {Promise<Object>} результат операции создания факта
      */
-    async processMessageWithCounters(message) {
+    async processMessageWithCounters(message, debugMode) {
         const fact = this.factMapper.mapMessageToFact(message);
         this.logger.debug(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
@@ -131,14 +131,15 @@ class FactController {
                 }
             };
         }
-        const factIndexTypeAndValueList = factIndexes.map(index => ({ hashValue: index._id.h, index: this.factIndexer.getIndexDescription(index.it) }));
+        const factIndexTypeAndValueList = factIndexes.map(index => (
+            { hashValue: index._id.h, index: this.factIndexer.getIndexDescription(index.it) })
+        );
         const startTime = Date.now();
         const [factCountersResult, factResult, indexResult] = await Promise.all([
-            this.dbProvider.getRelevantFactCounters(factIndexTypeAndValueList, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE),
+            this.dbProvider.getRelevantFactCounters(factIndexTypeAndValueList, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE, debugMode),
             this.dbProvider.saveFact(fact),
             this.dbProvider.saveFactIndexList(factIndexes)
         ]);
-        this.logger.debug(`***************************************** 0`);
         return {
             fact,
             counters: factCountersResult.result,

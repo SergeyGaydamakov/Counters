@@ -68,7 +68,8 @@
     "dateName": "dt",
     "indexTypeName": "idx_f9",
     "indexType": 9,
-    "indexValue": 1
+    "indexValue": 1,
+    "limit": 1000
   },
   {
     "fieldName": "f10",

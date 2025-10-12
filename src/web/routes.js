@@ -39,7 +39,11 @@ function createRoutes(factController) {
         try {
             const { messageType } = req.params;
             const messageData = req.body;
-
+            const debugMode = req.headers['debug-mode'] === 'true';
+            if (debugMode) {
+                logger.info(`ВКЛЮЧЕН РЕЖИМ ОТЛАДКИ`);
+            }
+    
             /*
             logger.info('Message processing - request data:', {
                 messageType,
@@ -86,7 +90,7 @@ function createRoutes(factController) {
             }
 
             // Обрабатываем сообщение через контроллер
-            const result = await factController.processMessageWithCounters(message);
+            const result = await factController.processMessageWithCounters(message, debugMode);
 
             logger.info(`Сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
@@ -96,7 +100,7 @@ function createRoutes(factController) {
             res.json({
                 messageType,
                 factId: result.fact._id,
-                counters: result.counters,
+                counters: result.counters || {},
                 processingTime: result.processingTime || { total: 0, message: 'No processing time available' },
                 debug: result.debug
             });

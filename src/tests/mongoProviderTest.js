@@ -24,7 +24,7 @@ class MongoProviderTest {
                 name: "total1",
                 comment: "Общий счетчик для всех типов сообщений",
                 indexTypeName: "test_type_1",
-                computationConditions: {"d.f1": "value1"},
+                computationConditions: { "d.f1": "value1" },
                 evaluationConditions: null,
                 attributes: {
                     "count": { "$sum": 1 },
@@ -72,7 +72,7 @@ class MongoProviderTest {
             'mongoProviderTestDB',
             this.mongoCounters
         );
-        
+
         // Минимальная конфигурация полей для тестов (6 первых полей)
         this.fieldConfig = [
             {
@@ -138,10 +138,10 @@ class MongoProviderTest {
                 message_types: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
             }
         ];
-        
+
         this.generator = new MessageGenerator(this.fieldConfig);
-        
-       
+
+
         // Минимальная конфигурация для FactIndexer (4 первых значения)
         this.indexConfig = [
             {
@@ -177,7 +177,7 @@ class MongoProviderTest {
                 limit: 100
             }
         ];
-        
+
         this.indexer = new FactIndexer(this.indexConfig);
         this.mapper = new FactMapper(this.fieldConfig);
         this.testResults = {
@@ -199,43 +199,47 @@ class MongoProviderTest {
             await this.testDisconnection('2. Тест отключения от MongoDB...');
             await this.testReconnection('3. Тест переподключения к MongoDB...');
             await this.testCheckConnection('4. Тест проверки подключения...');
-            // Тесты создания базы данных
-            await this.testCreateDatabase('5. Тест создания базы данных...');
-
-            // Тесты работы с фактами
-            await this.testInsertFact('6. Тест вставки одного факта...');
-            await this.testBulkInsert('7. Тест массовой вставки фактов...');
-            await this.testGetFactsCollectionSchema('8. Тест получения схемы коллекции фактов...');
-            await this.testClearFactsCollection('09. Тест очистки коллекции фактов...');
+            /*            
+                        // Тесты создания базы данных
+                        await this.testCreateDatabase('5. Тест создания базы данных...');
             
-            // Тесты индексных значений
-            await this.testInsertFactIndexList('10. Тест вставки списка индексных значений...');
-            await this.testGetFactIndexSchema('11. Тест получения схемы коллекции индексных значений...');
-            await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
+                        // Тесты работы с фактами
+                        await this.testInsertFact('6. Тест вставки одного факта...');
+                        await this.testBulkInsert('7. Тест массовой вставки фактов...');
+                        await this.testGetFactsCollectionSchema('8. Тест получения схемы коллекции фактов...');
+                        await this.testClearFactsCollection('09. Тест очистки коллекции фактов...');
             
-            // Тесты повторных вызовов с теми же данными
-            await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
-            await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
-            await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
-
-            // Тесты получения релевантных фактов
-            await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
-            await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
-            await this.testGetRelevantFactsWithNoMatches('18. Тест получения релевантных фактов без совпадений...');
-            await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
-            await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
-            await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
-            // Тесты получения релевантных счетчиков фактов
-            await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
-            await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
-            await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
-            await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');
-            await this.testGetRelevantFactCountersWithDepthFromDate('26. Тест получения релевантных счетчиков с глубиной от даты...');
-            await this.testGetRelevantFactCountersWithBothParameters('27. Тест получения релевантных счетчиков с обоими параметрами...');
+                        // Тесты индексных значений
+                        await this.testInsertFactIndexList('10. Тест вставки списка индексных значений...');
+                        await this.testGetFactIndexSchema('11. Тест получения схемы коллекции индексных значений...');
+                        await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
             
-            // Тесты статистики
-            await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
-            await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');  
+                        // Тесты повторных вызовов с теми же данными
+                        await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
+                        await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
+                        await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
+            
+                        // Тесты получения релевантных фактов
+                        await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
+                        await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
+                        await this.testGetRelevantFactsWithNoMatches('18. Тест получения релевантных фактов без совпадений...');
+                        await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
+                        await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
+                        await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
+                        // Тесты получения релевантных счетчиков фактов
+                        await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
+                        await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
+                        await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
+                        await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');
+                        await this.testGetRelevantFactCountersWithDepthFromDate('26. Тест получения релевантных счетчиков с глубиной от даты...');
+                        await this.testGetRelevantFactCountersWithBothParameters('27. Тест получения релевантных счетчиков с обоими параметрами...');
+            
+                        // Тесты статистики
+                        await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
+                        await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
+            */
+            // 
+            await this.testProcessMessage('30. Тест обработки конкретного сообщения...');
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
@@ -245,7 +249,7 @@ class MongoProviderTest {
             } catch (error) {
                 this.logger.error('✗ Ошибка при закрытии соединений:', error.message);
             }
-            
+
             this.printResults();
         }
     }
@@ -255,10 +259,10 @@ class MongoProviderTest {
      */
     async testConnection(title) {
         this.logger.debug(title);
-        
+
         try {
             const connected = await this.provider.connect();
-            
+
             if (!connected) {
                 throw new Error('Не удалось подключиться к MongoDB');
             }
@@ -281,10 +285,10 @@ class MongoProviderTest {
      */
     async testDisconnection(title) {
         this.logger.debug(title);
-        
+
         try {
             await this.provider.disconnect();
-            
+
             if (this.provider._isConnected) {
                 throw new Error('Флаг isConnected не сброшен после отключения');
             }
@@ -303,10 +307,10 @@ class MongoProviderTest {
      */
     async testReconnection(title) {
         this.logger.debug(title);
-        
+
         try {
             const connected = await this.provider.connect();
-            
+
             if (!connected) {
                 throw new Error('Не удалось переподключиться к MongoDB');
             }
@@ -325,10 +329,10 @@ class MongoProviderTest {
      */
     async testGetFactsCollectionSchema(title) {
         this.logger.debug(title);
-        
+
         try {
             const schema = await this.provider._getFactsCollectionSchema();
-            
+
             if (!schema) {
                 throw new Error('Схема не получена');
             }
@@ -339,7 +343,7 @@ class MongoProviderTest {
 
             const requiredFields = ['_id', 't', 'c', 'd'];
             const schemaFields = Object.keys(schema.$jsonSchema.properties);
-            
+
             for (const field of requiredFields) {
                 if (!schemaFields.includes(field)) {
                     throw new Error(`Отсутствует обязательное поле в схеме: ${field}`);
@@ -360,17 +364,17 @@ class MongoProviderTest {
      */
     async testInsertFact(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекцию
             await this.provider.clearFactsCollection();
-            
+
             // Генерируем тестовый факт
             const testFact = this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage());
 
             // Тест первой вставки (должна создать новый документ)
             const insertResult = await this.provider.saveFact(testFact);
-            
+
             if (!insertResult.success) {
                 throw new Error(`Ошибка вставки: ${insertResult.error}`);
             }
@@ -382,7 +386,7 @@ class MongoProviderTest {
             // Тест повторной вставки с измененными данными (должна обновить существующий по умолчанию)
             const modifiedFact = { ...testFact, d: { amount: testFact.d.amount + 100 } }; // Изменяем значение поля amount
             const upsertResult = await this.provider.saveFact(modifiedFact);
-            
+
             if (!upsertResult.success) {
                 throw new Error(`Ошибка повторной вставки: ${upsertResult.error}`);
             }
@@ -394,7 +398,7 @@ class MongoProviderTest {
 
             // Тест повторной вставки того же факта (должен обновить существующий)
             const duplicateResult = await this.provider.saveFact(testFact);
-            
+
             if (!duplicateResult.success) {
                 throw new Error(`Ошибка повторной вставки: ${duplicateResult.error}`);
             }
@@ -418,28 +422,28 @@ class MongoProviderTest {
      */
     async testBulkInsert(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекции
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
-            
+
             // Генерируем тестовые данные
             const testFact = this.mapper.mapMessageToFact(this.generator.generateMessage(1));
-            
+
             // Создаем индексные значения
             const indexValues = this.indexer.index(testFact);
 
             // Вставляем факт
             const factResult = await this.provider.saveFact(testFact);
-            
+
             if (!factResult.success) {
                 throw new Error(`Ошибка вставки факта: ${factResult.error}`);
             }
 
             // Вставляем индексные значения
             const indexResult = await this.provider.saveFactIndexList(indexValues);
-            
+
             if (!indexResult.success) {
                 throw new Error(`Ошибка вставки индексных значений: ${indexResult.error}`);
             }
@@ -469,10 +473,10 @@ class MongoProviderTest {
      */
     async testGetFactsCollectionStats(title) {
         this.logger.debug(title);
-        
+
         try {
             const stats = await this.provider.getFactsCollectionStats();
-            
+
             if (!stats || typeof stats.documentCount !== 'number') {
                 throw new Error('Некорректная статистика');
             }
@@ -496,21 +500,21 @@ class MongoProviderTest {
      */
     async testInsertFactIndexList(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекцию
             await this.provider.clearFactIndexCollection();
-            
+
             // Генерируем тестовые данные
             const facts = [
-                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()), 
-                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()), 
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()),
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()),
                 this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage())
             ];
             const indexValues = this.indexer.index(facts[0]);
 
             const result = await this.provider.saveFactIndexList(indexValues);
-            
+
             if (!result.success) {
                 throw new Error(`Ошибка вставки индексных значений: ${result.error}`);
             }
@@ -539,10 +543,10 @@ class MongoProviderTest {
      */
     async testGetFactIndexStats(title) {
         this.logger.debug(title);
-        
+
         try {
             const stats = await this.provider.getFactIndexStats();
-            
+
             if (!stats || typeof stats.documentCount !== 'number') {
                 throw new Error('Некорректная статистика индексных значений');
             }
@@ -565,17 +569,17 @@ class MongoProviderTest {
      */
     async testGetFactIndexSchema(title) {
         this.logger.debug(title);
-        
+
         try {
             const schema = await this.provider._getFactIndexCollectionSchema();
-            
+
             if (!schema || schema.isEmpty) {
                 throw new Error('Схема индексных значений пуста или не получена');
             }
 
             const requiredFields = ['_id', 'd', 'c'];
             const schemaFields = schema.fields.map(f => f.name);
-            
+
             for (const field of requiredFields) {
                 if (!schemaFields.includes(field)) {
                     throw new Error(`Отсутствует обязательное поле в схеме индексных значений: ${field}`);
@@ -596,10 +600,10 @@ class MongoProviderTest {
      */
     async testCreateDatabase(title) {
         this.logger.debug(title);
-        
+
         try {
             const result = await this.provider.createDatabase();
-            
+
             if (!result || typeof result !== 'object') {
                 throw new Error('Результат должен быть объектом');
             }
@@ -647,10 +651,10 @@ class MongoProviderTest {
      */
     async testClearFactIndexCollection(title) {
         this.logger.debug(title);
-        
+
         try {
             const result = await this.provider.clearFactIndexCollection();
-            
+
             if (typeof result.deletedCount !== 'number') {
                 throw new Error('Некорректный результат очистки');
             }
@@ -669,7 +673,7 @@ class MongoProviderTest {
      */
     async testCheckConnection(title) {
         this.logger.debug(title);
-        
+
         try {
             // Тест с подключением
             const connected = this.provider.checkConnection();
@@ -679,7 +683,7 @@ class MongoProviderTest {
 
             // Тест без подключения
             await this.provider.disconnect();
-            
+
             try {
                 this.provider.checkConnection();
                 throw new Error('checkConnection не выбросил ошибку при отсутствии подключения');
@@ -706,17 +710,17 @@ class MongoProviderTest {
      */
     async testDuplicateInsertFact(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекцию
             await this.provider.clearFactsCollection();
-            
+
             // Генерируем тестовый факт
             const testFact = this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage());
 
             // Первая вставка в режиме insert
             const firstResult = await this.provider.saveFact(testFact);
-            
+
             if (!firstResult.success) {
                 throw new Error(`Ошибка первой вставки: ${firstResult.error}`);
             }
@@ -727,7 +731,7 @@ class MongoProviderTest {
 
             // Повторная вставка тех же данных в режиме insert
             const secondResult = await this.provider.saveFact(testFact);
-            
+
             if (!secondResult.success) {
                 throw new Error(`Ошибка повторной вставки: ${secondResult.error}`);
             }
@@ -758,21 +762,21 @@ class MongoProviderTest {
      */
     async testDuplicateInsertFactIndexList(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекцию
             await this.provider.clearFactIndexCollection();
-            
+
             // Генерируем тестовые данные
             const facts = [
-                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()), 
+                this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()),
                 this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage())
             ];
             const indexValues = this.indexer.index(facts[0]);
 
             // Первая вставка
             const firstResult = await this.provider.saveFactIndexList(indexValues);
-            
+
             if (!firstResult.success) {
                 throw new Error(`Ошибка первой вставки: ${firstResult.error}`);
             }
@@ -783,7 +787,7 @@ class MongoProviderTest {
 
             // Повторная вставка тех же данных
             const secondResult = await this.provider.saveFactIndexList(indexValues);
-            
+
             if (!secondResult.success) {
                 throw new Error(`Ошибка повторной вставки: ${secondResult.error}`);
             }
@@ -812,12 +816,12 @@ class MongoProviderTest {
      */
     async testDuplicateBulkInsert(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекции
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
-            
+
             // Генерируем тестовые данные
             const testFact = this.mapper.mapMessageToFact(this.generator.generateMessage(1));
             const indexValues = this.indexer.index(testFact);
@@ -825,7 +829,7 @@ class MongoProviderTest {
             // Первая вставка
             const firstFactResult = await this.provider.saveFact(testFact);
             const firstIndexResult = await this.provider.saveFactIndexList(indexValues);
-            
+
             if (!firstFactResult.success) {
                 throw new Error(`Ошибка первой вставки факта: ${firstFactResult.error}`);
             }
@@ -845,7 +849,7 @@ class MongoProviderTest {
             // Повторная вставка тех же данных
             const secondFactResult = await this.provider.saveFact(testFact);
             const secondIndexResult = await this.provider.saveFactIndexList(indexValues);
-            
+
             if (!secondFactResult.success) {
                 throw new Error(`Ошибка повторной вставки факта: ${secondFactResult.error}`);
             }
@@ -865,7 +869,7 @@ class MongoProviderTest {
             // Проверяем, что в базах только нужное количество документов
             const factCount = await this.provider.countFactsCollection();
             const indexCount = await this.provider.countFactIndexCollection();
-            
+
             if (factCount !== 1) {
                 throw new Error(`Ожидалось 1 факт в базе, найдено ${factCount}`);
             }
@@ -888,35 +892,35 @@ class MongoProviderTest {
      */
     async testClearFactsCollection(title) {
         this.logger.debug(title);
-        
+
         try {
             // Сначала добавляем тестовые данные
             const fromDate = new Date('2024-01-01');
             const toDate = new Date('2024-12-31');
-            const facts = Array.from({length: 5}, () => this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()));
-            
+            const facts = Array.from({ length: 5 }, () => this.mapper.mapMessageToFact(this.generator.generateRandomTypeMessage()));
+
             // Вставляем факты
             for (const fact of facts) {
                 await this.provider.saveFact(fact);
             }
-            
+
             // Проверяем, что факты добавлены
             const countBefore = await this.provider.countFactsCollection();
             if (countBefore === 0) {
                 throw new Error('Факты не были добавлены для тестирования очистки');
             }
-            
+
             // Очищаем коллекцию
             const result = await this.provider.clearFactsCollection();
-            
+
             if (typeof result.deletedCount !== 'number') {
                 throw new Error('Некорректный результат очистки коллекции фактов');
             }
-            
+
             if (result.deletedCount !== countBefore) {
                 throw new Error(`Ожидалось удалить ${countBefore} фактов, удалено ${result.deletedCount}`);
             }
-            
+
             // Проверяем, что коллекция пуста
             const countAfter = await this.provider.countFactsCollection();
             if (countAfter !== 0) {
@@ -998,7 +1002,7 @@ class MongoProviderTest {
             // Вставляем факты в базу данных
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 // Создаем индексные значения для каждого факта
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
@@ -1010,13 +1014,13 @@ class MongoProviderTest {
             const searchFact = testFacts[0]; // test-fact-001 с f1='value1', f2='value2', f5='value5'
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact);
             const relevantFacts = factsResult.result;
-            
+
             // Проверяем результаты
             if (!Array.isArray(relevantFacts)) {
                 throw new Error('Метод должен возвращать массив');
@@ -1054,7 +1058,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactsWithMultipleFields(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем факты с множественными совпадающими полями
             const testFacts = [
@@ -1113,7 +1117,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -1124,8 +1128,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact);
@@ -1167,7 +1171,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactsWithNoMatches(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем факты с уникальными значениями полей
             const testFacts = [
@@ -1200,7 +1204,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -1223,8 +1227,8 @@ class MongoProviderTest {
 
             // Тестируем поиск - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, searchFact);
@@ -1255,7 +1259,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactsWithDepthLimit(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем тестовые факты с разными датами
             const baseDate = new Date('2024-01-01');
@@ -1309,7 +1313,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 // this.logger.debug("*** indexValues: "+JSON.stringify(indexValues));
                 if (indexValues.length > 0) {
@@ -1320,8 +1324,8 @@ class MongoProviderTest {
             // Тестируем поиск с ограничением по количеству
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, searchFact, 2);
@@ -1355,7 +1359,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactsWithDepthFromDate(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекции перед тестом
             await this.provider.clearFactsCollection();
@@ -1363,7 +1367,7 @@ class MongoProviderTest {
             // Создаем тестовые факты с разными датами
             const baseDate = new Date('2024-01-01');
             const cutoffDate = new Date(baseDate.getTime() + 1500); // Отсекаем факты после этой даты
-            
+
             const testFacts = [
                 {
                     _id: 'date-fact-001',
@@ -1414,7 +1418,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -1425,8 +1429,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact, undefined, cutoffDate);
@@ -1439,7 +1443,7 @@ class MongoProviderTest {
             // Должны найтись только факты до cutoffDate
             const foundIds = relevantFacts.map(f => f._id);
             const expectedIds = ['date-fact-001', 'date-fact-002']; // Только факты до cutoffDate
-            
+
             // Проверяем, что найдены только ожидаемые факты
             for (const foundId of foundIds) {
                 if (!expectedIds.includes(foundId)) {
@@ -1468,7 +1472,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactsWithBothParameters(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекции перед тестом
             await this.provider.clearFactsCollection();
@@ -1476,7 +1480,7 @@ class MongoProviderTest {
             // Создаем тестовые факты с разными датами
             const baseDate = new Date('2024-01-01');
             const cutoffDate = new Date(baseDate.getTime() + 1500);
-            
+
             const testFacts = [
                 {
                     _id: 'both-fact-001',
@@ -1527,7 +1531,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -1538,8 +1542,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const factsResult = await this.provider.getRelevantFacts(searchFactIndexTypeAndValueList, excludedFact, 1, cutoffDate);
@@ -1562,7 +1566,7 @@ class MongoProviderTest {
             // Проверяем, что найденный факт соответствует критериям даты
             const foundId = relevantFacts[0]._id;
             const expectedIds = ['both-fact-001', 'both-fact-002']; // Только факты до cutoffDate
-            
+
             if (!expectedIds.includes(foundId)) {
                 throw new Error(`Найден факт ${foundId}, который не соответствует критериям даты`);
             }
@@ -1581,11 +1585,11 @@ class MongoProviderTest {
      */
     async testGetRelevantFactCounters(title) {
         this.logger.info(title);
-        
+
         try {
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
-            
+
             // Создаем тестовые факты с известными значениями полей
             const testFacts = [
                 {
@@ -1641,7 +1645,7 @@ class MongoProviderTest {
             // Вставляем факты в базу данных
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 // Создаем индексные значения для каждого факта
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
@@ -1653,8 +1657,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0]; // counter-fact-001 с f1='value1', f2='value2', f5='value5'
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact);
@@ -1676,7 +1680,7 @@ class MongoProviderTest {
             }
 
             const totalStats = counters.total;
-            
+
             // Проверяем поля в total
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
@@ -1711,7 +1715,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactCountersWithMultipleFields(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем факты с множественными совпадающими полями
             const testFacts = [
@@ -1770,7 +1774,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -1781,8 +1785,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact);
@@ -1803,7 +1807,7 @@ class MongoProviderTest {
             }
 
             const totalStats = counters.total;
-            
+
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
             }
@@ -1837,7 +1841,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactCountersWithNoMatches(title) {
         this.logger.debug(title);
-        
+
         try {
             // Создаем факты с уникальными значениями полей
             const testFacts = [
@@ -1870,7 +1874,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -1893,8 +1897,8 @@ class MongoProviderTest {
 
             // Тестируем получение счетчиков - не должно быть совпадений
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, searchFact);
@@ -1926,7 +1930,7 @@ class MongoProviderTest {
      */
     async testGetRelevantFactCountersWithDepthLimit(title) {
         this.logger.debug(title);
-        
+
         try {
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
@@ -1983,7 +1987,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -1993,8 +1997,8 @@ class MongoProviderTest {
             // Тестируем получение счетчиков с ограничением по количеству
             const searchFact = testFacts[0];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, searchFact, 2);
@@ -2016,7 +2020,7 @@ class MongoProviderTest {
             }
 
             const totalStats = counters.total;
-            
+
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
             }
@@ -2049,16 +2053,16 @@ class MongoProviderTest {
      */
     async testGetRelevantFactCountersWithDepthFromDate(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекции перед тестом
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
-            
+
             // Создаем тестовые факты с разными датами
             const baseDate = new Date('2024-01-01');
             const cutoffDate = new Date(baseDate.getTime() + 1500); // Отсекаем факты после этой даты
-            
+
             const testFacts = [
                 {
                     _id: 'date-counter-fact-001',
@@ -2109,7 +2113,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -2120,8 +2124,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact, undefined, cutoffDate);
@@ -2142,7 +2146,7 @@ class MongoProviderTest {
             }
 
             const totalStats = counters.total;
-            
+
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
             }
@@ -2170,16 +2174,16 @@ class MongoProviderTest {
      */
     async testGetRelevantFactCountersWithBothParameters(title) {
         this.logger.debug(title);
-        
+
         try {
             // Очищаем коллекции перед тестом
             await this.provider.clearFactsCollection();
             await this.provider.clearFactIndexCollection();
-            
+
             // Создаем тестовые факты с разными датами
             const baseDate = new Date('2024-01-01');
             const cutoffDate = new Date(baseDate.getTime() + 1500);
-            
+
             const testFacts = [
                 {
                     _id: 'both-counter-fact-001',
@@ -2230,7 +2234,7 @@ class MongoProviderTest {
             // Вставляем факты
             for (const fact of testFacts) {
                 await this.provider.saveFact(fact);
-                
+
                 const indexValues = this.indexer.index(fact);
                 if (indexValues.length > 0) {
                     await this.provider.saveFactIndexList(indexValues);
@@ -2241,8 +2245,8 @@ class MongoProviderTest {
             const searchFact = testFacts[0];
             const excludedFact = testFacts[3];
             const searchFactIndexValues = this.indexer.index(searchFact);
-            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({ 
-                hashValue: index._id.h, 
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
                 index: this.indexer.getIndexDescription(index.it)
             }));
             const countersResult = await this.provider.getRelevantFactCounters(searchFactIndexTypeAndValueList, excludedFact, 1, cutoffDate);
@@ -2263,7 +2267,7 @@ class MongoProviderTest {
             }
 
             const totalStats = counters.total;
-            
+
             if (typeof totalStats.count !== 'number') {
                 throw new Error('Поле count должно быть числом');
             }
@@ -2291,6 +2295,122 @@ class MongoProviderTest {
         }
     }
 
+    /**
+     * Тест получения релевантных счетчиков фактов - базовый тест
+     */
+    async testProcessMessage(title) {
+        this.logger.info(title);
+
+        try {
+            const testMongoCounters = new CounterProducer(config.facts.counterConfigPath);
+
+            const testProvider = new MongoProvider(
+                config.database.connectionString,
+                'mongoProviderTestDB',
+                testMongoCounters
+            );
+            await testProvider.connect();
+
+            // this.generator = new MessageGenerator(this.fieldConfig);
+
+            const testIndexer = new FactIndexer(config.facts.indexConfigPath);
+            const testMapper = new FactMapper(config.facts.fieldConfigPath);
+
+            await testProvider.clearFactsCollection();
+            await testProvider.clearFactIndexCollection();
+
+            // Создаем тестовые факты с известными значениями полей
+            const testMessages = [
+                {
+                "t": 1,
+                "d": {
+                    "id": "fddb001e88013b9a68eaac54",
+                    "amount": 1000,
+                    "dt": "2025-09-23T12:12:15.128Z",
+                    "f1": "WTECTalSmNeouPhLCNi",
+                    "f2": "value3",
+                    "f3": 3,
+                    "f4": "oXWiyLeTBsuRjcjYz",
+                    "f5": "wEKgtpTZbXAuoWKnk",
+                    "f6": "VvNJXizISJCoFGnzS",
+                    "f12": "Xd",
+                    "f20": "1234567890",
+                    "f21": "kIOBRhqYnRHxLdZ",
+                    "f22": "DLz"
+                }
+                },
+                {
+                    "t": 1,
+                    "d": {
+                        "id": "fddb001e88013b9a68eaac55",
+                        "amount": 500,
+                        "dt": "2025-09-24T12:12:15.128Z",
+                        "f1": "WTECTalSmNeouPhLCNi",
+                        "f2": "value3",
+                        "f3": 2000,
+                        "f4": "oXWiyLeTBsuRjcjYz",
+                        "f5": "wEKgtpTZbXAuoWKnk",
+                        "f6": "VvNJXizISJCoFGnzS",
+                        "f12": "Xd",
+                        "f20": "1234567890",
+                        "f21": "kIOBRhqYnRHxLdZ",
+                        "f22": "DLz"
+                    }
+                },
+                {
+                    "t": 1,
+                    "d": {
+                        "id": "fddb001e88013b9a68eaac56",
+                        "amount": 300,
+                        "dt": "2025-09-26T12:12:15.128Z",
+                        "f1": "WTECTalSmNeouPhLCNi",
+                        "f2": "value3",
+                        "f3": 3000,
+                        "f4": "oXWiyLeTBsuRjcjYz",
+                        "f5": "wEKgtpTZbXAuoWKnk",
+                        "f6": "VvNJXizISJCoFGnzS",
+                        "f12": "Xd",
+                        "f20": "1234567890",
+                        "f21": "kIOBRhqYnRHxLdZ",
+                        "f22": "DLz"
+                    }
+                }
+            ];
+
+            // Вставляем факты в базу данных
+            for (const message of testMessages) {
+                const fact = testMapper.mapMessageToFact(message, false);
+                await testProvider.saveFact(fact);
+
+                // Создаем индексные значения для каждого факта
+                const indexValues = testIndexer.index(fact);
+                if (indexValues.length > 0) {
+                    await testProvider.saveFactIndexList(indexValues);
+                }
+            }
+
+            const fact = testMapper.mapMessageToFact(testMessages[0], false);
+            const searchFactIndexValues = testIndexer.index(fact);
+            const searchFactIndexTypeAndValueList = searchFactIndexValues.map(index => ({
+                hashValue: index._id.h,
+                index: testIndexer.getIndexDescription(index.it)
+            }));
+            const countersResult = await testProvider.getRelevantFactCounters(searchFactIndexTypeAndValueList, fact);
+            const counters = countersResult.result;
+            this.logger.info(`*** countersResult: ${JSON.stringify(counters)}`);
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+            testProvider.disconnect();
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testProcessMessage: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            if (testProvider) {
+                testProvider.disconnect();
+            }
+        }
+    }
 
     /**
      * Вывод результатов тестирования
@@ -2299,14 +2419,14 @@ class MongoProviderTest {
         this.logger.info('\n=== Результаты тестирования MongoProvider ===');
         this.logger.info(`Пройдено: ${this.testResults.passed}`);
         this.logger.info(`Провалено: ${this.testResults.failed}`);
-        
+
         if (this.testResults.errors.length > 0) {
             this.logger.error('\nОшибки:');
             this.testResults.errors.forEach(error => {
                 this.logger.error(`  - ${error}`);
             });
         }
-        
+
         const total = this.testResults.passed + this.testResults.failed;
         const successRate = total > 0 ? (this.testResults.passed / total * 100).toFixed(1) : 0;
         this.logger.info(`\nПроцент успеха: ${successRate}%`);
