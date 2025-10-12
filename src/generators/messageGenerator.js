@@ -523,6 +523,14 @@ class MessageGenerator {
         return this.generateMessage(randomType);
     }
 
+    /**
+     * Возвращает массив доступных типов сообщений
+     * @returns {Array<number>} массив типов сообщений
+     */
+    getAvailableTypes() {
+        return [...this._availableTypes];
+    }
+
 }
 
 module.exports = MessageGenerator;

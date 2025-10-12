@@ -1,6 +1,7 @@
 // Импортируем систему логирования
 const Logger = require('./utils/logger');
 const axios = require('axios');
+const MessageGenerator = require('./generators/messageGenerator');
 
 // Загружаем переменные окружения из .env файла
 const dotenv = require('dotenv');
@@ -11,12 +12,30 @@ const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
 // Параметры подключения к сервису из .env
 const serviceHost = process.env.SERVICE_HOST || 'http://localhost:3000';
-const availableMessageTypes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // Типы сообщений из messageConfig.json
+const messageConfigPath = process.env.MESSAGE_CONFIG_PATH || 'messageConfig.json';
+
+// Инициализируем MessageGenerator для получения доступных типов сообщений
+let messageGenerator = null;
+let availableMessageTypes = [];
+
+// Функция для инициализации MessageGenerator
+function initializeMessageGenerator() {
+    try {
+        messageGenerator = new MessageGenerator(messageConfigPath);
+        availableMessageTypes = messageGenerator.getAvailableTypes();
+        logger.info('✓ MessageGenerator успешно инициализирован');
+        logger.info(`✓ Загружено ${availableMessageTypes.length} типов сообщений из ${messageConfigPath}`);
+    } catch (error) {
+        logger.error('✗ Ошибка инициализации MessageGenerator:', error.message);
+        logger.error('✗ Используются типы сообщений по умолчанию: 1-10');
+        availableMessageTypes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    }
+}
 
 // Логируем загруженные параметры
 logger.info('=== Загруженные параметры из .env ===');
 logger.info('Service Host:', serviceHost);
-logger.info('Available Message Types:', availableMessageTypes.join(', '));
+logger.info('Message Config Path:', messageConfigPath);
 logger.info('=====================================\n');
 
 // Функция для корректного завершения программы
@@ -94,6 +113,10 @@ async function main() {
 
     // Функция для выбора случайного типа сообщения
     function getRandomMessageType() {
+        if (availableMessageTypes.length === 0) {
+            logger.error('✗ Нет доступных типов сообщений');
+            return 1; // Fallback к типу 1
+        }
         return availableMessageTypes[Math.floor(Math.random() * availableMessageTypes.length)];
     }
 
@@ -185,6 +208,13 @@ async function main() {
     }
 
     try {
+        // Инициализируем MessageGenerator
+        initializeMessageGenerator();
+        
+        logger.info('=== Инициализация завершена ===');
+        logger.info('Available Message Types:', availableMessageTypes.join(', '));
+        logger.info('================================\n');
+
         let requestCount = 0;
         const CYCLE_OUTPUT = 100;
         let startCycleTime = Date.now();
@@ -229,6 +259,7 @@ async function main() {
         logger.info('🚀 Запуск тестирования сервиса...');
         logger.info(`📡 Подключение к сервису: ${serviceHost}`);
         logger.info(`📊 Типы сообщений для тестирования: ${availableMessageTypes.join(', ')}`);
+        logger.info(`📁 Конфигурация сообщений: ${messageConfigPath}`);
         logger.info('');
 
         // Запускаем тестирование
