@@ -13,6 +13,7 @@ const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 // Параметры подключения к сервису из .env
 const serviceHost = process.env.SERVICE_HOST || 'http://localhost:3000';
 const messageConfigPath = process.env.MESSAGE_CONFIG_PATH || 'messageConfig.json';
+const testFormat = (process.env.TEST_FORMAT || 'XML').toUpperCase();
 
 // Инициализируем MessageGenerator для получения доступных типов сообщений
 let messageGenerator = null;
@@ -36,6 +37,7 @@ function initializeMessageGenerator() {
 logger.info('=== Загруженные параметры из .env ===');
 logger.info('Service Host:', serviceHost);
 logger.info('Message Config Path:', messageConfigPath);
+logger.info('Test Format:', testFormat);
 logger.info('=====================================\n');
 
 // Функция для корректного завершения программы
@@ -120,11 +122,19 @@ async function main() {
         return availableMessageTypes[Math.floor(Math.random() * availableMessageTypes.length)];
     }
 
+
     // Функция для генерации сообщения через API
     async function generateMessage(messageType) {
         const startTime = Date.now();
         try {
-            const response = await axios.get(`${serviceHost}/api/v1/message/${messageType}/json`, {
+            let url;
+            if (testFormat === 'XML') {
+                url = `${serviceHost}/api/v1/message/${messageType}/iris`;
+            } else {
+                url = `${serviceHost}/api/v1/message/${messageType}/json`;
+            }
+            
+            const response = await axios.get(url, {
                 timeout: 10000 // 10 секунд таймаут
             });
             const endTime = Date.now();
@@ -148,16 +158,37 @@ async function main() {
     async function processMessage(messageType, messageData) {
         const startTime = Date.now();
         try {
-            const response = await axios.post(`${serviceHost}/api/v1/message/${messageType}/json`, messageData, {
+            let url, contentType;
+            
+            if (testFormat === 'XML') {
+                url = `${serviceHost}/api/v1/message/iris`;
+                contentType = 'application/xml';
+            } else {
+                url = `${serviceHost}/api/v1/message/${messageType}/json`;
+                contentType = 'application/json';
+            }
+            
+            const response = await axios.post(url, messageData, {
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': contentType
                 },
                 timeout: 30000 // 30 секунд таймаут для обработки
             });
             const endTime = Date.now();
+            
+            // Для XML ответов парсим ответ
+            let responseData = response.data;
+            if (testFormat === 'XML' && typeof responseData === 'string') {
+                // Если ответ XML, извлекаем factId из XML
+                const factIdMatch = responseData.match(/<FactId>(.*?)<\/FactId>/);
+                responseData = {
+                    factId: factIdMatch ? factIdMatch[1] : 'unknown'
+                };
+            }
+            
             return {
                 success: true,
-                data: response.data,
+                data: responseData,
                 time: endTime - startTime
             };
         } catch (error) {
@@ -260,6 +291,7 @@ async function main() {
         logger.info(`📡 Подключение к сервису: ${serviceHost}`);
         logger.info(`📊 Типы сообщений для тестирования: ${availableMessageTypes.join(', ')}`);
         logger.info(`📁 Конфигурация сообщений: ${messageConfigPath}`);
+        logger.info(`📄 Формат тестирования: ${testFormat}`);
         logger.info('');
 
         // Запускаем тестирование

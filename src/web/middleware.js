@@ -86,7 +86,7 @@ const irisXmlParser = (req, res, next) => {
                     mergeAttrs: true,
                     explicitRoot: false
                 });
-                
+
                 parser.parseString(data, (err, result) => {
                     if (err) {
                         logger.error('XML parsing error:', { error: err.message, data });

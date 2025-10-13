@@ -1,6 +1,7 @@
 const express = require('express');
 const Logger = require('../utils/logger');
 const json2xml = require('json2xml');
+const { v4: uuidv4 } = require('uuid');
 
 const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
 
@@ -249,6 +250,77 @@ function createRoutes(factController) {
 
             res.set('Content-Type', 'application/xml');
             res.status(500).send(xmlErrorResponse);
+        }
+    });
+
+    // GET /api/v1/message/{messageType}/iris
+    apiV1.get('/message/:messageType/iris', (req, res) => {
+        try {
+            const { messageType } = req.params;
+            
+            logger.debug('IRIS Message generation request:', {
+                messageType,
+                messageTypeType: typeof messageType
+            });
+
+            // Валидация входных данных
+            if (!messageType || messageType.trim() === '') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Неверный параметр messageType',
+                    message: 'messageType не может быть пустым'
+                });
+            }
+
+            // Преобразуем messageType в число
+            const messageTypeNumber = parseInt(messageType.trim());
+            if (isNaN(messageTypeNumber)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Неверный формат messageType',
+                    message: 'messageType должен быть числом'
+                });
+            }
+
+            // Генерируем сообщение указанного типа
+            const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
+            
+            // Создаем XML вручную для корректного форматирования
+            const messageId = uuidv4();
+            let xml = `<IRIS Version="1" Message="ModelRequest" MessageTypeId="${messageTypeNumber}" MessageId="${messageId}">\n`;
+            
+            // Добавляем все поля из сгенерированного сообщения как дочерние элементы
+            for (const [key, value] of Object.entries(generatedMessage.d)) {
+                xml += `\t<${key}>${value}</${key}>\n`;
+            }
+            
+            xml += '</IRIS>';
+            
+            logger.info(`IRIS сообщение типа ${messageTypeNumber} успешно сгенерировано`);
+
+            // Устанавливаем правильный Content-Type для XML
+            res.set('Content-Type', 'application/xml');
+            res.send(xml);
+
+        } catch (error) {
+            logger.error(`Ошибка генерации IRIS сообщения типа ${req.params.messageType}:`, {
+                error: error.message,
+                stack: error.stack
+            });
+
+            if (error.code === ERROR_WRONG_MESSAGE_TYPE) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Ошибка генерации сообщения',
+                    message: error.message
+                });
+            }
+            res.status(500).json({
+                success: false,
+                error: 'Ошибка генерации сообщения',
+                message: error.message,
+                timestamp: new Date().toISOString()
+            });
         }
     });
 
