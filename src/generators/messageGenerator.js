@@ -19,7 +19,7 @@ class MessageGenerator {
         this._fieldConfig = this._loadFieldConfig(fieldConfigPathOrArray);
         
         // Извлекаем информацию из конфигурации
-        this._availableFields = this._fieldConfig.map(field => field.src);
+        this._availableFields = this._extractUniqueFields();
         this._availableTypes = this._extractAvailableTypes();
         this._typeFieldsMap = this._buildTypeFieldsMap();
         this._fieldGeneratorsMap = this._buildFieldGeneratorsMap();
@@ -248,6 +248,18 @@ class MessageGenerator {
     }
 
     /**
+     * Извлекает уникальные поля из конфигурации полей
+     * @returns {Array} массив уникальных полей
+     */
+    _extractUniqueFields() {
+        const fields = new Set();
+        this._fieldConfig.forEach(field => {
+            fields.add(field.src);
+        });
+        return Array.from(fields);
+    }
+
+    /**
      * Извлекает все доступные типы из конфигурации полей
      * @returns {Array} массив уникальных типов
      */
@@ -261,26 +273,32 @@ class MessageGenerator {
 
     /**
      * Строит карту полей для каждого типа
-     * @returns {Object} объект где ключ - тип, значение - массив полей
+     * @returns {Object} объект где ключ - тип, значение - массив уникальных полей
      */
     _buildTypeFieldsMap() {
         const typeFieldsMap = {};
         this._availableTypes.forEach(type => {
-            typeFieldsMap[type] = this._fieldConfig
+            const fields = new Set();
+            this._fieldConfig
                 .filter(field => field.message_types.includes(type))
-                .map(field => field.src);
+                .forEach(field => fields.add(field.src));
+            typeFieldsMap[type] = Array.from(fields);
         });
         return typeFieldsMap;
     }
 
     /**
      * Строит карту генераторов для каждого поля
+     * Использует первый генератор для каждого поля (первое определение в конфигурации)
      * @returns {Object} объект где ключ - имя поля, значение - конфигурация генератора
      */
     _buildFieldGeneratorsMap() {
         const fieldGeneratorsMap = {};
         this._fieldConfig.forEach(field => {
-            fieldGeneratorsMap[field.src] = field.generator || null;
+            // Используем первое определение поля (не перезаписываем, если уже есть)
+            if (!(field.src in fieldGeneratorsMap)) {
+                fieldGeneratorsMap[field.src] = field.generator || null;
+            }
         });
         return fieldGeneratorsMap;
     }
@@ -501,6 +519,10 @@ class MessageGenerator {
         const fieldsForType = this._typeFieldsMap[type];
         
         fieldsForType.forEach(fieldName => {
+            if (dataFields[fieldName]){
+                // Поле уже есть, поэтому пропускаем его копию
+                return;
+            }
             // Получаем конфигурацию генератора для поля
             const generatorConfig = this._fieldGeneratorsMap[fieldName];
             

@@ -284,6 +284,64 @@ const invalidBooleanConfig = [
     }
 ];
 
+// Конфигурация с дублирующимися src полями для тестирования пропуска повторных упоминаний
+const duplicateSrcFieldConfig = [
+    {
+        "src": "commonField",
+        "dst": "dst1",
+        "message_types": [1, 2],
+        "generator": {
+            "type": "string",
+            "min": 5,
+            "max": 15,
+            "default_value": "FIRST_MAP",
+            "default_random": 0.5
+        }
+    },
+    {
+        "src": "commonField", // Дублирующееся src поле
+        "dst": "dst2",
+        "message_types": [1, 2],
+        "generator": {
+            "type": "string",
+            "min": 8,
+            "max": 15,
+            "default_value": "SECOND_MAPPING",
+            "default_random": 0.3
+        }
+    },
+    {
+        "src": "uniqueField",
+        "dst": "uniqueDst",
+        "message_types": [1, 2],
+        "generator": {
+            "type": "integer",
+            "min": 100,
+            "max": 200
+        }
+    },
+    {
+        "src": "anotherCommonField",
+        "dst": "anotherDst1",
+        "message_types": [1],
+        "generator": {
+            "type": "boolean",
+            "default_value": true,
+            "default_random": 0.8
+        }
+    },
+    {
+        "src": "anotherCommonField", // Еще одно дублирующееся src поле
+        "dst": "anotherDst2",
+        "message_types": [1],
+        "generator": {
+            "type": "boolean",
+            "default_value": false,
+            "default_random": 0.2
+        }
+    }
+];
+
 /**
  * Тест создания генератора с валидной конфигурацией
  */
@@ -916,6 +974,212 @@ function testDefaultValueFrequency(testName) {
 }
 
 /**
+ * Тест создания генератора с дублирующимися src полями
+ */
+function testDuplicateSrcFieldConstructor(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(duplicateSrcFieldConfig);
+
+        // Проверяем, что генератор создался успешно
+        console.log('✅ Генератор с дублирующимися src полями создан успешно');
+
+        // Проверяем доступные поля (должны быть уникальными)
+        const expectedFields = ['commonField', 'uniqueField', 'anotherCommonField'];
+        const actualFields = generator._availableFields;
+        
+        // Проверяем наличие всех полей в expectedFields
+        const hasAllFields = expectedFields.every(field => actualFields.includes(field));
+        if (!hasAllFields) {
+            throw new Error('❌ Не все поля присутствуют');
+        }
+        
+        // Проверяем, что нет дублирующихся полей в _availableFields
+        const uniqueFields = [...new Set(actualFields)];
+        if (uniqueFields.length !== actualFields.length) {
+            throw new Error('❌ Найдены дублирующиеся поля в _availableFields');
+        }
+        
+        console.log(`✅ Доступные поля (уникальные): [${actualFields.join(', ')}]`);
+
+        // Проверяем доступные типы
+        const expectedTypes = [1, 2];
+        const actualTypes = generator._availableTypes;
+        const hasAllTypes = expectedTypes.every(type => actualTypes.includes(type));
+        if (!hasAllTypes) {
+            throw new Error('❌ Не все типы присутствуют');
+        }
+        console.log(`✅ Доступные типы: [${actualTypes.join(', ')}]`);
+
+        // Проверяем карту полей по типам
+        console.log('✅ Карта полей по типам:');
+        expectedTypes.forEach(type => {
+            const fields = generator._typeFieldsMap[type];
+            console.log(`   ${type}: [${fields.join(', ')}]`);
+        });
+
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест генерации сообщения с дублирующимися src полями
+ */
+function testDuplicateSrcFieldGeneration(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(duplicateSrcFieldConfig);
+
+        // Генерируем сообщение типа 1
+        const message = generator.generateMessage(1);
+
+        console.log('✅ Сообщение сгенерировано успешно');
+        console.log(`   Тип: ${message.t}`);
+
+        // Проверяем структуру сообщения
+        if (!message.d || typeof message.d !== 'object') {
+            console.log('❌ Объект d отсутствует или не является объектом');
+            return false;
+        }
+
+        const dataFields = Object.keys(message.d);
+        console.log(`   Поля в d: [${dataFields.join(', ')}]`);
+
+        // Проверяем, что каждое src поле присутствует только один раз в объекте d
+        const expectedSrcFields = ['commonField', 'uniqueField', 'anotherCommonField'];
+        
+        for (const srcField of expectedSrcFields) {
+            const occurrences = dataFields.filter(field => field === srcField).length;
+            if (occurrences === 0) {
+                console.log(`❌ Поле ${srcField} отсутствует в сгенерированном сообщении`);
+                return false;
+            } else if (occurrences > 1) {
+                console.log(`❌ Поле ${srcField} встречается ${occurrences} раз в сгенерированном сообщении`);
+                return false;
+            } else {
+                console.log(`✅ Поле ${srcField} встречается ровно один раз`);
+            }
+        }
+
+        // Проверяем, что все ожидаемые поля присутствуют
+        const hasAllExpectedFields = expectedSrcFields.every(field => dataFields.includes(field));
+        if (!hasAllExpectedFields) {
+            console.log('❌ Не все ожидаемые поля присутствуют');
+            return false;
+        }
+
+        console.log('✅ Все src поля присутствуют ровно один раз в сгенерированном сообщении');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест проверки использования первого генератора для дублирующихся src полей
+ */
+function testDuplicateSrcFieldFirstGeneratorUsed(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(duplicateSrcFieldConfig);
+
+        // Генерируем несколько сообщений для проверки стабильности
+        const generatedValues = [];
+        for (let i = 0; i < 10; i++) {
+            const message = generator.generateMessage(1);
+            if (message.d && message.d.commonField) {
+                generatedValues.push(message.d.commonField);
+            }
+        }
+
+        console.log(`✅ Сгенерировано ${generatedValues.length} значений для commonField`);
+        console.log(`   Примеры значений: [${generatedValues.slice(0, 5).join(', ')}]`);
+
+        // Проверяем, что значения соответствуют первому генератору (min=5, max=15)
+        let allValuesValid = true;
+        for (const value of generatedValues) {
+            if (typeof value !== 'string') {
+                console.log(`❌ Значение ${value} не является строкой`);
+                allValuesValid = false;
+                break;
+            }
+            if (value.length < 5 || value.length > 15) {
+                console.log(`❌ Значение "${value}" имеет длину ${value.length}, а должно быть от 5 до 15`);
+                allValuesValid = false;
+                break;
+            }
+        }
+
+        if (allValuesValid) {
+            console.log('✅ Все значения соответствуют первому генератору (min=5, max=15)');
+        } else {
+            console.log('❌ Некоторые значения не соответствуют первому генератору');
+            return false;
+        }
+
+        // Проверяем, что иногда используется default_value первого генератора
+        const defaultValueCount = generatedValues.filter(value => value === "FIRST_MAP").length;
+        console.log(`✅ Значение по умолчанию "FIRST_MAP" использовано ${defaultValueCount} раз из ${generatedValues.length}`);
+
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест генерации сообщений для всех типов с дублирующимися src полями
+ */
+function testDuplicateSrcFieldAllTypes(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(duplicateSrcFieldConfig);
+
+        console.log('✅ Генерация сообщений для всех типов с дублирующимися src полями:');
+        
+        for (const type of generator._availableTypes) {
+            const message = generator.generateMessage(type);
+            const dataFields = message.d ? Object.keys(message.d) : [];
+            
+            console.log(`   Тип ${type}: ${dataFields.length} полей [${dataFields.join(', ')}]`);
+            
+            // Проверяем, что каждое src поле встречается только один раз
+            const srcFieldCounts = {};
+            for (const field of dataFields) {
+                srcFieldCounts[field] = (srcFieldCounts[field] || 0) + 1;
+            }
+            
+            let hasDuplicates = false;
+            for (const [field, count] of Object.entries(srcFieldCounts)) {
+                if (count > 1) {
+                    console.log(`❌ Поле ${field} встречается ${count} раз в типе ${type}`);
+                    hasDuplicates = true;
+                }
+            }
+            
+            if (hasDuplicates) {
+                return false;
+            }
+        }
+
+        console.log('✅ Все типы генерируются корректно без дублирующихся src полей');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
  * Запуск всех тестов
  */
 function runAllTests() {
@@ -930,16 +1194,20 @@ function runAllTests() {
         { func: testInvalidDefaultValueConstructor, name: '6. Создание генератора с неверной конфигурацией default_value' },
         { func: testInvalidDefaultRandomConstructor, name: '7. Создание генератора с неверной конфигурацией default_random' },
         { func: testInvalidBooleanConstructor, name: '8. Создание генератора с неверной конфигурацией boolean' },
-        { func: testGenerateEvent, name: '9. Генерация факта конкретного типа' },
-        { func: testGenerateFactInvalidType, name: '10. Генерация факта несуществующего типа' },
-        { func: testGenerateRandomTypeFact, name: '11. Генерация случайного факта' },
-        { func: testGenerateFactForAllTypes, name: '12. Генерация фактов для всех типов' },
-        { func: testGeneratorTypes, name: '13. Генерация факта с различными типами генераторов' },
-        { func: testEnumRandomness, name: '14. Проверка случайности enum значений' },
-        { func: testObjectIdUniqueness, name: '15. Проверка уникальности ObjectId' },
-        { func: testDefaultValueGeneration, name: '16. Генерация факта с default_value и default_random' },
-        { func: testDefaultValueFrequency, name: '17. Проверка частоты появления default_value' },
-        { func: testPerformance, name: '18. Производительность генерации' }
+        { func: testDuplicateSrcFieldConstructor, name: '9. Создание генератора с дублирующимися src полями' },
+        { func: testGenerateEvent, name: '10. Генерация факта конкретного типа' },
+        { func: testGenerateFactInvalidType, name: '11. Генерация факта несуществующего типа' },
+        { func: testGenerateRandomTypeFact, name: '12. Генерация случайного факта' },
+        { func: testGenerateFactForAllTypes, name: '13. Генерация фактов для всех типов' },
+        { func: testDuplicateSrcFieldGeneration, name: '14. Генерация сообщения с дублирующимися src полями' },
+        { func: testDuplicateSrcFieldFirstGeneratorUsed, name: '15. Проверка использования первого генератора для дублирующихся src полей' },
+        { func: testDuplicateSrcFieldAllTypes, name: '16. Генерация сообщений для всех типов с дублирующимися src полями' },
+        { func: testGeneratorTypes, name: '17. Генерация факта с различными типами генераторов' },
+        { func: testEnumRandomness, name: '18. Проверка случайности enum значений' },
+        { func: testObjectIdUniqueness, name: '19. Проверка уникальности ObjectId' },
+        { func: testDefaultValueGeneration, name: '20. Генерация факта с default_value и default_random' },
+        { func: testDefaultValueFrequency, name: '21. Проверка частоты появления default_value' },
+        { func: testPerformance, name: '22. Производительность генерации' }
     ];
 
     let passed = 0;
@@ -982,10 +1250,14 @@ module.exports = {
     testInvalidDefaultValueConstructor,
     testInvalidDefaultRandomConstructor,
     testInvalidBooleanConstructor,
+    testDuplicateSrcFieldConstructor,
     testGenerateFact: testGenerateEvent,
     testGenerateFactInvalidType,
     testGenerateRandomTypeFact,
     testGenerateFactForAllTypes,
+    testDuplicateSrcFieldGeneration,
+    testDuplicateSrcFieldFirstGeneratorUsed,
+    testDuplicateSrcFieldAllTypes,
     testGeneratorTypes,
     testEnumRandomness,
     testObjectIdUniqueness,

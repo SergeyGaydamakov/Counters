@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const fs = require('fs');
-// const path = require('path');
+const path = require('path');
 const Logger = require('../utils/logger');
 const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG, ERROR_WRONG_KEY_TYPE } = require('../common/errors');
 
@@ -59,11 +59,43 @@ class FactMapper {
     }
 
     /**
+     * Ищет файл в нескольких директориях
+     * @param {string} filename - имя файла для поиска
+     * @param {Array<string>} searchPaths - массив путей для поиска
+     * @returns {string|null} путь к найденному файлу или null
+     */
+    _findFileInPaths(filename, searchPaths) {
+        for (const searchPath of searchPaths) {
+            const fullPath = path.join(searchPath, filename);
+            if (fs.existsSync(fullPath)) {
+                return fullPath;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Загружает конфигурацию маппинга из файла
      * @throws {Error} если файл конфигурации не найден или содержит неверный формат
      */
     _loadConfig(configPath) {
         try {
+            // Если передан только имя файла, ищем его в стандартных директориях
+            if (!path.isAbsolute(configPath) && !configPath.includes(path.sep)) {
+                const searchPaths = [
+                    process.cwd(),                    // Текущая директория
+                    path.join(process.cwd(), '..'),   // Родительская директория
+                    path.join(process.cwd(), '..', '..'), // Директория на 2 уровня выше
+                    path.join(__dirname, '..', '..'), // Корень проекта относительно src/generators
+                ];
+                
+                const foundPath = this._findFileInPaths(configPath, searchPaths);
+                if (foundPath) {
+                    configPath = foundPath;
+                    this.logger.info(`Файл ${configPath} найден в директории: ${path.dirname(foundPath)}`);
+                }
+            }
+
             if (!fs.existsSync(configPath)) {
                 throw new Error(`Файл конфигурации не найден: ${configPath}`);
             }
@@ -92,6 +124,14 @@ class FactMapper {
             throw new Error('Конфигурация маппинга полей должна быть массивом объектов');
         }
 
+        // Проверяем уникальность комбинаций src + dst
+        const srcDstCombinations = new Set();
+        const duplicateCombinations = [];
+        
+        // Проверяем уникальность dst полей (разные src не должны маппиться на одно dst)
+        const dstToSrcMap = new Map();
+        const conflictingDstFields = [];
+
         for (let i = 0; i < mappingConfig.length; i++) {
             const rule = mappingConfig[i];
             
@@ -117,7 +157,47 @@ class FactMapper {
                     throw new Error(`Правило маппинга ${i}, тип ${j} должен быть целым числом`);
                 }
             }
+
+            // Проверяем уникальность комбинации src + dst
+            const srcDstKey = `${rule.src}->${rule.dst}`;
+            if (srcDstCombinations.has(srcDstKey)) {
+                duplicateCombinations.push({ index: i, src: rule.src, dst: rule.dst });
+            } else {
+                srcDstCombinations.add(srcDstKey);
+            }
+            
+            // Проверяем, что разные src не маппятся на одно dst
+            if (dstToSrcMap.has(rule.dst)) {
+                const existingSrc = dstToSrcMap.get(rule.dst);
+                if (existingSrc !== rule.src) {
+                    conflictingDstFields.push({
+                        dst: rule.dst,
+                        src1: existingSrc,
+                        src2: rule.src,
+                        index: i
+                    });
+                }
+            } else {
+                dstToSrcMap.set(rule.dst, rule.src);
+            }
         }
+
+        // Если найдены дублирующиеся комбинации, выбрасываем ошибку
+        if (duplicateCombinations.length > 0) {
+            const duplicatesInfo = duplicateCombinations.map(dup => 
+                `правило ${dup.index}: ${dup.src}->${dup.dst}`
+            ).join(', ');
+            throw new Error(`Найдены дублирующиеся комбинации src->dst: ${duplicatesInfo}. Каждая комбинация src->dst должна быть уникальной в конфигурации.`);
+        }
+        
+        // Если найдены конфликтующие dst поля, выбрасываем ошибку
+        if (conflictingDstFields.length > 0) {
+            const conflictsInfo = conflictingDstFields.map(conflict => 
+                `поле ${conflict.dst}: ${conflict.src1} и ${conflict.src2} (правило ${conflict.index})`
+            ).join(', ');
+            throw new Error(`Найдены конфликтующие dst поля: ${conflictsInfo}. Разные src поля не могут маппиться на одно dst поле.`);
+        }
+
         this.logger.info(`Конфигурация маппинга полей валидна. Количество правил маппинга полей: ${mappingConfig.length}`);
     }
 

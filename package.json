@@ -6,6 +6,7 @@
   "scripts": {
     "test": "set LOG_LEVEL=DEBUG && node src/tests/loggerTest.js && node src/tests/factIndexerTest.js && node src/tests/mongoProviderTest.js && node src/tests/factControllerTest.js && node src/tests/mongoFactIndexTest.js && node src/tests/factMapperTest.js && node src/tests/messageGeneratorTest.js && node src/tests/mongoCountersTest.js",
     "test:logger": "set LOG_LEVEL=DEBUG && node src/tests/loggerTest.js",
+    "test:generator": "set LOG_LEVEL=DEBUG && node src/tests/messageGeneratorTest.js",
     "test:mapper": "set LOG_LEVEL=DEBUG && node src/tests/factMapperTest.js",
     "test:indexer": "set LOG_LEVEL=DEBUG && node src/tests/factIndexerTest.js",
     "test:counters": "set LOG_LEVEL=DEBUG && node src/tests/counterProducerTest.js",
