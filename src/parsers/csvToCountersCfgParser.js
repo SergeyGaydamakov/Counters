@@ -1,509 +1,690 @@
 const fs = require('fs');
 const path = require('path');
 
-/**
- * Парсер для преобразования counters.csv в countersCfg.json
- * Обрабатывает условия и преобразует их в MongoDB операторы
- */
-class CsvToCountersCfgParser {
+class CountersCsvParser {
     constructor() {
-        this.attributeMapping = {
-            'average amount': { name: 'avg', accumulator: '$avg' },
-            'distinct values number': { name: 'dst', accumulator: '$addToSet' },
-            'frequency': { name: 'cnt', accumulator: '$sum' },
-            'maximum amount': { name: 'max', accumulator: '$max' },
-            'minimum amount': { name: 'min', accumulator: '$min' },
-            'total amount': { name: 'sum', accumulator: '$sum' }
-        };
-        
-        this.dateFields = ['Timestamp', 'reg_dt', 'created_at', 'updated_at'];
-        this.booleanFields = ['pe_tb_client_private_flag', 'pe_vip_flag_3', 'IP_GSMflag'];
+        this.errors = [];
+        this.warnings = [];
     }
 
     /**
-     * Парсит CSV файл и преобразует в JSON конфигурацию
+     * Парсит CSV файл и преобразует его в JSON структуру
      * @param {string} csvFilePath - путь к CSV файлу
-     * @param {string} outputPath - путь для сохранения JSON
+     * @param {string} outputFilePath - путь для сохранения JSON файла
      */
-    async parseCsvToJson(csvFilePath, outputPath) {
+    parseCsvToJson(csvFilePath, outputFilePath) {
         try {
-            console.log(`Чтение файла: ${csvFilePath}`);
+            console.log('Начинаем парсинг CSV файла...');
+            
+            // Читаем CSV файл
             const csvContent = fs.readFileSync(csvFilePath, 'utf8');
+            const lines = csvContent.split('\n');
             
-            const lines = this.parseCsvLines(csvContent);
-            const headers = lines[0];
-            
-            console.log(`Найдено ${lines.length - 1} записей для обработки`);
-            
+            if (lines.length < 2) {
+                throw new Error('CSV файл должен содержать заголовок и хотя бы одну строку данных');
+            }
+
+            // Парсим заголовки
+            const headers = this.parseCsvLine(lines[0]);
+            console.log('Заголовки:', headers);
+
             const counters = [];
-            const errors = [];
             
+            // Парсим каждую строку данных
             for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
                 try {
-                    const row = lines[i];
-                    const counter = this.parseCounterRow(headers, row, i + 1);
+                    const counter = this.parseCounterLine(line, headers, i + 1);
                     if (counter) {
                         counters.push(counter);
                     }
                 } catch (error) {
-                    errors.push(`Строка ${i + 1}: ${error.message}`);
+                    this.addError(`Ошибка в строке ${i + 1}: ${error.message}`);
                     console.error(`Ошибка в строке ${i + 1}:`, error.message);
                 }
             }
-            
+
+            // Создаем результирующий JSON
             const result = {
                 counters: counters,
                 metadata: {
                     totalCounters: counters.length,
-                    errors: errors,
+                    errors: this.errors.length,
+                    warnings: this.warnings.length,
                     generatedAt: new Date().toISOString()
                 }
             };
+
+            // Сохраняем результат
+            fs.writeFileSync(outputFilePath, JSON.stringify(result, null, 2), 'utf8');
             
-            fs.writeFileSync(outputPath, JSON.stringify(result, null, 2), 'utf8');
-            console.log(`Результат сохранен в: ${outputPath}`);
-            console.log(`Обработано счетчиков: ${counters.length}`);
-            console.log(`Ошибок: ${errors.length}`);
+            console.log(`Парсинг завершен. Создано ${counters.length} счетчиков.`);
+            console.log(`Ошибок: ${this.errors.length}, Предупреждений: ${this.warnings.length}`);
             
-            if (errors.length > 0) {
-                console.log('Ошибки:', errors);
+            if (this.errors.length > 0) {
+                console.log('Ошибки:', this.errors);
             }
-            
+            if (this.warnings.length > 0) {
+                console.log('Предупреждения:', this.warnings);
+            }
+
             return result;
-            
+
         } catch (error) {
-            console.error('Ошибка при парсинге:', error);
+            console.error('Критическая ошибка при парсинге:', error.message);
             throw error;
         }
     }
 
     /**
-     * Парсит CSV строки с учетом экранирования кавычек
+     * Парсит строку CSV с учетом экранирования кавычек
      */
-    parseCsvLines(content) {
-        const lines = [];
-        let currentLine = '';
+    parseCsvLine(line) {
+        const result = [];
+        let current = '';
         let inQuotes = false;
         let i = 0;
-        
-        while (i < content.length) {
-            const char = content[i];
-            
+
+        while (i < line.length) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
             if (char === '"') {
-                if (inQuotes && content[i + 1] === '"') {
+                if (inQuotes && nextChar === '"') {
                     // Экранированная кавычка
-                    currentLine += '"';
+                    current += '"';
                     i += 2;
-                    continue;
                 } else {
+                    // Начало или конец кавычек
                     inQuotes = !inQuotes;
+                    i++;
                 }
             } else if (char === ';' && !inQuotes) {
-                // Разделитель поля
-                currentLine += '|FIELD_SEPARATOR|';
-            } else if (char === '\n' && !inQuotes) {
-                // Конец строки
-                if (currentLine.trim()) {
-                    lines.push(currentLine.split('|FIELD_SEPARATOR|'));
-                }
-                currentLine = '';
+                // Разделитель полей
+                result.push(current.trim());
+                current = '';
+                i++;
             } else {
-                currentLine += char;
+                current += char;
+                i++;
             }
-            i++;
         }
-        
-        // Добавляем последнюю строку
-        if (currentLine.trim()) {
-            lines.push(currentLine.split('|FIELD_SEPARATOR|'));
-        }
-        
-        return lines;
+
+        // Добавляем последнее поле
+        result.push(current.trim());
+        return result;
     }
 
     /**
      * Парсит одну строку счетчика
      */
-    parseCounterRow(headers, row, lineNumber) {
-        const data = {};
+    parseCounterLine(line, headers, lineNumber) {
+        const fields = this.parseCsvLine(line);
         
-        // Создаем объект данных по заголовкам
-        headers.forEach((header, index) => {
-            data[header.trim()] = row[index] ? row[index].trim() : '';
-        });
-        
-        // Проверяем обязательные поля
-        if (!data.Name) {
-            throw new Error('Отсутствует обязательное поле Name');
+        if (fields.length < headers.length) {
+            this.addWarning(`Строка ${lineNumber}: недостаточно полей (${fields.length} из ${headers.length})`);
         }
+
+        // Создаем объект с полями
+        const counterData = {};
+        headers.forEach((header, index) => {
+            counterData[header] = fields[index] || '';
+        });
+
+        // Проверяем обязательные поля
+        if (!counterData.Name) {
+            this.addError(`Строка ${lineNumber}: отсутствует обязательное поле Name`);
+            return null;
+        }
+
+        // Парсим условия
+        const evaluationConditions = this.parseConditions(counterData['Evaluation Conditions'], 'evaluation', lineNumber);
+        const computationConditions = this.parseConditions(counterData['Computation Conditions'], 'computation', lineNumber);
         
+        // Парсим атрибуты
+        const attributes = this.parseAttributes(counterData.Attributes, lineNumber);
+
+        // Создаем объект счетчика
         const counter = {
-            name: data.Name,
-            comment: data.Comment || `${data.Name} - счетчик`,
-            indexTypeName: data.Index || 'idx_default',
-            computationConditions: this.parseConditions(data['Computation Conditions'], 'computation', lineNumber),
-            evaluationConditions: this.parseConditions(data['Evaluation Conditions'], 'evaluation', lineNumber),
-            attributes: this.parseAttributes(data.Attributes, lineNumber)
+            name: counterData.Name,
+            comment: counterData.Comment || `${counterData.Name} - счетчик`,
+            indexTypeName: counterData.Index || 'idx_default',
+            computationConditions: computationConditions,
+            evaluationConditions: evaluationConditions,
+            attributes: attributes
         };
-        
+
+        // Добавляем информацию об ошибках в комментарий, если есть
+        if (this.errors.length > 0) {
+            const recentErrors = this.errors.slice(-3); // Последние 3 ошибки
+            counter.comment += ` [Ошибки парсинга: ${recentErrors.join('; ')}]`;
+        }
+
         return counter;
     }
 
     /**
-     * Парсит условия из строки
+     * Парсит условия (Evaluation Conditions или Computation Conditions)
      */
     parseConditions(conditionsStr, type, lineNumber) {
         if (!conditionsStr || conditionsStr.trim() === '') {
-            return type === 'computation' ? {} : null;
+            return null;
         }
-        
+
         try {
             // Убираем внешние кавычки если есть
-            let cleanStr = conditionsStr.trim();
-            if ((cleanStr.startsWith('"') && cleanStr.endsWith('"')) ||
-                (cleanStr.startsWith("'") && cleanStr.endsWith("'"))) {
-                cleanStr = cleanStr.slice(1, -1);
+            let cleanConditions = conditionsStr.trim();
+            if (cleanConditions.startsWith('"') && cleanConditions.endsWith('"')) {
+                cleanConditions = cleanConditions.slice(1, -1);
             }
-            
-            const conditions = {};
-            const exprConditions = [];
-            
-            // Разбиваем на отдельные выражения в скобках
-            const expressions = this.extractExpressions(cleanStr);
-            
+
+            const result = {};
+            const expressions = this.splitExpressions(cleanConditions);
+
             for (const expr of expressions) {
-                try {
-                    const parsed = this.parseExpression(expr, type);
-                    if (parsed.isExpr) {
-                        exprConditions.push(parsed.condition);
-                    } else {
-                        Object.assign(conditions, parsed.condition);
-                    }
-                } catch (error) {
-                    console.warn(`Строка ${lineNumber}: Не удалось распарсить выражение "${expr}": ${error.message}`);
+                if (!expr.trim()) continue;
+
+                const parsed = this.parseExpression(expr.trim(), type, lineNumber);
+                if (parsed) {
+                    Object.assign(result, parsed);
                 }
             }
-            
-            // Добавляем $expr условия если есть
-            if (exprConditions.length > 0) {
-                if (exprConditions.length === 1) {
-                    conditions['$expr'] = exprConditions[0];
-                } else {
-                    conditions['$expr'] = { '$and': exprConditions };
-                }
-            }
-            
-            return Object.keys(conditions).length > 0 ? conditions : (type === 'computation' ? {} : null);
-            
+
+            return Object.keys(result).length > 0 ? result : null;
+
         } catch (error) {
-            console.warn(`Строка ${lineNumber}: Ошибка парсинга условий "${conditionsStr}": ${error.message}`);
-            return type === 'computation' ? {} : null;
+            this.addError(`Строка ${lineNumber}: ошибка парсинга условий ${type}: ${error.message}`);
+            return null;
         }
     }
 
     /**
-     * Извлекает выражения из строки условий
+     * Разделяет строку условий на отдельные выражения
      */
-    extractExpressions(str) {
+    splitExpressions(conditionsStr) {
         const expressions = [];
         let current = '';
-        let depth = 0;
+        let parenCount = 0;
         let i = 0;
-        
-        while (i < str.length) {
-            const char = str[i];
+
+        while (i < conditionsStr.length) {
+            const char = conditionsStr[i];
             
             if (char === '(') {
-                depth++;
-                if (depth === 1) {
-                    current = '';
-                } else {
-                    current += char;
-                }
+                parenCount++;
+                current += char;
             } else if (char === ')') {
-                depth--;
-                if (depth === 0) {
+                parenCount--;
+                current += char;
+                
+                if (parenCount === 0) {
                     expressions.push(current.trim());
                     current = '';
-                } else {
-                    current += char;
                 }
+            } else if (char === ';' && parenCount === 0) {
+                if (current.trim()) {
+                    expressions.push(current.trim());
+                }
+                current = '';
             } else {
                 current += char;
             }
             i++;
         }
-        
-        return expressions.filter(expr => expr.trim() !== '');
+
+        if (current.trim()) {
+            expressions.push(current.trim());
+        }
+
+        return expressions;
     }
 
     /**
-     * Парсит одно выражение
+     * Парсит одно выражение условия
      */
-    parseExpression(expr, type) {
-        // Обработка дат и времени
-        const dateMatch = expr.match(/\(([^)]+)\s*([<>]=?)\s*\(\[([^)]+)\]\s*\+\s*(\d+)([dhms])\)\)/);
-        if (dateMatch) {
-            const [, field, operator, otherField, amount, unit] = dateMatch;
-            const mongoOperator = this.getMongoOperator(operator);
-            const unitMap = { d: 'day', h: 'hour', m: 'minute', s: 'second' };
-            
-            return {
-                isExpr: false,
-                condition: {
-                    [`d.${field}`]: {
-                        [mongoOperator]: {
-                            "$dateAdd": {
-                                "startDate": `$${otherField}`,
-                                "unit": unitMap[unit],
-                                "amount": parseInt(amount)
-                            }
+    parseExpression(expr, type, lineNumber) {
+        // Убираем скобки
+        if (expr.startsWith('(') && expr.endsWith(')')) {
+            expr = expr.slice(1, -1);
+        }
+
+        // Сначала проверяем на арифметику с датами (приоритетная проверка)
+        const dateArithmeticMatch = expr.match(/^(.+?)\s*([<>≥≤])\s*\(\[(.+?)\]\s*([+-])\s*(\d+)([dhm])\)$/);
+        if (dateArithmeticMatch) {
+            return this.parseDateArithmeticOperator(dateArithmeticMatch, type, lineNumber);
+        }
+
+        // Проверяем на простую арифметику с датами (без скобок)
+        const simpleDateArithmeticMatch = expr.match(/^(.+?)\s*([<>≥≤])\s*\[(.+?)\]\s*([+-])\s*(\d+)([dhm])$/);
+        if (simpleDateArithmeticMatch) {
+            return this.parseDateArithmeticOperator(simpleDateArithmeticMatch, type, lineNumber);
+        }
+
+        // Ищем оператор
+        const operators = [
+            { pattern: /^(.+?)\s*is\s+(true|false)\s*$/, handler: this.parseBooleanOperator },
+            { pattern: /^(.+?)\s*=\*=\s*(.+)$/, handler: this.parseContainsOperator },
+            { pattern: /^(.+?)\s*¬=\*=\s*(.+)$/, handler: this.parseNotContainsOperator },
+            { pattern: /^(.+?)\s*\*=\s*(.+)$/, handler: this.parseStartsWithOperator },
+            { pattern: /^(.+?)\s*¬\*=\s*(.+)$/, handler: this.parseNotStartsWithOperator },
+            { pattern: /^(.+?)\s*≈\s*(.+)$/, handler: this.parseApproximatelyEqualsOperator },
+            { pattern: /^(.+?)\s*¬≈\s*(.+)$/, handler: this.parseNotApproximatelyEqualsOperator },
+            { pattern: /^(.+?)\s*=\s*(.+)$/, handler: this.parseEqualsOperator },
+            { pattern: /^(.+?)\s*≠\s*(.+)$/, handler: this.parseNotEqualsOperator },
+            { pattern: /^(.+?)\s*>\s*(.+)$/, handler: this.parseGreaterThanOperator },
+            { pattern: /^(.+?)\s*≥\s*(.+)$/, handler: this.parseGreaterOrEqualOperator },
+            { pattern: /^(.+?)\s*<\s*(.+)$/, handler: this.parseLessThanOperator },
+            { pattern: /^(.+?)\s*≤\s*(.+)$/, handler: this.parseLessOrEqualOperator },
+            { pattern: /^(.+?)\s*=====\*\s*(.+)$/, handler: this.parseDateEqualsOperator },
+            { pattern: /^(.+?)\s*=\s*=\s*=\s*=\s*\*\s*(.+)$/, handler: this.parseDateEqualsOperator }
+        ];
+
+        for (const op of operators) {
+            const match = expr.match(op.pattern);
+            if (match) {
+                return op.handler.call(this, match[1].trim(), match[2].trim(), type, lineNumber);
+            }
+        }
+
+        this.addWarning(`Строка ${lineNumber}: неизвестный оператор в выражении: ${expr}`);
+        return null;
+    }
+
+    /**
+     * Парсит оператор is true/false
+     */
+    parseBooleanOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const boolValue = value.toLowerCase() === 'true';
+        
+        if (type === 'computation') {
+            return { [`d.${cleanFieldName}`]: boolValue };
+        } else {
+            return { [`d.${cleanFieldName}`]: boolValue };
+        }
+    }
+
+    /**
+     * Парсит оператор =*= (содержит подстроку)
+     */
+    parseContainsOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$regex": values[0], "$options": "i" } };
+        } else {
+            const regexPatterns = values.map(v => ({ "$regex": v, "$options": "i" }));
+            return { [`d.${cleanFieldName}`]: { "$or": regexPatterns } };
+        }
+    }
+
+    /**
+     * Парсит оператор ¬=*= (не содержит подстроку)
+     */
+    parseNotContainsOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": values[0], "$options": "i" } } };
+        } else {
+            const regexPatterns = values.map(v => ({ "$regex": v, "$options": "i" }));
+            return { [`d.${cleanFieldName}`]: { "$nor": regexPatterns } };
+        }
+    }
+
+    /**
+     * Парсит оператор *= (начинается с)
+     */
+    parseStartsWithOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(values[0])}`, "$options": "i" } };
+        } else {
+            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}`, "$options": "i" }));
+            return { [`d.${cleanFieldName}`]: { "$or": regexPatterns } };
+        }
+    }
+
+    /**
+     * Парсит оператор ¬*= (не начинается с)
+     */
+    parseNotStartsWithOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(values[0])}`, "$options": "i" } } };
+        } else {
+            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}`, "$options": "i" }));
+            return { [`d.${cleanFieldName}`]: { "$nor": regexPatterns } };
+        }
+    }
+
+    /**
+     * Парсит оператор ≈ (приблизительно равно)
+     */
+    parseApproximatelyEqualsOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        
+        // Проверяем на ссылки на другие поля
+        if (value.startsWith('[') && value.endsWith(']')) {
+            const refField = value.slice(1, -1);
+            if (type === 'evaluation') {
+                return { "$expr": { "$eq": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            } else {
+                return { "$expr": { "$eq": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            }
+        }
+
+        // Для обычных значений используем regex с игнорированием регистра
+        const values = this.parseValueList(value);
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(values[0])}$`, "$options": "i" } };
+        } else {
+            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}$`, "$options": "i" }));
+            return { [`d.${cleanFieldName}`]: { "$or": regexPatterns } };
+        }
+    }
+
+    /**
+     * Парсит оператор ¬≈ (не приблизительно равно)
+     */
+    parseNotApproximatelyEqualsOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        
+        // Проверяем на ссылки на другие поля
+        if (value.startsWith('[') && value.endsWith(']')) {
+            const refField = value.slice(1, -1);
+            if (type === 'evaluation') {
+                return { "$expr": { "$ne": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            } else {
+                return { "$expr": { "$ne": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            }
+        }
+
+        // Для обычных значений используем $not с regex
+        const values = this.parseValueList(value);
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(values[0])}$`, "$options": "i" } } };
+        } else {
+            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}$`, "$options": "i" }));
+            return { [`d.${cleanFieldName}`]: { "$nor": regexPatterns } };
+        }
+    }
+
+    /**
+     * Парсит оператор = (равно)
+     */
+    parseEqualsOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        
+        // Проверяем на ссылки на другие поля
+        if (value.startsWith('{') && value.endsWith('}')) {
+            const refField = value.slice(1, -1);
+            if (type === 'computation') {
+                return { [`d.${cleanFieldName}`]: `$d.${refField}` };
+            } else {
+                return { [`d.${cleanFieldName}`]: `$$d.${refField}` };
+            }
+        }
+        
+        if (value.startsWith('[') && value.endsWith(']')) {
+            const refField = value.slice(1, -1);
+            if (type === 'evaluation') {
+                return { "$expr": { "$eq": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            } else {
+                return { "$expr": { "$eq": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            }
+        }
+
+        const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName);
+
+        if (type === 'computation') {
+            if (values.length === 1) {
+                return { [`d.${cleanFieldName}`]: typedValues[0] };
+            } else {
+                return { [`d.${cleanFieldName}`]: typedValues };
+            }
+        } else {
+            if (values.length === 1) {
+                return { [`d.${cleanFieldName}`]: typedValues[0] };
+            } else {
+                return { [`d.${cleanFieldName}`]: { "$in": typedValues } };
+            }
+        }
+    }
+
+    /**
+     * Парсит оператор ≠ (не равно)
+     */
+    parseNotEqualsOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        
+        // Проверяем на ссылки на другие поля
+        if (value.startsWith('{') && value.endsWith('}')) {
+            const refField = value.slice(1, -1);
+            if (type === 'computation') {
+                return { [`d.${cleanFieldName}`]: { "$ne": `$d.${refField}` } };
+            } else {
+                return { [`d.${cleanFieldName}`]: { "$ne": `$$d.${refField}` } };
+            }
+        }
+        
+        if (value.startsWith('[') && value.endsWith(']')) {
+            const refField = value.slice(1, -1);
+            if (type === 'evaluation') {
+                return { "$expr": { "$ne": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            } else {
+                return { "$expr": { "$ne": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+            }
+        }
+
+        const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName);
+
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$ne": typedValues[0] } };
+        } else {
+            return { [`d.${cleanFieldName}`]: { "$nin": typedValues } };
+        }
+    }
+
+    /**
+     * Парсит оператор > (больше)
+     */
+    parseGreaterThanOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$gt": typedValues[0] } };
+        } else {
+            // Для множественных значений используем $or
+            const conditions = typedValues.map(v => ({ [`d.${cleanFieldName}`]: { "$gt": v } }));
+            return { "$or": conditions };
+        }
+    }
+
+    /**
+     * Парсит оператор ≥ (больше или равно)
+     */
+    parseGreaterOrEqualOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$gte": typedValues[0] } };
+        } else {
+            const conditions = typedValues.map(v => ({ [`d.${cleanFieldName}`]: { "$gte": v } }));
+            return { "$or": conditions };
+        }
+    }
+
+    /**
+     * Парсит оператор < (меньше)
+     */
+    parseLessThanOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$lt": typedValues[0] } };
+        } else {
+            const conditions = typedValues.map(v => ({ [`d.${cleanFieldName}`]: { "$lt": v } }));
+            return { "$or": conditions };
+        }
+    }
+
+    /**
+     * Парсит оператор ≤ (меньше или равно)
+     */
+    parseLessOrEqualOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName);
+        
+        if (values.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$lte": typedValues[0] } };
+        } else {
+            const conditions = typedValues.map(v => ({ [`d.${cleanFieldName}`]: { "$lte": v } }));
+            return { "$or": conditions };
+        }
+    }
+
+    /**
+     * Парсит оператор ====* (равенство дат)
+     */
+    parseDateEqualsOperator(fieldName, value, type, lineNumber) {
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        
+        if (value.startsWith('{') && value.endsWith('}')) {
+            const refField = value.slice(1, -1);
+            return { "$expr": { "$eq": [`$d.${cleanFieldName}`, `$d.${refField}`] } };
+        }
+        
+        return { [`d.${cleanFieldName}`]: value };
+    }
+
+    /**
+     * Парсит арифметические операции с датами
+     */
+    parseDateArithmeticOperator(match, type, lineNumber) {
+        const [, fieldName, operator, refField, operation, amount, unit] = match;
+        const cleanFieldName = this.cleanFieldName(fieldName);
+        
+        const mongoOperator = this.getMongoOperator(operator);
+        const dateOperation = operation === '+' ? '$dateAdd' : '$dateSubtract';
+        
+        return {
+            "$expr": {
+                [mongoOperator]: [
+                    `$d.${cleanFieldName}`,
+                    {
+                        [dateOperation]: {
+                            "startDate": `$d.${refField}`,
+                            "unit": this.convertTimeUnit(unit),
+                            "amount": parseInt(amount)
                         }
                     }
-                }
-            };
-        }
-        
-        // Обработка выражений с OR оператором (|)
-        if (expr.includes(' | ')) {
-            return this.parseOrExpression(expr, type);
-        }
-        
-        // Обработка обычных выражений
-        const parts = expr.split(/\s+/);
-        if (parts.length < 2) {
-            throw new Error('Недостаточно частей в выражении');
-        }
-        
-        const fieldName = parts[0];
-        const operator = parts[1];
-        const valuesStr = parts.slice(2).join(' ');
-        
-        // Обработка значений в фигурных или квадратных скобках
-        if (valuesStr.includes('{') || valuesStr.includes('[')) {
-            return this.parseFieldReference(fieldName, operator, valuesStr, type);
-        }
-        
-        // Парсинг значений
-        const values = this.parseValues(valuesStr);
-        
-        // Определение MongoDB оператора
-        const mongoCondition = this.buildMongoCondition(fieldName, operator, values, type);
-        
-        return {
-            isExpr: false,
-            condition: mongoCondition
+                ]
+            }
         };
     }
 
     /**
-     * Парсит выражения с OR оператором
+     * Парсит список значений, разделенных точкой с запятой
      */
-    parseOrExpression(expr, type) {
-        const orParts = expr.split(' | ');
-        const conditions = [];
-        
-        for (const part of orParts) {
-            try {
-                const parsed = this.parseExpression(part.trim(), type);
-                if (parsed.isExpr) {
-                    conditions.push(parsed.condition);
-                } else {
-                    // Преобразуем в $expr для OR логики
-                    const field = Object.keys(parsed.condition)[0];
-                    const condition = parsed.condition[field];
-                    conditions.push({ [field]: condition });
-                }
-            } catch (error) {
-                console.warn(`Не удалось распарсить часть OR выражения "${part}": ${error.message}`);
-            }
-        }
-        
-        if (conditions.length === 0) {
-            throw new Error('Не удалось распарсить ни одной части OR выражения');
-        }
-        
-        return {
-            isExpr: true,
-            condition: { '$or': conditions }
-        };
+    parseValueList(valueStr) {
+        return valueStr.split(';').map(v => v.trim()).filter(v => v !== '');
     }
 
     /**
-     * Обрабатывает ссылки на поля в фигурных или квадратных скобках
+     * Очищает имя поля от лишних символов
      */
-    parseFieldReference(fieldName, operator, valuesStr, type) {
-        const curlyMatch = valuesStr.match(/\{([^}]+)\}/);
-        const squareMatch = valuesStr.match(/\[([^\]]+)\]/);
-        
-        if (curlyMatch) {
-            const otherField = curlyMatch[1];
-            if (type === 'evaluation') {
-                return {
-                    isExpr: false,
-                    condition: {
-                        [`d.${fieldName}`]: `$$${otherField}`
-                    }
-                };
-            } else {
-                return {
-                    isExpr: false,
-                    condition: {
-                        [`d.${fieldName}`]: `$d.${otherField}`
-                    }
-                };
-            }
-        }
-        
-        if (squareMatch) {
-            const otherField = squareMatch[1];
-            const mongoOperator = this.getMongoOperator(operator);
-            return {
-                isExpr: true,
-                condition: {
-                    [mongoOperator]: [`$d.${fieldName}`, `$d.${otherField}`]
-                }
-            };
-        }
-        
-        throw new Error('Не удалось распарсить ссылку на поле');
+    cleanFieldName(fieldName) {
+        return fieldName.trim();
     }
 
     /**
-     * Парсит значения из строки
+     * Конвертирует значения в соответствующие типы
      */
-    parseValues(valuesStr) {
-        // Убираем точки с запятой и разбиваем
-        const values = valuesStr.split(/[;,\s]+/)
-            .map(v => v.trim())
-            .filter(v => v !== '');
-        
-        return values.map(v => {
-            // Обработка специальных значений
-            if (v === '∅') {
+    convertValuesToType(values, fieldName) {
+        return values.map(value => {
+            // Специальная обработка для пустого значения
+            if (value === '∅') {
                 return null;
             }
             
-            // Обработка boolean значений
-            if (v === 'true' || v === 'false') {
-                return v === 'true';
+            // MessageTypeID всегда числа
+            if (fieldName === 'MessageTypeID') {
+                return parseInt(value);
             }
             
-            // Обработка чисел для MessageTypeID
-            if (/^\d+$/.test(v)) {
-                return parseInt(v);
+            // Поля с суффиксом _flag, _indicator - boolean
+            if (fieldName.endsWith('_flag') || fieldName.endsWith('_indicator')) {
+                return value.toLowerCase() === 'true' || value === '1';
             }
             
-            // Обработка чисел с плавающей точкой
-            if (/^\d+[,.]\d+$/.test(v)) {
-                return parseFloat(v.replace(',', '.'));
+            // Поля с датами
+            if (this.isDateField(fieldName)) {
+                return value;
             }
             
-            return v;
+            // Попытка конвертировать в число для числовых полей
+            if (this.isNumericField(fieldName)) {
+                const numValue = parseFloat(value.replace(',', '.'));
+                if (!isNaN(numValue)) {
+                    return numValue;
+                }
+            }
+            
+            return value;
         });
     }
 
     /**
-     * Строит MongoDB условие
+     * Проверяет, является ли поле числовым
      */
-    buildMongoCondition(fieldName, operator, values, type) {
-        const mongoField = `d.${fieldName}`;
-        
-        // Специальная обработка для computation условий
-        if (type === 'computation') {
-            if (operator === '=' && values.length === 1) {
-                return { [mongoField]: values[0] };
-            } else if (operator === '=' && values.length > 1) {
-                return { [mongoField]: values };
-            }
-        }
-        
-        const mongoOperator = this.getMongoOperator(operator);
-        
-        switch (operator) {
-            case '=':
-                if (values.length === 1) {
-                    return { [mongoField]: values[0] };
-                } else {
-                    return { [mongoField]: { [mongoOperator]: values } };
-                }
-                
-            case '≠':
-                if (values.length === 1) {
-                    return { [mongoField]: { [mongoOperator]: values[0] } };
-                } else {
-                    return { [mongoField]: { [mongoOperator]: values } };
-                }
-                
-            case '=*=':
-                // Содержит подстроку
-                if (values.length === 1) {
-                    return { [mongoField]: { "$regex": values[0], "$options": "i" } };
-                } else {
-                    return { [mongoField]: { "$regex": values.join('|'), "$options": "i" } };
-                }
-                
-            case '¬=*=':
-                // Не содержит подстроку
-                if (values.length === 1) {
-                    return { [mongoField]: { "$not": { "$regex": values[0], "$options": "i" } } };
-                } else {
-                    return { [mongoField]: { "$not": { "$regex": values.join('|'), "$options": "i" } } };
-                }
-                
-            case '*=':
-                // Начинается с
-                if (values.length === 1) {
-                    return { [mongoField]: { "$regex": `^${values[0]}`, "$options": "i" } };
-                } else {
-                    return { [mongoField]: { "$regex": `^(${values.join('|')})`, "$options": "i" } };
-                }
-                
-            case '¬*=':
-                // Не начинается с
-                if (values.length === 1) {
-                    return { [mongoField]: { "$not": { "$regex": `^${values[0]}`, "$options": "i" } } };
-                } else {
-                    return { [mongoField]: { "$not": { "$regex": `^(${values.join('|')})`, "$options": "i" } } };
-                }
-                
-            case '=*':
-                // Содержит подстроку (альтернативный синтаксис)
-                if (values.length === 1) {
-                    return { [mongoField]: { "$regex": values[0], "$options": "i" } };
-                } else {
-                    return { [mongoField]: { "$regex": values.join('|'), "$options": "i" } };
-                }
-                
-            case '¬=*':
-                // Не содержит подстроку (альтернативный синтаксис)
-                if (values.length === 1) {
-                    return { [mongoField]: { "$not": { "$regex": values[0], "$options": "i" } } };
-                } else {
-                    return { [mongoField]: { "$not": { "$regex": values.join('|'), "$options": "i" } } };
-                }
-                
-            case '¬=':
-                // Не равно (альтернативный синтаксис)
-                if (values.length === 1) {
-                    return { [mongoField]: { "$ne": values[0] } };
-                } else {
-                    return { [mongoField]: { "$nin": values } };
-                }
-                
-            case 'is':
-                // Boolean значения
-                const boolValue = values[0] === 'true';
-                return { [mongoField]: boolValue };
-                
-            default:
-                // Операторы сравнения
-                if (['>', '<', '>=', '≤', '≥'].includes(operator)) {
-                    return { [mongoField]: { [mongoOperator]: values[0] } };
-                }
-                
-                throw new Error(`Неизвестный оператор: ${operator}`);
-        }
+    isNumericField(fieldName) {
+        const numericFields = ['Amount', 'Resolution', 'authRC', 'payCheckResult', 'terminalId'];
+        return numericFields.some(field => fieldName.includes(field)) || 
+               /^\d+$/.test(fieldName) ||
+               fieldName.includes('amount') ||
+               fieldName.includes('count') ||
+               fieldName.includes('sum');
+    }
+
+    /**
+     * Проверяет, является ли поле датой
+     */
+    isDateField(fieldName) {
+        const dateFields = ['Timestamp', 'reg_dt', 'created_at', 'updated_at', 'trxnDate'];
+        return dateFields.some(field => fieldName.includes(field)) || 
+               fieldName.toLowerCase().includes('date') ||
+               fieldName.toLowerCase().includes('time');
+    }
+
+    /**
+     * Конвертирует единицы времени
+     */
+    convertTimeUnit(unit) {
+        const unitMap = {
+            'd': 'day',
+            'h': 'hour', 
+            'm': 'minute',
+            's': 'second'
+        };
+        return unitMap[unit] || 'day';
     }
 
     /**
@@ -511,20 +692,19 @@ class CsvToCountersCfgParser {
      */
     getMongoOperator(operator) {
         const operatorMap = {
-            '=': '$eq',
-            '≠': '$ne',
             '>': '$gt',
             '<': '$lt',
-            '>=': '$gte',
-            '≤': '$lte',
             '≥': '$gte',
-            '=*=': '$in',
-            '¬=*=': '$nin',
-            '*=': '$in',
-            '¬*=': '$nin'
+            '≤': '$lte'
         };
-        
-        return operatorMap[operator] || operator;
+        return operatorMap[operator] || '$gt';
+    }
+
+    /**
+     * Экранирует специальные символы для regex
+     */
+    escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     /**
@@ -532,98 +712,100 @@ class CsvToCountersCfgParser {
      */
     parseAttributes(attributesStr, lineNumber) {
         if (!attributesStr || attributesStr.trim() === '') {
-            return { cnt: { "$sum": 1 } }; // По умолчанию frequency
+            return { "cnt": { "$sum": 1 } }; // По умолчанию только счетчик
         }
-        
+
         const attributes = {};
-        
-        // Ищем атрибуты в скобках
-        const attributeMatches = attributesStr.match(/\(([^)]+)\)/g);
-        
-        if (attributeMatches) {
-            for (const match of attributeMatches) {
-                const attrStr = match.slice(1, -1); // Убираем скобки
-                const attrInfo = this.parseAttribute(attrStr);
-                if (attrInfo) {
-                    attributes[attrInfo.name] = attrInfo.accumulator;
-                }
+        const attributeList = attributesStr.split(',').map(a => a.trim());
+
+        for (const attr of attributeList) {
+            const parsed = this.parseSingleAttribute(attr, lineNumber);
+            if (parsed) {
+                Object.assign(attributes, parsed);
             }
         }
-        
-        // Если атрибуты не найдены, добавляем frequency по умолчанию
-        if (Object.keys(attributes).length === 0) {
-            attributes.cnt = { "$sum": 1 };
-        }
-        
-        return attributes;
+
+        return Object.keys(attributes).length > 0 ? attributes : { "cnt": { "$sum": 1 } };
     }
 
     /**
      * Парсит один атрибут
      */
-    parseAttribute(attrStr) {
-        // Ищем соответствие в маппинге
-        for (const [key, value] of Object.entries(this.attributeMapping)) {
-            if (attrStr.includes(key)) {
-                return {
-                    name: value.name,
-                    accumulator: this.buildAccumulator(value.accumulator, attrStr)
-                };
+    parseSingleAttribute(attrStr, lineNumber) {
+        // Убираем скобки если есть
+        const cleanAttr = attrStr.replace(/[()]/g, '').trim();
+        
+        const attributeMap = {
+            'frequency': { 'cnt': { '$sum': 1 } },
+            'total amount': { 'sum': { '$sum': '$d.Amount' } },
+            'average amount': { 'avg': { '$avg': '$d.Amount' } },
+            'maximum amount': { 'max': { '$max': '$d.Amount' } },
+            'minimum amount': { 'min': { '$min': '$d.Amount' } },
+            'distinct values number': { 'dst': { '$addToSet': '$d.PAN' } },
+            'most occurrence ratio': { 'cnt': { '$sum': 1 }, 'dst': { '$addToSet': '$d.Amount' } }
+        };
+
+        // Ищем точное совпадение
+        for (const [key, value] of Object.entries(attributeMap)) {
+            if (cleanAttr.toLowerCase().includes(key.toLowerCase())) {
+                return value;
             }
         }
-        
-        return null;
+
+        // Если не найдено точное совпадение, пытаемся извлечь из названия
+        if (cleanAttr.includes('frequency') || cleanAttr.includes('cnt')) {
+            return { 'cnt': { '$sum': 1 } };
+        }
+        if (cleanAttr.includes('sum') || cleanAttr.includes('total')) {
+            return { 'sum': { '$sum': '$d.Amount' } };
+        }
+        if (cleanAttr.includes('avg') || cleanAttr.includes('average')) {
+            return { 'avg': { '$avg': '$d.Amount' } };
+        }
+        if (cleanAttr.includes('max') || cleanAttr.includes('maximum')) {
+            return { 'max': { '$max': '$d.Amount' } };
+        }
+        if (cleanAttr.includes('min') || cleanAttr.includes('minimum')) {
+            return { 'min': { '$min': '$d.Amount' } };
+        }
+        if (cleanAttr.includes('distinct') || cleanAttr.includes('dst')) {
+            return { 'dst': { '$addToSet': '$d.PAN' } };
+        }
+
+        this.addWarning(`Строка ${lineNumber}: неизвестный тип атрибута: ${cleanAttr}`);
+        return { 'cnt': { '$sum': 1 } };
     }
 
     /**
-     * Строит аккумулятор MongoDB
+     * Добавляет ошибку
      */
-    buildAccumulator(accumulatorType, attrStr) {
-        switch (accumulatorType) {
-            case '$sum':
-                if (attrStr.includes('amount')) {
-                    // Для amount полей используем сумму поля
-                    return { "$sum": "$d.amount" };
-                } else {
-                    // Для frequency используем сумму 1
-                    return { "$sum": 1 };
-                }
-                
-            case '$avg':
-                return { "$avg": "$d.amount" };
-                
-            case '$max':
-                return { "$max": "$d.amount" };
-                
-            case '$min':
-                return { "$min": "$d.amount" };
-                
-            case '$addToSet':
-                // Для distinct values обычно используется PAN или другое поле
-                return { "$addToSet": "$d.PAN" };
-                
-            default:
-                return { "$sum": 1 };
-        }
+    addError(message) {
+        this.errors.push(message);
+    }
+
+    /**
+     * Добавляет предупреждение
+     */
+    addWarning(message) {
+        this.warnings.push(message);
     }
 }
 
-// Экспорт для использования
-module.exports = CsvToCountersCfgParser;
+// Экспорт для использования в других модулях
+module.exports = CountersCsvParser;
 
 // Если файл запускается напрямую
 if (require.main === module) {
-    const parser = new CsvToCountersCfgParser();
+    const parser = new CountersCsvParser();
     
-    const csvFile = path.join(__dirname, '../../docs/counters.csv');
-    const outputFile = path.join(__dirname, '../../countersCfg.json');
+    const csvFilePath = path.join(__dirname, '../../docs/counters.csv');
+    const outputFilePath = path.join(__dirname, '../../countersCfg.json');
     
-    parser.parseCsvToJson(csvFile, outputFile)
-        .then(result => {
-            console.log('Парсинг завершен успешно');
-        })
-        .catch(error => {
-            console.error('Ошибка парсинга:', error);
-            process.exit(1);
-        });
+    try {
+        parser.parseCsvToJson(csvFilePath, outputFilePath);
+        console.log('Парсинг завершен успешно!');
+    } catch (error) {
+        console.error('Ошибка при парсинге:', error.message);
+        process.exit(1);
+    }
 }

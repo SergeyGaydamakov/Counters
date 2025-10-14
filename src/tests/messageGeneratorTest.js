@@ -974,6 +974,230 @@ function testDefaultValueFrequency(testName) {
 }
 
 /**
+ * Тест генерации значений с массивом default_value для string
+ */
+function testArrayDefaultValueString(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const config = [
+            {
+                "src": "testString",
+                "dst": "testString",
+                "message_types": [1],
+                "generator": {
+                    "type": "string",
+                    "min": 5,
+                    "max": 10,
+                    "default_value": ["default1", "default2", "default3"],
+                    "default_random": 1.0 // Всегда используем default_value
+                }
+            }
+        ];
+
+        const generator = new MessageGenerator(config);
+        const iterations = 100;
+        const results = [];
+
+        for (let i = 0; i < iterations; i++) {
+            const message = generator.generateMessage(1);
+            results.push(message.d.testString);
+        }
+
+        // Проверяем, что все значения из массива default_value присутствуют
+        const expectedValues = ["default1", "default2", "default3"];
+        const uniqueResults = [...new Set(results)];
+        
+        const hasAllExpectedValues = expectedValues.every(val => uniqueResults.includes(val));
+        if (!hasAllExpectedValues) {
+            throw new Error(`❌ Не все значения из default_value найдены. Ожидаемые: ${expectedValues.join(', ')}, Полученные: ${uniqueResults.join(', ')}`);
+        }
+
+        // Проверяем, что нет значений вне массива default_value
+        const hasUnexpectedValues = uniqueResults.some(val => !expectedValues.includes(val));
+        if (hasUnexpectedValues) {
+            throw new Error(`❌ Найдены неожиданные значения: ${uniqueResults.filter(val => !expectedValues.includes(val)).join(', ')}`);
+        }
+
+        console.log('✅ Массив default_value для string работает корректно');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест генерации значений с массивом default_value для integer
+ */
+function testArrayDefaultValueInteger(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const config = [
+            {
+                "src": "testInteger",
+                "dst": "testInteger",
+                "message_types": [1],
+                "generator": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 1000,
+                    "default_value": [100, 200, 300],
+                    "default_random": 1.0 // Всегда используем default_value
+                }
+            }
+        ];
+
+        const generator = new MessageGenerator(config);
+        const iterations = 100;
+        const results = [];
+
+        for (let i = 0; i < iterations; i++) {
+            const message = generator.generateMessage(1);
+            results.push(message.d.testInteger);
+        }
+
+        // Проверяем, что все значения из массива default_value присутствуют
+        const expectedValues = [100, 200, 300];
+        const uniqueResults = [...new Set(results)];
+        
+        const hasAllExpectedValues = expectedValues.every(val => uniqueResults.includes(val));
+        if (!hasAllExpectedValues) {
+            throw new Error(`❌ Не все значения из default_value найдены. Ожидаемые: ${expectedValues.join(', ')}, Полученные: ${uniqueResults.join(', ')}`);
+        }
+
+        // Проверяем, что нет значений вне массива default_value
+        const hasUnexpectedValues = uniqueResults.some(val => !expectedValues.includes(val));
+        if (hasUnexpectedValues) {
+            throw new Error(`❌ Найдены неожиданные значения: ${uniqueResults.filter(val => !expectedValues.includes(val)).join(', ')}`);
+        }
+
+        console.log('✅ Массив default_value для integer работает корректно');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест генерации значений с массивом default_value для enum
+ */
+function testArrayDefaultValueEnum(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const config = [
+            {
+                "src": "testEnum",
+                "dst": "testEnum",
+                "message_types": [1],
+                "generator": {
+                    "type": "enum",
+                    "values": ["A", "B", "C", "D", "E"],
+                    "default_value": ["A", "C", "E"],
+                    "default_random": 1.0 // Всегда используем default_value
+                }
+            }
+        ];
+
+        const generator = new MessageGenerator(config);
+        const iterations = 100;
+        const results = [];
+
+        for (let i = 0; i < iterations; i++) {
+            const message = generator.generateMessage(1);
+            results.push(message.d.testEnum);
+        }
+
+        // Проверяем, что все значения из массива default_value присутствуют
+        const expectedValues = ["A", "C", "E"];
+        const uniqueResults = [...new Set(results)];
+        
+        const hasAllExpectedValues = expectedValues.every(val => uniqueResults.includes(val));
+        if (!hasAllExpectedValues) {
+            throw new Error(`❌ Не все значения из default_value найдены. Ожидаемые: ${expectedValues.join(', ')}, Полученные: ${uniqueResults.join(', ')}`);
+        }
+
+        // Проверяем, что нет значений вне массива default_value
+        const hasUnexpectedValues = uniqueResults.some(val => !expectedValues.includes(val));
+        if (hasUnexpectedValues) {
+            throw new Error(`❌ Найдены неожиданные значения: ${uniqueResults.filter(val => !expectedValues.includes(val)).join(', ')}`);
+        }
+
+        console.log('✅ Массив default_value для enum работает корректно');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест валидации массива default_value
+ */
+function testArrayDefaultValueValidation(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        // Тест с пустым массивом - должен вызывать ошибку
+        const emptyArrayConfig = [
+            {
+                "src": "testField",
+                "dst": "testField",
+                "message_types": [1],
+                "generator": {
+                    "type": "string",
+                    "default_value": []
+                }
+            }
+        ];
+
+        try {
+            new MessageGenerator(emptyArrayConfig);
+            throw new Error('❌ Ожидалась ошибка валидации для пустого массива');
+        } catch (error) {
+            if (error.message.includes('не может быть пустым массивом')) {
+                console.log('✅ Валидация пустого массива работает корректно');
+            } else {
+                throw error;
+            }
+        }
+
+        // Тест с неверными типами в массиве - должен вызывать ошибку
+        const wrongTypeConfig = [
+            {
+                "src": "testField",
+                "dst": "testField",
+                "message_types": [1],
+                "generator": {
+                    "type": "string",
+                    "default_value": ["valid", 123, "also_valid"]
+                }
+            }
+        ];
+
+        try {
+            new MessageGenerator(wrongTypeConfig);
+            throw new Error('❌ Ожидалась ошибка валидации для неверных типов в массиве');
+        } catch (error) {
+            if (error.message.includes('должен содержать только строки')) {
+                console.log('✅ Валидация типов в массиве работает корректно');
+            } else {
+                throw error;
+            }
+        }
+
+        console.log('✅ Валидация массива default_value работает корректно');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
  * Тест создания генератора с дублирующимися src полями
  */
 function testDuplicateSrcFieldConstructor(testName) {
@@ -1207,6 +1431,10 @@ function runAllTests() {
         { func: testObjectIdUniqueness, name: '19. Проверка уникальности ObjectId' },
         { func: testDefaultValueGeneration, name: '20. Генерация факта с default_value и default_random' },
         { func: testDefaultValueFrequency, name: '21. Проверка частоты появления default_value' },
+        { func: testArrayDefaultValueString, name: '23. Массив default_value для string' },
+        { func: testArrayDefaultValueInteger, name: '24. Массив default_value для integer' },
+        { func: testArrayDefaultValueEnum, name: '25. Массив default_value для enum' },
+        { func: testArrayDefaultValueValidation, name: '26. Валидация массива default_value' },
         { func: testPerformance, name: '22. Производительность генерации' }
     ];
 
@@ -1263,5 +1491,9 @@ module.exports = {
     testObjectIdUniqueness,
     testDefaultValueGeneration,
     testDefaultValueFrequency,
+    testArrayDefaultValueString,
+    testArrayDefaultValueInteger,
+    testArrayDefaultValueEnum,
+    testArrayDefaultValueValidation,
     testPerformance
 };

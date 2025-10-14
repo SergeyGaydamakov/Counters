@@ -136,6 +136,7 @@ class MessageGenerator {
         // Валидация дополнительных параметров
         if (generator.default_value !== undefined) {
             // default_value может быть любого типа в зависимости от типа генератора
+            // или массивом значений для случайного выбора
             // Валидация будет выполнена в соответствующих методах генерации
         }
         
@@ -157,8 +158,22 @@ class MessageGenerator {
                 if (generator.min !== undefined && generator.max !== undefined && generator.min > generator.max) {
                     throw new Error(`Поле конфигурации ${fieldIndex}: generator.min не может быть больше generator.max`);
                 }
-                if (generator.default_value !== undefined && typeof generator.default_value !== 'string') {
-                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для string должен быть строкой`);
+                if (generator.default_value !== undefined) {
+                    if (typeof generator.default_value === 'string') {
+                        // Одиночное значение - валидно
+                    } else if (Array.isArray(generator.default_value)) {
+                        // Массив значений - проверяем, что все элементы строки
+                        if (generator.default_value.length === 0) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для string не может быть пустым массивом`);
+                        }
+                        for (let k = 0; k < generator.default_value.length; k++) {
+                            if (typeof generator.default_value[k] !== 'string') {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для string должен содержать только строки, но элемент [${k}] имеет тип ${typeof generator.default_value[k]}`);
+                            }
+                        }
+                    } else {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для string должен быть строкой или массивом строк`);
+                    }
                 }
                 break;
 
@@ -172,8 +187,22 @@ class MessageGenerator {
                 if (generator.min !== undefined && generator.max !== undefined && generator.min > generator.max) {
                     throw new Error(`Поле конфигурации ${fieldIndex}: generator.min не может быть больше generator.max`);
                 }
-                if (generator.default_value !== undefined && (typeof generator.default_value !== 'number' || !Number.isInteger(generator.default_value))) {
-                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для integer должен быть целым числом`);
+                if (generator.default_value !== undefined) {
+                    if (typeof generator.default_value === 'number' && Number.isInteger(generator.default_value)) {
+                        // Одиночное значение - валидно
+                    } else if (Array.isArray(generator.default_value)) {
+                        // Массив значений - проверяем, что все элементы целые числа
+                        if (generator.default_value.length === 0) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для integer не может быть пустым массивом`);
+                        }
+                        for (let k = 0; k < generator.default_value.length; k++) {
+                            if (typeof generator.default_value[k] !== 'number' || !Number.isInteger(generator.default_value[k])) {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для integer должен содержать только целые числа, но элемент [${k}] имеет значение ${generator.default_value[k]} типа ${typeof generator.default_value[k]}`);
+                            }
+                        }
+                    } else {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для integer должен быть целым числом или массивом целых чисел`);
+                    }
                 }
                 break;
 
@@ -212,8 +241,26 @@ class MessageGenerator {
                         }
                     } else if (generator.default_value instanceof Date) {
                         // Date объект валиден
+                    } else if (Array.isArray(generator.default_value)) {
+                        // Массив значений - проверяем, что все элементы валидные даты
+                        if (generator.default_value.length === 0) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для date не может быть пустым массивом`);
+                        }
+                        for (let k = 0; k < generator.default_value.length; k++) {
+                            const value = generator.default_value[k];
+                            if (typeof value === 'string') {
+                                const date = new Date(value);
+                                if (isNaN(date.getTime())) {
+                                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для date содержит невалидную дату в элементе [${k}]: ${value}`);
+                                }
+                            } else if (value instanceof Date) {
+                                // Date объект валиден
+                            } else {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для date должен содержать только строки или Date объекты, но элемент [${k}] имеет тип ${typeof value}`);
+                            }
+                        }
                     } else {
-                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для date должен быть строкой или Date объектом`);
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для date должен быть строкой, Date объектом или массивом строк/Date объектов`);
                     }
                 }
                 break;
@@ -222,26 +269,68 @@ class MessageGenerator {
                 if (!Array.isArray(generator.values) || generator.values.length === 0) {
                     throw new Error(`Поле конфигурации ${fieldIndex}: generator.values для enum должен быть непустым массивом`);
                 }
-                if (generator.default_value !== undefined && !generator.values.includes(generator.default_value)) {
-                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для enum должен быть одним из значений в массиве values`);
+                if (generator.default_value !== undefined) {
+                    if (generator.values.includes(generator.default_value)) {
+                        // Одиночное значение - валидно
+                    } else if (Array.isArray(generator.default_value)) {
+                        // Массив значений - проверяем, что все элементы есть в values
+                        if (generator.default_value.length === 0) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для enum не может быть пустым массивом`);
+                        }
+                        for (let k = 0; k < generator.default_value.length; k++) {
+                            if (!generator.values.includes(generator.default_value[k])) {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для enum должен содержать только значения из массива values, но элемент [${k}] = ${generator.default_value[k]} не найден в values`);
+                            }
+                        }
+                    } else {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для enum должен быть одним из значений в массиве values или массивом таких значений`);
+                    }
                 }
                 break;
 
             case 'objectId':
                 if (generator.default_value !== undefined) {
-                    if (typeof generator.default_value !== 'string') {
-                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен быть строкой`);
-                    }
-                    // Проверяем, что default_value является валидным ObjectId (24 hex символа)
-                    if (!/^[0-9a-fA-F]{24}$/.test(generator.default_value)) {
-                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен быть валидным ObjectId (24 hex символа)`);
+                    if (typeof generator.default_value === 'string') {
+                        // Проверяем, что default_value является валидным ObjectId (24 hex символа)
+                        if (!/^[0-9a-fA-F]{24}$/.test(generator.default_value)) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен быть валидным ObjectId (24 hex символа)`);
+                        }
+                    } else if (Array.isArray(generator.default_value)) {
+                        // Массив значений - проверяем, что все элементы валидные ObjectId
+                        if (generator.default_value.length === 0) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId не может быть пустым массивом`);
+                        }
+                        for (let k = 0; k < generator.default_value.length; k++) {
+                            if (typeof generator.default_value[k] !== 'string') {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен содержать только строки, но элемент [${k}] имеет тип ${typeof generator.default_value[k]}`);
+                            }
+                            if (!/^[0-9a-fA-F]{24}$/.test(generator.default_value[k])) {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен содержать только валидные ObjectId (24 hex символа), но элемент [${k}] = ${generator.default_value[k]} не является валидным ObjectId`);
+                            }
+                        }
+                    } else {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для objectId должен быть строкой или массивом строк`);
                     }
                 }
                 break;
 
             case 'boolean':
-                if (generator.default_value !== undefined && typeof generator.default_value !== 'boolean') {
-                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для boolean должен быть булевым значением`);
+                if (generator.default_value !== undefined) {
+                    if (typeof generator.default_value === 'boolean') {
+                        // Одиночное значение - валидно
+                    } else if (Array.isArray(generator.default_value)) {
+                        // Массив значений - проверяем, что все элементы булевы
+                        if (generator.default_value.length === 0) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для boolean не может быть пустым массивом`);
+                        }
+                        for (let k = 0; k < generator.default_value.length; k++) {
+                            if (typeof generator.default_value[k] !== 'boolean') {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для boolean должен содержать только булевы значения, но элемент [${k}] имеет тип ${typeof generator.default_value[k]}`);
+                            }
+                        }
+                    } else {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для boolean должен быть булевым значением или массивом булевых значений`);
+                    }
                 }
                 break;
         }
@@ -304,6 +393,27 @@ class MessageGenerator {
     }
 
     /**
+     * Получает значение по умолчанию из конфигурации генератора
+     * Если default_value является массивом, выбирает случайное значение из массива
+     * @param {*} defaultValue - значение по умолчанию (может быть массивом)
+     * @returns {*} значение по умолчанию
+     */
+    _getDefaultValue(defaultValue) {
+        if (defaultValue === null || defaultValue === undefined) {
+            return null;
+        }
+        
+        if (Array.isArray(defaultValue)) {
+            if (defaultValue.length === 0) {
+                return null;
+            }
+            return defaultValue[Math.floor(Math.random() * defaultValue.length)];
+        }
+        
+        return defaultValue;
+    }
+
+    /**
      * Генерирует случайную строку из латинских символов
      * @param {number} minLength - минимальная длина строки
      * @param {number} maxLength - максимальная длина строки
@@ -314,7 +424,7 @@ class MessageGenerator {
     _generateRandomString(minLength = 2, maxLength = 20, defaultValue = null, defaultRandom = 0) {
         // Проверяем, нужно ли использовать значение по умолчанию
         if (defaultValue !== null && Math.random() < defaultRandom) {
-            return defaultValue;
+            return this._getDefaultValue(defaultValue);
         }
         
         const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -339,7 +449,7 @@ class MessageGenerator {
     _generateRandomInteger(min = 0, max = 100, defaultValue = null, defaultRandom = 0) {
         // Проверяем, нужно ли использовать значение по умолчанию
         if (defaultValue !== null && Math.random() < defaultRandom) {
-            return defaultValue;
+            return this._getDefaultValue(defaultValue);
         }
         
         return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -356,7 +466,8 @@ class MessageGenerator {
     _generateRandomDateFromRange(minDate, maxDate, defaultValue = null, defaultRandom = 0) {
         // Проверяем, нужно ли использовать значение по умолчанию
         if (defaultValue !== null && Math.random() < defaultRandom) {
-            return defaultValue instanceof Date ? defaultValue : new Date(defaultValue);
+            const selectedValue = this._getDefaultValue(defaultValue);
+            return selectedValue instanceof Date ? selectedValue : new Date(selectedValue);
         }
         
         const fromDate = minDate instanceof Date ? minDate : new Date(minDate);
@@ -378,7 +489,7 @@ class MessageGenerator {
         
         // Проверяем, нужно ли использовать значение по умолчанию
         if (defaultValue !== null && Math.random() < defaultRandom) {
-            return defaultValue;
+            return this._getDefaultValue(defaultValue);
         }
         
         return values[Math.floor(Math.random() * values.length)];
@@ -393,7 +504,7 @@ class MessageGenerator {
     _generateRandomBoolean(defaultValue = null, defaultRandom = 0) {
         // Проверяем, нужно ли использовать значение по умолчанию
         if (defaultValue !== null && Math.random() < defaultRandom) {
-            return defaultValue;
+            return this._getDefaultValue(defaultValue);
         }
         
         return Math.random() < 0.5;
@@ -436,7 +547,7 @@ class MessageGenerator {
             case 'objectId':
                 // Проверяем, нужно ли использовать значение по умолчанию
                 if (defaultValue !== null && Math.random() < defaultRandom) {
-                    return new ObjectId(defaultValue);
+                    return new ObjectId(this._getDefaultValue(defaultValue));
                 }
                 return this._generateGuid();
 
