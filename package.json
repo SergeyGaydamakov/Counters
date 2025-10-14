@@ -10,6 +10,7 @@
     "test:mapper": "set LOG_LEVEL=DEBUG && node src/tests/factMapperTest.js",
     "test:indexer": "set LOG_LEVEL=DEBUG && node src/tests/factIndexerTest.js",
     "test:counters": "set LOG_LEVEL=DEBUG && node src/tests/counterProducerTest.js",
+    "test:computation": "set LOG_LEVEL=DEBUG && node src/tests/computationConditionsTest.js",
     "test:mongo-index": "set LOG_LEVEL=DEBUG && node src/tests/mongoFactIndexTest.js",
     "test:mongo": "set LOG_LEVEL=DEBUG && node src/tests/mongoProviderTest.js",
     "test:controller": "set LOG_LEVEL=DEBUG && node src/tests/factControllerTest.js",

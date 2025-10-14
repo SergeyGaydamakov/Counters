@@ -21,6 +21,17 @@ const Logger = require('../utils/logger');
  * на основе условий в конфигурации. Результатом является структура для использования
  * в MongoDB aggregate запросе с оператором $facet.
  * 
+ * Поддерживаемые MongoDB операторы в computationConditions:
+ * - Операторы сравнения: $eq, $ne, $gt, $gte, $lt, $lte
+ * - Операторы для массивов: $in, $nin, $all, $elemMatch, $size
+ * - Операторы для строк: $regex, $options
+ * - Логические операторы: $not, $and, $or
+ * - Операторы существования: $exists
+ * - Операторы типов: $type
+ * - Операторы модуло: $mod
+ * - Операторы выражений: $expr (с поддержкой полей факта)
+ * - Неподдерживаемые операторы: $where, $text, геолокационные операторы
+ * 
  * Структура конфигурации счетчика:
  * @property {string} name - Имя счетчика
  * @property {string} comment - Комментарий к счетчику
@@ -151,6 +162,14 @@ class CounterProducer {
 
         // Проверяем каждое условие
         for (const [field, expectedValue] of Object.entries(condition)) {
+            // Специальная обработка для $expr
+            if (field === '$expr') {
+                if (!this._processExprExpression(fact, expectedValue)) {
+                    return false;
+                }
+                continue;
+            }
+
             const actualValue = this._getValueByPath(fact, field);
             
             if (Array.isArray(expectedValue)) {
@@ -160,7 +179,7 @@ class CounterProducer {
                 }
             } else if (typeof expectedValue === 'object' && expectedValue !== null) {
                 // Если ожидаемое значение - объект (MongoDB оператор), проверяем соответствие
-                if (!this._matchesMongoOperator(actualValue, expectedValue)) {
+                if (!this._matchesMongoOperator(actualValue, expectedValue, fact)) {
                     return false;
                 }
             } else {
@@ -178,11 +197,55 @@ class CounterProducer {
      * Проверяет соответствие значения MongoDB оператору
      * @param {*} actualValue - Фактическое значение
      * @param {Object} operator - MongoDB оператор
+     * @param {Object} fact - Факт для обработки (необходим для $expr)
      * @returns {boolean} true, если значение соответствует оператору
      */
-    _matchesMongoOperator(actualValue, operator) {
+    _matchesMongoOperator(actualValue, operator, fact = null) {
         for (const [op, opValue] of Object.entries(operator)) {
             switch (op) {
+                // Операторы сравнения
+                case '$eq':
+                    if (actualValue !== opValue) {
+                        return false;
+                    }
+                    break;
+                case '$ne':
+                    // Если opValue - это объект с операторами, обрабатываем его рекурсивно
+                    if (typeof opValue === 'object' && opValue !== null && !Array.isArray(opValue)) {
+                        // Проверяем, содержит ли opValue MongoDB операторы
+                        const hasOperators = Object.keys(opValue).some(key => key.startsWith('$'));
+                        if (hasOperators) {
+                            // Рекурсивно обрабатываем операторы и инвертируем результат
+                            return !this._matchesMongoOperator(actualValue, opValue, fact);
+                        }
+                    }
+                    // Простое сравнение
+                    if (actualValue === opValue) {
+                        return false;
+                    }
+                    break;
+                case '$gt':
+                    if (!this._compareValues(actualValue, opValue, 'gt')) {
+                        return false;
+                    }
+                    break;
+                case '$gte':
+                    if (!this._compareValues(actualValue, opValue, 'gte')) {
+                        return false;
+                    }
+                    break;
+                case '$lt':
+                    if (!this._compareValues(actualValue, opValue, 'lt')) {
+                        return false;
+                    }
+                    break;
+                case '$lte':
+                    if (!this._compareValues(actualValue, opValue, 'lte')) {
+                        return false;
+                    }
+                    break;
+
+                // Операторы для массивов
                 case '$in':
                     if (!Array.isArray(opValue) || !opValue.includes(actualValue)) {
                         return false;
@@ -193,21 +256,77 @@ class CounterProducer {
                         return false;
                     }
                     break;
-                case '$ne':
-                    if (actualValue === opValue) {
+                case '$all':
+                    if (!Array.isArray(actualValue) || !Array.isArray(opValue)) {
+                        return false;
+                    }
+                    if (!opValue.every(val => actualValue.includes(val))) {
                         return false;
                     }
                     break;
-                case '$not':
-                    if (this._matchesMongoOperator(actualValue, opValue)) {
+                case '$elemMatch':
+                    if (!Array.isArray(actualValue)) {
+                        return false;
+                    }
+                    if (!actualValue.some(elem => this._matchesMongoOperator(elem, opValue, fact))) {
                         return false;
                     }
                     break;
+                case '$size':
+                    if (!Array.isArray(actualValue) || actualValue.length !== opValue) {
+                        return false;
+                    }
+                    break;
+
+                // Операторы для строк
                 case '$regex':
-                    if (typeof actualValue !== 'string' || !new RegExp(opValue).test(actualValue)) {
+                    if (typeof actualValue !== 'string') {
+                        return false;
+                    }
+                    const options = operator.$options || '';
+                    const regex = new RegExp(opValue, options);
+                    if (!regex.test(actualValue)) {
                         return false;
                     }
                     break;
+                case '$options':
+                    // $options обрабатывается вместе с $regex
+                    break;
+
+                // Логические операторы
+                case '$not':
+                    if (this._matchesMongoOperator(actualValue, opValue, fact)) {
+                        return false;
+                    }
+                    break;
+                case '$and':
+                    if (!Array.isArray(opValue)) {
+                        return false;
+                    }
+                    if (!opValue.every(condition => {
+                        if (typeof condition === 'object' && condition !== null) {
+                            return this._matchesMongoOperator(actualValue, condition, fact);
+                        }
+                        return actualValue === condition;
+                    })) {
+                        return false;
+                    }
+                    break;
+                case '$or':
+                    if (!Array.isArray(opValue)) {
+                        return false;
+                    }
+                    if (!opValue.some(condition => {
+                        if (typeof condition === 'object' && condition !== null) {
+                            return this._matchesMongoOperator(actualValue, condition, fact);
+                        }
+                        return actualValue === condition;
+                    })) {
+                        return false;
+                    }
+                    break;
+
+                // Операторы существования и типов
                 case '$exists':
                     const exists = actualValue !== undefined && actualValue !== null;
                     if (opValue && !exists) {
@@ -217,26 +336,234 @@ class CounterProducer {
                         return false;
                     }
                     break;
-                case '$or':
-                    if (!Array.isArray(opValue)) {
-                        return false;
-                    }
-                    const orResult = opValue.some(condition => {
-                        if (typeof condition === 'object' && condition !== null) {
-                            return this._matchesMongoOperator(actualValue, condition);
-                        }
-                        return actualValue === condition;
-                    });
-                    if (!orResult) {
+                case '$type':
+                    const actualType = this._getMongoDBType(actualValue);
+                    if (actualType !== opValue) {
                         return false;
                     }
                     break;
+
+                // Операторы выражений
+                case '$expr':
+                    if (!fact) {
+                        this.logger.warn(`Оператор $expr требует факт для обработки`);
+                        return false;
+                    }
+                    return this._processExprExpression(fact, opValue);
+
+                // Операторы модуло
+                case '$mod':
+                    if (!Array.isArray(opValue) || opValue.length !== 2) {
+                        return false;
+                    }
+                    const [divisor, remainder] = opValue;
+                    if (typeof actualValue !== 'number' || actualValue % divisor !== remainder) {
+                        return false;
+                    }
+                    break;
+
+                // Операторы JavaScript
+                case '$where':
+                    // $where не поддерживается в computationConditions
+                    this.logger.warn(`Оператор $where не поддерживается в computationConditions`);
+                    return false;
+
+                // Операторы текстового поиска
+                case '$text':
+                    // $text не поддерживается в computationConditions
+                    this.logger.warn(`Оператор $text не поддерживается в computationConditions`);
+                    return false;
+
+                // Геолокационные операторы
+                case '$geoWithin':
+                case '$geoIntersects':
+                case '$near':
+                case '$nearSphere':
+                    // Геолокационные операторы не поддерживаются в computationConditions
+                    this.logger.warn(`Геолокационный оператор ${op} не поддерживается в computationConditions`);
+                    return false;
+
                 default:
                     this.logger.warn(`Неподдерживаемый MongoDB оператор: ${op}`);
                     return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Сравнивает два значения с учетом их типов
+     * @param {*} actualValue - Фактическое значение
+     * @param {*} expectedValue - Ожидаемое значение
+     * @param {string} operator - Оператор сравнения ('gt', 'gte', 'lt', 'lte')
+     * @returns {boolean} true, если сравнение выполнено успешно
+     */
+    _compareValues(actualValue, expectedValue, operator) {
+        // Преобразуем строки с числами в числа
+        const actual = this._parseValue(actualValue);
+        const expected = this._parseValue(expectedValue);
+        
+        // Если оба значения - числа, сравниваем как числа
+        if (typeof actual === 'number' && typeof expected === 'number') {
+            switch (operator) {
+                case 'gt': return actual > expected;
+                case 'gte': return actual >= expected;
+                case 'lt': return actual < expected;
+                case 'lte': return actual <= expected;
+                default: return false;
+            }
+        }
+        
+        // Если оба значения - строки, сравниваем как строки
+        if (typeof actual === 'string' && typeof expected === 'string') {
+            switch (operator) {
+                case 'gt': return actual > expected;
+                case 'gte': return actual >= expected;
+                case 'lt': return actual < expected;
+                case 'lte': return actual <= expected;
+                default: return false;
+            }
+        }
+        
+        // Если типы не совпадают, возвращаем false
+        return false;
+    }
+
+    /**
+     * Парсит значение, пытаясь преобразовать строки с числами в числа
+     * @param {*} value - Значение для парсинга
+     * @returns {*} Парсированное значение
+     */
+    _parseValue(value) {
+        if (typeof value === 'string') {
+            // Пытаемся преобразовать строку в число
+            const num = parseFloat(value.replace(',', '.'));
+            if (!isNaN(num)) {
+                return num;
+            }
+        }
+        return value;
+    }
+
+    /**
+     * Определяет тип значения в соответствии с MongoDB типами
+     * @param {*} value - Значение для определения типа
+     * @returns {string} Тип MongoDB
+     */
+    _getMongoDBType(value) {
+        if (value === null) return 'null';
+        if (value === undefined) return 'undefined';
+        if (typeof value === 'boolean') return 'bool';
+        if (typeof value === 'number') {
+            if (Number.isInteger(value)) return 'int';
+            return 'double';
+        }
+        if (typeof value === 'string') return 'string';
+        if (Array.isArray(value)) return 'array';
+        if (value instanceof Date) return 'date';
+        if (typeof value === 'object') return 'object';
+        return 'unknown';
+    }
+
+    /**
+     * Извлекает значение поля из факта по пути MongoDB
+     * @param {Object} fact - Факт для извлечения значения
+     * @param {string} fieldPath - Путь к полю (например, "$d.field" или "d.field")
+     * @returns {*} Значение поля или undefined, если поле не найдено
+     */
+    _extractFieldValue(fact, fieldPath) {
+        if (!fact || !fieldPath) {
+            return undefined;
+        }
+
+        // Убираем префикс $ если он есть
+        const cleanPath = fieldPath.startsWith('$') ? fieldPath.substring(1) : fieldPath;
+        
+        // Разбиваем путь по точкам
+        const pathParts = cleanPath.split('.');
+        
+        // Извлекаем значение по пути
+        let current = fact;
+        for (const part of pathParts) {
+            if (current && typeof current === 'object' && part in current) {
+                current = current[part];
+            } else {
+                return undefined;
+            }
+        }
+        
+        return current;
+    }
+
+    /**
+     * Обрабатывает выражение $expr с полями факта
+     * @param {Object} fact - Факт для обработки
+     * @param {Object} exprValue - Значение выражения $expr
+     * @returns {boolean} Результат выполнения выражения
+     */
+    _processExprExpression(fact, exprValue) {
+        if (!exprValue || typeof exprValue !== 'object') {
+            return false;
+        }
+
+        // Обрабатываем операторы сравнения в $expr
+        for (const [operator, operands] of Object.entries(exprValue)) {
+            switch (operator) {
+                case '$eq':
+                    if (Array.isArray(operands) && operands.length === 2) {
+                        const [field1, field2] = operands;
+                        const value1 = this._extractFieldValue(fact, field1);
+                        const value2 = this._extractFieldValue(fact, field2);
+                        return value1 === value2;
+                    }
+                    break;
+                case '$ne':
+                    if (Array.isArray(operands) && operands.length === 2) {
+                        const [field1, field2] = operands;
+                        const value1 = this._extractFieldValue(fact, field1);
+                        const value2 = this._extractFieldValue(fact, field2);
+                        return value1 !== value2;
+                    }
+                    break;
+                case '$gt':
+                    if (Array.isArray(operands) && operands.length === 2) {
+                        const [field1, field2] = operands;
+                        const value1 = this._extractFieldValue(fact, field1);
+                        const value2 = this._extractFieldValue(fact, field2);
+                        return this._compareValues(value1, value2, 'gt');
+                    }
+                    break;
+                case '$gte':
+                    if (Array.isArray(operands) && operands.length === 2) {
+                        const [field1, field2] = operands;
+                        const value1 = this._extractFieldValue(fact, field1);
+                        const value2 = this._extractFieldValue(fact, field2);
+                        return this._compareValues(value1, value2, 'gte');
+                    }
+                    break;
+                case '$lt':
+                    if (Array.isArray(operands) && operands.length === 2) {
+                        const [field1, field2] = operands;
+                        const value1 = this._extractFieldValue(fact, field1);
+                        const value2 = this._extractFieldValue(fact, field2);
+                        return this._compareValues(value1, value2, 'lt');
+                    }
+                    break;
+                case '$lte':
+                    if (Array.isArray(operands) && operands.length === 2) {
+                        const [field1, field2] = operands;
+                        const value1 = this._extractFieldValue(fact, field1);
+                        const value2 = this._extractFieldValue(fact, field2);
+                        return this._compareValues(value1, value2, 'lte');
+                    }
+                    break;
+                default:
+                    this.logger.warn(`Неподдерживаемый оператор в $expr: ${operator}`);
+                    return false;
+            }
+        }
+
+        return false;
     }
 
     /**
