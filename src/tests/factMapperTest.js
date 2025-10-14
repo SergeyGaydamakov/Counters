@@ -556,8 +556,32 @@ class FactMapperTest {
     testDuplicateSrcDstValidation(title) {
         this.logger.info(title);
         try {
-            // Тест с дублирующимися комбинациями src->dst
+            // Тест с дублирующимися комбинациями src->dst при пересечении message_types
             const duplicateConfig = [
+                {
+                    src: 'field1',
+                    dst: 'mapped_field1',
+                    message_types: [1001, 1002]
+                },
+                {
+                    src: 'field1', // Дублирующееся src поле
+                    dst: 'mapped_field1', // Дублирующееся dst поле - должна быть ошибка
+                    message_types: [1002, 1003] // Пересекается с первым правилом (1002)
+                }
+            ];
+
+            try {
+                new FactMapper(duplicateConfig);
+                this.assert(false, 'Валидация дублирующихся комбинаций src->dst при пересечении типов', 'Должна была быть выброшена ошибка для дублирующихся комбинаций при пересечении типов');
+            } catch (error) {
+                this.assert(error.message.includes('Найдены дублирующиеся комбинации src->dst при пересечении message_types'), 
+                    'Валидация дублирующихся комбинаций src->dst при пересечении типов', 'Корректная ошибка для дублирующихся комбинаций при пересечении типов');
+                this.assert(error.message.includes('пересекающиеся типы: [1002]'), 
+                    'Информация о пересекающихся типах', 'Ошибка должна содержать информацию о пересекающихся типах');
+            }
+
+            // Тест с дублирующимися комбинациями src->dst БЕЗ пересечения message_types - должна быть корректна
+            const validConfigNoIntersection = [
                 {
                     src: 'field1',
                     dst: 'mapped_field1',
@@ -565,17 +589,17 @@ class FactMapperTest {
                 },
                 {
                     src: 'field1', // Дублирующееся src поле
-                    dst: 'mapped_field1', // Дублирующееся dst поле - должна быть ошибка
-                    message_types: [1002]
+                    dst: 'mapped_field1', // Дублирующееся dst поле - НО типы не пересекаются
+                    message_types: [1002] // НЕ пересекается с первым правилом
                 }
             ];
 
             try {
-                new FactMapper(duplicateConfig);
-                this.assert(false, 'Валидация дублирующихся комбинаций src->dst', 'Должна была быть выброшена ошибка для дублирующихся комбинаций');
+                const mapper = new FactMapper(validConfigNoIntersection);
+                this.assert(mapper instanceof FactMapper, 'Валидация дублирующихся комбинаций БЕЗ пересечения типов', 'Дублирующиеся комбинации БЕЗ пересечения типов должны быть корректны');
+                this.assert(mapper._mappingConfig.length === 2, 'Количество правил в корректной конфигурации', 'Должно быть 2 правила');
             } catch (error) {
-                this.assert(error.message.includes('Найдены дублирующиеся комбинации src->dst'), 
-                    'Валидация дублирующихся комбинаций src->dst', 'Корректная ошибка для дублирующихся комбинаций');
+                this.assert(false, 'Валидация дублирующихся комбинаций БЕЗ пересечения типов', `Ошибка при валидации корректных комбинаций: ${error.message}`);
             }
 
             // Тест с корректными разными комбинациями src->dst
@@ -687,8 +711,32 @@ class FactMapperTest {
     testConflictingDstValidation(title) {
         this.logger.info(title);
         try {
-            // Тест с конфликтующими dst полями (разные src маппятся на одно dst)
+            // Тест с конфликтующими dst полями при пересечении message_types (разные src маппятся на одно dst)
             const conflictingConfig = [
+                {
+                    src: 'field1',
+                    dst: 'mapped_field',
+                    message_types: [4001, 4002]
+                },
+                {
+                    src: 'field2', // Разное src поле
+                    dst: 'mapped_field', // То же dst поле - должна быть ошибка
+                    message_types: [4002, 4003] // Пересекается с первым правилом (4002)
+                }
+            ];
+
+            try {
+                new FactMapper(conflictingConfig);
+                this.assert(false, 'Валидация конфликтующих dst полей при пересечении типов', 'Должна была быть выброшена ошибка для конфликтующих dst полей при пересечении типов');
+            } catch (error) {
+                this.assert(error.message.includes('Найдены конфликтующие dst поля при пересечении message_types'), 
+                    'Валидация конфликтующих dst полей при пересечении типов', 'Корректная ошибка для конфликтующих dst полей при пересечении типов');
+                this.assert(error.message.includes('пересекающиеся типы: [4002]'), 
+                    'Информация о пересекающихся типах', 'Ошибка должна содержать информацию о пересекающихся типах');
+            }
+
+            // Тест с конфликтующими dst полями БЕЗ пересечения message_types - должна быть корректна
+            const validConfigNoIntersection = [
                 {
                     src: 'field1',
                     dst: 'mapped_field',
@@ -696,19 +744,17 @@ class FactMapperTest {
                 },
                 {
                     src: 'field2', // Разное src поле
-                    dst: 'mapped_field', // То же dst поле - должна быть ошибка
-                    message_types: [4002]
+                    dst: 'mapped_field', // То же dst поле - НО типы не пересекаются
+                    message_types: [4002] // НЕ пересекается с первым правилом
                 }
             ];
 
             try {
-                new FactMapper(conflictingConfig);
-                this.assert(false, 'Валидация конфликтующих dst полей', 'Должна была быть выброшена ошибка для конфликтующих dst полей');
+                const mapper = new FactMapper(validConfigNoIntersection);
+                this.assert(mapper instanceof FactMapper, 'Валидация конфликтующих dst полей БЕЗ пересечения типов', 'Конфликтующие dst поля БЕЗ пересечения типов должны быть корректны');
+                this.assert(mapper._mappingConfig.length === 2, 'Количество правил в корректной конфигурации', 'Должно быть 2 правила');
             } catch (error) {
-                this.assert(error.message.includes('Найдены конфликтующие dst поля'), 
-                    'Валидация конфликтующих dst полей', 'Корректная ошибка для конфликтующих dst полей');
-                this.assert(error.message.includes('field1 и field2'), 
-                    'Детали конфликта в ошибке', 'Ошибка должна содержать информацию о конфликтующих src полях');
+                this.assert(false, 'Валидация конфликтующих dst полей БЕЗ пересечения типов', `Ошибка при валидации корректных dst полей: ${error.message}`);
             }
 
             // Тест с корректной конфигурацией (разные src маппятся на разные dst)
@@ -738,36 +784,36 @@ class FactMapperTest {
                 this.assert(false, 'Валидация корректных dst полей', `Ошибка при валидации корректных dst полей: ${error.message}`);
             }
 
-            // Тест с множественными конфликтами
+            // Тест с множественными конфликтами при пересечении типов
             const multipleConflictsConfig = [
                 {
                     src: 'field1',
                     dst: 'conflict_field',
-                    message_types: [4006]
+                    message_types: [4006, 4007]
                 },
                 {
                     src: 'field2',
                     dst: 'conflict_field', // Первый конфликт
-                    message_types: [4007]
+                    message_types: [4007, 4008] // Пересекается с первым правилом (4007)
                 },
                 {
                     src: 'field3',
                     dst: 'another_conflict',
-                    message_types: [4008]
+                    message_types: [4008, 4009]
                 },
                 {
                     src: 'field4',
                     dst: 'another_conflict', // Второй конфликт
-                    message_types: [4009]
+                    message_types: [4009, 4010] // Пересекается с третьим правилом (4009)
                 }
             ];
 
             try {
                 new FactMapper(multipleConflictsConfig);
-                this.assert(false, 'Валидация множественных конфликтов dst', 'Должна была быть выброшена ошибка для множественных конфликтов');
+                this.assert(false, 'Валидация множественных конфликтов dst при пересечении типов', 'Должна была быть выброшена ошибка для множественных конфликтов при пересечении типов');
             } catch (error) {
-                this.assert(error.message.includes('Найдены конфликтующие dst поля'), 
-                    'Валидация множественных конфликтов dst', 'Корректная ошибка для множественных конфликтов');
+                this.assert(error.message.includes('Найдены конфликтующие dst поля при пересечении message_types'), 
+                    'Валидация множественных конфликтов dst при пересечении типов', 'Корректная ошибка для множественных конфликтов при пересечении типов');
                 this.assert(error.message.includes('conflict_field'), 
                     'Первый конфликт в ошибке', 'Ошибка должна содержать информацию о первом конфликте');
                 this.assert(error.message.includes('another_conflict'), 

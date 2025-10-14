@@ -24,6 +24,7 @@ class ComputationConditionsTest {
         this.testExprOperators();
         this.testComplexConditions();
         this.testEdgeCases();
+        this.testNegationOperators();
         this.testNowOperator();
         
         this.printResults();
@@ -505,6 +506,150 @@ class ComputationConditionsTest {
     }
 
     /**
+     * Тестирует операторы отрицания (символ ¬)
+     */
+    testNegationOperators() {
+        const testCases = [
+            {
+                name: '$not с $regex (не содержит)',
+                fact: { d: { doc: '123456' } },
+                condition: { 'd.doc': { '$not': { '$regex': '^7', '$options': 'i' } } },
+                expected: true
+            },
+            {
+                name: '$not с $regex (содержит)',
+                fact: { d: { doc: '712345' } },
+                condition: { 'd.doc': { '$not': { '$regex': '^7', '$options': 'i' } } },
+                expected: false
+            },
+            {
+                name: '$not с множественными значениями regex',
+                fact: { d: { anyField: '22007001' } },
+                condition: { 
+                    'd.anyField': { 
+                        '$not': { 
+                            '$regex': '^(22007001|553691|521324)', 
+                            '$options': 'i' 
+                        } 
+                    } 
+                },
+                expected: false
+            },
+            {
+                name: '$not с множественными значениями regex (не совпадает)',
+                fact: { d: { anyField: '999999' } },
+                condition: { 
+                    'd.anyField': { 
+                        '$not': { 
+                            '$regex': '^(22007001|553691|521324)', 
+                            '$options': 'i' 
+                        } 
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$not с $eq (не равно)',
+                fact: { d: { typeId: 50 } },
+                condition: { 'd.typeId': { '$not': { '$eq': 61 } } },
+                expected: true
+            },
+            {
+                name: '$not с $eq (равно)',
+                fact: { d: { typeId: 61 } },
+                condition: { 'd.typeId': { '$not': { '$eq': 61 } } },
+                expected: false
+            },
+            {
+                name: '$not с $gt (не больше)',
+                fact: { d: { Amount: 50 } },
+                condition: { 'd.Amount': { '$not': { '$gt': 100 } } },
+                expected: true
+            },
+            {
+                name: '$not с $gt (больше)',
+                fact: { d: { Amount: 150 } },
+                condition: { 'd.Amount': { '$not': { '$gt': 100 } } },
+                expected: false
+            },
+            {
+                name: '$not с $in (не входит в список)',
+                fact: { d: { typeId: 30 } },
+                condition: { 'd.typeId': { '$not': { '$in': [61, 50] } } },
+                expected: true
+            },
+            {
+                name: '$not с $in (входит в список)',
+                fact: { d: { typeId: 61 } },
+                condition: { 'd.typeId': { '$not': { '$in': [61, 50] } } },
+                expected: false
+            },
+            {
+                name: '$not с $exists (поле не существует)',
+                fact: { d: { otherField: 'value' } },
+                condition: { 'd.missingField': { '$not': { '$exists': true } } },
+                expected: true
+            },
+            {
+                name: '$not с $exists (поле существует)',
+                fact: { d: { existingField: 'value' } },
+                condition: { 'd.existingField': { '$not': { '$exists': true } } },
+                expected: false
+            },
+            {
+                name: '$not с $type (не является строкой)',
+                fact: { d: { value: 123 } },
+                condition: { 'd.value': { '$not': { '$type': 'string' } } },
+                expected: true
+            },
+            {
+                name: '$not с $type (является строкой)',
+                fact: { d: { value: '123' } },
+                condition: { 'd.value': { '$not': { '$type': 'string' } } },
+                expected: false
+            },
+            {
+                name: '$not с $size (не имеет размер 3)',
+                fact: { d: { items: [1, 2] } },
+                condition: { 'd.items': { '$not': { '$size': 3 } } },
+                expected: true
+            },
+            {
+                name: '$not с $size (имеет размер 3)',
+                fact: { d: { items: [1, 2, 3] } },
+                condition: { 'd.items': { '$not': { '$size': 3 } } },
+                expected: false
+            },
+            {
+                name: '$not с $all (не содержит все элементы)',
+                fact: { d: { tags: ['tag1'] } },
+                condition: { 'd.tags': { '$not': { '$all': ['tag1', 'tag2'] } } },
+                expected: true
+            },
+            {
+                name: '$not с $all (содержит все элементы)',
+                fact: { d: { tags: ['tag1', 'tag2', 'tag3'] } },
+                condition: { 'd.tags': { '$not': { '$all': ['tag1', 'tag2'] } } },
+                expected: false
+            },
+            {
+                name: '$not с $mod (не делится на 5 с остатком 0)',
+                fact: { d: { value: 7 } },
+                condition: { 'd.value': { '$not': { '$mod': [5, 0] } } },
+                expected: true
+            },
+            {
+                name: '$not с $mod (делится на 5 с остатком 0)',
+                fact: { d: { value: 10 } },
+                condition: { 'd.value': { '$not': { '$mod': [5, 0] } } },
+                expected: false
+            }
+        ];
+
+        this.runTestGroup('Операторы отрицания (¬)', testCases);
+    }
+
+    /**
      * Тестирует оператор $$NOW
      */
     testNowOperator() {
@@ -514,33 +659,45 @@ class ComputationConditionsTest {
         const testCases = [
             {
                 name: '$$NOW в простом сравнении $eq',
-                fact: { d: { dt: new Date() } },
+                fact: { d: { dt: new Date(Date.now() - 1000) } }, // 1 секунда назад
                 condition: { 'd.dt': { '$eq': '$$NOW' } },
-                expected: true
+                expected: false // Дата в прошлом не равна текущему времени
             },
             {
-                name: '$$NOW в сравнении $gte с текущей датой',
-                fact: { d: { dt: new Date() } },
+                name: '$$NOW в сравнении $gte с прошлой датой',
+                fact: { d: { dt: new Date(Date.now() - 1000) } }, // 1 секунда назад
                 condition: { 'd.dt': { '$gte': '$$NOW' } },
-                expected: true
+                expected: false // Дата в прошлом не больше или равна текущему времени
             },
             {
                 name: '$$NOW в сравнении $lte с текущей датой',
                 fact: { d: { dt: new Date() } },
                 condition: { 'd.dt': { '$lte': '$$NOW' } },
-                expected: true
+                expected: true // Дата в факте должна быть меньше или равна $$NOW
             },
             {
                 name: '$$NOW в сравнении $gt с прошлой датой',
-                fact: { d: { dt: new Date(Date.now() - 1000) } },
+                fact: { d: { dt: new Date(Date.now() - 10000) } }, // 10 секунд назад
                 condition: { 'd.dt': { '$gt': '$$NOW' } },
                 expected: false
             },
             {
                 name: '$$NOW в сравнении $lt с будущей датой',
-                fact: { d: { dt: new Date(Date.now() + 1000) } },
+                fact: { d: { dt: new Date(Date.now() + 10000) } }, // 10 секунд вперед
                 condition: { 'd.dt': { '$lt': '$$NOW' } },
                 expected: false
+            },
+            {
+                name: '$$NOW в сравнении $lte с прошлой датой',
+                fact: { d: { dt: new Date(Date.now() - 10000) } }, // 10 секунд назад
+                condition: { 'd.dt': { '$lte': '$$NOW' } },
+                expected: true
+            },
+            {
+                name: '$$NOW в сравнении $gte с будущей датой',
+                fact: { d: { dt: new Date(Date.now() + 10000) } }, // 10 секунд вперед
+                condition: { 'd.dt': { '$gte': '$$NOW' } },
+                expected: true
             },
             {
                 name: '$$NOW в $dateAdd - час назад',

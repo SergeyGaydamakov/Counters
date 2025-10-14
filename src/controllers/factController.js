@@ -132,6 +132,7 @@ class FactController {
             };
         }
         const hashValuesForSearch = this.factIndexer.getHashValuesForSearch(factIndexes);
+        this.logger.info(`*** Для сообщения ${message.t} будут сохранены ${hashValuesForSearch.length} индексных значений: ${hashValuesForSearch.map(value => value.index.indexTypeName).join(', ')}`);
         const startTime = Date.now();
         const [factCountersResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFactCounters(hashValuesForSearch, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE, debugMode),

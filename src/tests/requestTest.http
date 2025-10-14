@@ -7,7 +7,7 @@
 @password = 1
 
 # Тип сообщения
-@messageType = 4
+@messageType = 35
 
 
 ### Health check
@@ -82,6 +82,17 @@ Debug-Mode: false
     <sme_flag>false</sme_flag>
     <pin_flag>false</pin_flag>
     <token_flag>false</token_flag>
+</IRIS>
+
+
+### Тест исправления дублирования атрибутов в XML (MessageTypeId и MessageId)
+POST http://{{host}}/api/v1/message/iris
+Content-Type: text/xml
+Debug-Mode: true
+
+<IRIS Version="1" Message="ModelRequest" MessageTypeId="34" MessageId="3323123" custom="test">
+<MessageTypeId>1000</MessageTypeId>
+<MessageId>2222</MessageId>
 </IRIS>
 
 

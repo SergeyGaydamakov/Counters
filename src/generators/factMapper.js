@@ -124,12 +124,10 @@ class FactMapper {
             throw new Error('Конфигурация маппинга полей должна быть массивом объектов');
         }
 
-        // Проверяем уникальность комбинаций src + dst
-        const srcDstCombinations = new Set();
+        // Проверяем уникальность комбинаций src + dst только при пересечении message_types
         const duplicateCombinations = [];
         
-        // Проверяем уникальность dst полей (разные src не должны маппиться на одно dst)
-        const dstToSrcMap = new Map();
+        // Проверяем конфликтующие dst поля только при пересечении message_types
         const conflictingDstFields = [];
 
         for (let i = 0; i < mappingConfig.length; i++) {
@@ -157,45 +155,58 @@ class FactMapper {
                     throw new Error(`Правило маппинга ${i}, тип ${j} должен быть целым числом`);
                 }
             }
+        }
 
-            // Проверяем уникальность комбинации src + dst
-            const srcDstKey = `${rule.src}->${rule.dst}`;
-            if (srcDstCombinations.has(srcDstKey)) {
-                duplicateCombinations.push({ index: i, src: rule.src, dst: rule.dst });
-            } else {
-                srcDstCombinations.add(srcDstKey);
-            }
-            
-            // Проверяем, что разные src не маппятся на одно dst
-            if (dstToSrcMap.has(rule.dst)) {
-                const existingSrc = dstToSrcMap.get(rule.dst);
-                if (existingSrc !== rule.src) {
-                    conflictingDstFields.push({
-                        dst: rule.dst,
-                        src1: existingSrc,
-                        src2: rule.src,
-                        index: i
-                    });
+        // Проверяем дублирующиеся комбинации src->dst только при пересечении message_types
+        for (let i = 0; i < mappingConfig.length; i++) {
+            for (let j = i + 1; j < mappingConfig.length; j++) {
+                const rule1 = mappingConfig[i];
+                const rule2 = mappingConfig[j];
+                
+                // Проверяем, есть ли пересечение в message_types
+                const hasIntersection = rule1.message_types.some(type => rule2.message_types.includes(type));
+                
+                if (hasIntersection) {
+                    // Проверяем дублирующиеся комбинации src->dst
+                    if (rule1.src === rule2.src && rule1.dst === rule2.dst) {
+                        duplicateCombinations.push({ 
+                            index1: i, 
+                            index2: j, 
+                            src: rule1.src, 
+                            dst: rule1.dst,
+                            commonTypes: rule1.message_types.filter(type => rule2.message_types.includes(type))
+                        });
+                    }
+                    
+                    // Проверяем конфликтующие dst поля (разные src маппятся на одно dst)
+                    if (rule1.src !== rule2.src && rule1.dst === rule2.dst) {
+                        conflictingDstFields.push({
+                            dst: rule1.dst,
+                            src1: rule1.src,
+                            src2: rule2.src,
+                            index1: i,
+                            index2: j,
+                            commonTypes: rule1.message_types.filter(type => rule2.message_types.includes(type))
+                        });
+                    }
                 }
-            } else {
-                dstToSrcMap.set(rule.dst, rule.src);
             }
         }
 
         // Если найдены дублирующиеся комбинации, выбрасываем ошибку
         if (duplicateCombinations.length > 0) {
             const duplicatesInfo = duplicateCombinations.map(dup => 
-                `правило ${dup.index}: ${dup.src}->${dup.dst}`
+                `правила ${dup.index1}, ${dup.index2}: ${dup.src}->${dup.dst} (пересекающиеся типы: [${dup.commonTypes.join(', ')}])`
             ).join(', ');
-            throw new Error(`Найдены дублирующиеся комбинации src->dst: ${duplicatesInfo}. Каждая комбинация src->dst должна быть уникальной в конфигурации.`);
+            throw new Error(`Найдены дублирующиеся комбинации src->dst при пересечении message_types: ${duplicatesInfo}. Каждая комбинация src->dst должна быть уникальной для пересекающихся типов сообщений.`);
         }
         
         // Если найдены конфликтующие dst поля, выбрасываем ошибку
         if (conflictingDstFields.length > 0) {
             const conflictsInfo = conflictingDstFields.map(conflict => 
-                `поле ${conflict.dst}: ${conflict.src1} и ${conflict.src2} (правило ${conflict.index})`
+                `поле ${conflict.dst}: ${conflict.src1} (правило ${conflict.index1}) и ${conflict.src2} (правило ${conflict.index2}) (пересекающиеся типы: [${conflict.commonTypes.join(', ')}])`
             ).join(', ');
-            throw new Error(`Найдены конфликтующие dst поля: ${conflictsInfo}. Разные src поля не могут маппиться на одно dst поле.`);
+            throw new Error(`Найдены конфликтующие dst поля при пересечении message_types: ${conflictsInfo}. Разные src поля не могут маппиться на одно dst поле для пересекающихся типов сообщений.`);
         }
 
         this.logger.info(`Конфигурация маппинга полей валидна. Количество правил маппинга полей: ${mappingConfig.length}`);

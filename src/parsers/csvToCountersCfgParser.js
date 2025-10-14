@@ -262,17 +262,17 @@ class CountersCsvParser {
             return this.parseDateArithmeticOperator(simpleDateArithmeticMatch, type, lineNumber);
         }
 
-        // Ищем оператор
+        // Ищем оператор (порядок важен - более специфичные операторы должны быть первыми)
         const operators = [
             { pattern: /^(.+?)\s*is\s+(true|false)\s*$/, handler: this.parseBooleanOperator },
-            { pattern: /^(.+?)\s*=\*=\s*(.+)$/, handler: this.parseContainsOperator },
             { pattern: /^(.+?)\s*¬=\*=\s*(.+)$/, handler: this.parseNotContainsOperator },
-            { pattern: /^(.+?)\s*\*=\s*(.+)$/, handler: this.parseStartsWithOperator },
+            { pattern: /^(.+?)\s*=\*=\s*(.+)$/, handler: this.parseContainsOperator },
             { pattern: /^(.+?)\s*¬\*=\s*(.+)$/, handler: this.parseNotStartsWithOperator },
-            { pattern: /^(.+?)\s*≈\s*(.+)$/, handler: this.parseApproximatelyEqualsOperator },
+            { pattern: /^(.+?)\s*\*=\s*(.+)$/, handler: this.parseStartsWithOperator },
             { pattern: /^(.+?)\s*¬≈\s*(.+)$/, handler: this.parseNotApproximatelyEqualsOperator },
-            { pattern: /^(.+?)\s*=\s*(.+)$/, handler: this.parseEqualsOperator },
+            { pattern: /^(.+?)\s*≈\s*(.+)$/, handler: this.parseApproximatelyEqualsOperator },
             { pattern: /^(.+?)\s*≠\s*(.+)$/, handler: this.parseNotEqualsOperator },
+            { pattern: /^(.+?)\s*=\s*(.+)$/, handler: this.parseEqualsOperator },
             { pattern: /^(.+?)\s*>\s*(.+)$/, handler: this.parseGreaterThanOperator },
             { pattern: /^(.+?)\s*≥\s*(.+)$/, handler: this.parseGreaterOrEqualOperator },
             { pattern: /^(.+?)\s*<\s*(.+)$/, handler: this.parseLessThanOperator },
@@ -316,8 +316,10 @@ class CountersCsvParser {
         if (values.length === 1) {
             return { [`d.${cleanFieldName}`]: { "$regex": values[0], "$options": "i" } };
         } else {
-            const regexPatterns = values.map(v => ({ "$regex": v, "$options": "i" }));
-            return { [`d.${cleanFieldName}`]: { "$or": regexPatterns } };
+            // Объединяем множественные значения в один regex с OR
+            const escapedValues = values.map(v => this.escapeRegex(v));
+            const combinedRegex = `(${escapedValues.join('|')})`;
+            return { [`d.${cleanFieldName}`]: { "$regex": combinedRegex, "$options": "i" } };
         }
     }
 
@@ -331,8 +333,10 @@ class CountersCsvParser {
         if (values.length === 1) {
             return { [`d.${cleanFieldName}`]: { "$not": { "$regex": values[0], "$options": "i" } } };
         } else {
-            const regexPatterns = values.map(v => ({ "$regex": v, "$options": "i" }));
-            return { [`d.${cleanFieldName}`]: { "$nor": regexPatterns } };
+            // Объединяем множественные значения в один regex с OR и применяем $not
+            const escapedValues = values.map(v => this.escapeRegex(v));
+            const combinedRegex = `(${escapedValues.join('|')})`;
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": combinedRegex, "$options": "i" } } };
         }
     }
 
@@ -346,8 +350,10 @@ class CountersCsvParser {
         if (values.length === 1) {
             return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(values[0])}`, "$options": "i" } };
         } else {
-            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}`, "$options": "i" }));
-            return { [`d.${cleanFieldName}`]: { "$or": regexPatterns } };
+            // Объединяем множественные значения в один regex с OR и якорем начала
+            const escapedValues = values.map(v => this.escapeRegex(v));
+            const combinedRegex = `^(${escapedValues.join('|')})`;
+            return { [`d.${cleanFieldName}`]: { "$regex": combinedRegex, "$options": "i" } };
         }
     }
 
@@ -361,8 +367,10 @@ class CountersCsvParser {
         if (values.length === 1) {
             return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(values[0])}`, "$options": "i" } } };
         } else {
-            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}`, "$options": "i" }));
-            return { [`d.${cleanFieldName}`]: { "$nor": regexPatterns } };
+            // Объединяем множественные значения в один regex с OR и якорем начала, применяем $not
+            const escapedValues = values.map(v => this.escapeRegex(v));
+            const combinedRegex = `^(${escapedValues.join('|')})`;
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": combinedRegex, "$options": "i" } } };
         }
     }
 
@@ -387,8 +395,10 @@ class CountersCsvParser {
         if (values.length === 1) {
             return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(values[0])}$`, "$options": "i" } };
         } else {
-            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}$`, "$options": "i" }));
-            return { [`d.${cleanFieldName}`]: { "$or": regexPatterns } };
+            // Объединяем множественные значения в один regex с OR и якорями начала/конца
+            const escapedValues = values.map(v => this.escapeRegex(v));
+            const combinedRegex = `^(${escapedValues.join('|')})$`;
+            return { [`d.${cleanFieldName}`]: { "$regex": combinedRegex, "$options": "i" } };
         }
     }
 
@@ -413,8 +423,10 @@ class CountersCsvParser {
         if (values.length === 1) {
             return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(values[0])}$`, "$options": "i" } } };
         } else {
-            const regexPatterns = values.map(v => ({ "$regex": `^${this.escapeRegex(v)}$`, "$options": "i" }));
-            return { [`d.${cleanFieldName}`]: { "$nor": regexPatterns } };
+            // Объединяем множественные значения в один regex с OR и якорями начала/конца, применяем $not
+            const escapedValues = values.map(v => this.escapeRegex(v));
+            const combinedRegex = `^(${escapedValues.join('|')})$`;
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": combinedRegex, "$options": "i" } } };
         }
     }
 
@@ -612,7 +624,8 @@ class CountersCsvParser {
      * Очищает имя поля от лишних символов
      */
     cleanFieldName(fieldName) {
-        return fieldName.trim();
+        // Убираем символы отрицания из названия поля
+        return fieldName.replace(/¬\s*/g, '').trim();
     }
 
     /**

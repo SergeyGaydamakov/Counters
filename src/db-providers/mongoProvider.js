@@ -892,8 +892,10 @@ class MongoProvider {
         const indexFacetStage = {};
         const indexHashValues = [];
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
+        this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
         Object.keys(indexCountersInfo).forEach((indexTypeName) => {
-            this.logger.info(`Обрабатываются счетчики для типа индекса ${indexTypeName} для факта ${fact?._id}.`);
+            const counters = indexCountersInfo[indexTypeName] ? indexCountersInfo[indexTypeName] : {};
+            this.logger.info(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
             const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
             if (!indexInfo) {
                 this.logger.warn(`Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
