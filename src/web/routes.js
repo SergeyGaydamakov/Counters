@@ -130,6 +130,11 @@ function createRoutes(factController) {
                 headers: req.headers
             });
 
+            const debugMode = req.headers['debug-mode'] === 'true';
+            if (debugMode) {
+                logger.info(`ВКЛЮЧЕН РЕЖИМ ОТЛАДКИ`);
+            }
+    
             // Извлекаем messageType из атрибута MessageTypeId входящего документа
             const messageType = req.body?.MessageTypeId;
             
@@ -167,7 +172,7 @@ function createRoutes(factController) {
                 d: messageData
             };
 
-            logger.info(`Обработка IRIS события типа: ${messageType}`, { messageData });
+            logger.info(`Обработка IRIS события типа: ${messageType}`, { message });
 
             // Проверяем, что контроллер инициализирован
             if (!factController) {
@@ -180,7 +185,7 @@ function createRoutes(factController) {
             }
 
             // Обрабатываем сообщение через контроллер
-            const result = await factController.processMessageWithCounters(message);
+            const result = await factController.processMessageWithCounters(message, debugMode);
 
             logger.info(`IRIS сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
@@ -194,7 +199,7 @@ function createRoutes(factController) {
                     Counters: result.counters,
                     Timestamp: new Date().toISOString(),
                     ProcessingTime: result.processingTime || { total: 0 },
-                    debug: result.debug
+                    debug: JSON.stringify(result.debug)
                 },
                 _attributes: {
                     Version: '1',

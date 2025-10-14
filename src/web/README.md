@@ -95,7 +95,7 @@ POST /api/v1/message/{messageType}/iris
 - `MONGODB_DATABASE_NAME` - имя базы данных
 
 ### Настройки фактов
-- `FACT_FIELD_CONFIG_PATH` - путь к конфигурации полей
+- `MESSAGE_CONFIG_PATH` - путь к конфигурации полей
 - `INDEX_CONFIG_PATH` - путь к конфигурации индексов
 - `FACT_TARGET_SIZE` - целевой размер факта
 

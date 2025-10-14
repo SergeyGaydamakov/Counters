@@ -205,7 +205,9 @@ class CounterProducer {
             switch (op) {
                 // Операторы сравнения
                 case '$eq':
-                    if (actualValue !== opValue) {
+                    // Обрабатываем $$NOW в opValue
+                    const eqValue = opValue === '$$NOW' ? new Date() : opValue;
+                    if (!this._compareValues(actualValue, eqValue, 'eq')) {
                         return false;
                     }
                     break;
@@ -219,28 +221,74 @@ class CounterProducer {
                             return !this._matchesMongoOperator(actualValue, opValue, fact);
                         }
                     }
+                    // Обрабатываем $$NOW в opValue
+                    const neValue = opValue === '$$NOW' ? new Date() : opValue;
                     // Простое сравнение
-                    if (actualValue === opValue) {
+                    if (actualValue === neValue) {
                         return false;
                     }
                     break;
                 case '$gt':
-                    if (!this._compareValues(actualValue, opValue, 'gt')) {
+                    // Обрабатываем $$NOW и операторы дат в opValue
+                    let gtValue = opValue;
+                    if (opValue === '$$NOW') {
+                        gtValue = new Date();
+                    } else if (typeof opValue === 'object' && opValue !== null) {
+                        // Проверяем, является ли это оператором даты
+                        const dateResult = this._processDateOperator(opValue);
+                        if (dateResult !== null) {
+                            gtValue = dateResult;
+                        }
+                    }
+                    if (!this._compareValues(actualValue, gtValue, 'gt')) {
                         return false;
                     }
                     break;
                 case '$gte':
-                    if (!this._compareValues(actualValue, opValue, 'gte')) {
+                    // Обрабатываем $$NOW и операторы дат в opValue
+                    let gteValue = opValue;
+                    if (opValue === '$$NOW') {
+                        gteValue = new Date();
+                    } else if (typeof opValue === 'object' && opValue !== null) {
+                        // Проверяем, является ли это оператором даты
+                        const dateResult = this._processDateOperator(opValue);
+                        if (dateResult !== null) {
+                            gteValue = dateResult;
+                        }
+                    }
+                    if (!this._compareValues(actualValue, gteValue, 'gte')) {
                         return false;
                     }
                     break;
                 case '$lt':
-                    if (!this._compareValues(actualValue, opValue, 'lt')) {
+                    // Обрабатываем $$NOW и операторы дат в opValue
+                    let ltValue = opValue;
+                    if (opValue === '$$NOW') {
+                        ltValue = new Date();
+                    } else if (typeof opValue === 'object' && opValue !== null) {
+                        // Проверяем, является ли это оператором даты
+                        const dateResult = this._processDateOperator(opValue);
+                        if (dateResult !== null) {
+                            ltValue = dateResult;
+                        }
+                    }
+                    if (!this._compareValues(actualValue, ltValue, 'lt')) {
                         return false;
                     }
                     break;
                 case '$lte':
-                    if (!this._compareValues(actualValue, opValue, 'lte')) {
+                    // Обрабатываем $$NOW и операторы дат в opValue
+                    let lteValue = opValue;
+                    if (opValue === '$$NOW') {
+                        lteValue = new Date();
+                    } else if (typeof opValue === 'object' && opValue !== null) {
+                        // Проверяем, является ли это оператором даты
+                        const dateResult = this._processDateOperator(opValue);
+                        if (dateResult !== null) {
+                            lteValue = dateResult;
+                        }
+                    }
+                    if (!this._compareValues(actualValue, lteValue, 'lte')) {
                         return false;
                     }
                     break;
@@ -392,6 +440,190 @@ class CounterProducer {
     }
 
     /**
+     * Обрабатывает MongoDB операторы для работы с датами
+     * @param {Object} operator - Объект с оператором даты
+     * @returns {Date|null} Результат выполнения оператора или null при ошибке
+     */
+    _processDateOperator(operator) {
+        if (!operator || typeof operator !== 'object') {
+            return null;
+        }
+
+        for (const [op, opValue] of Object.entries(operator)) {
+            switch (op) {
+                case '$dateAdd':
+                    return this._processDateAdd(opValue);
+                case '$dateSubtract':
+                    return this._processDateSubtract(opValue);
+                case '$dateDiff':
+                    return this._processDateDiff(opValue);
+                default:
+                    this.logger.warn(`Неподдерживаемый оператор даты: ${op}`);
+                    return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Обрабатывает оператор $dateAdd
+     * @param {Object} opValue - Значение оператора
+     * @returns {Date|null} Результат выполнения оператора
+     */
+    _processDateAdd(opValue) {
+        if (!opValue || typeof opValue !== 'object') {
+            return null;
+        }
+
+        const { startDate, unit, amount } = opValue;
+        
+        if (!startDate || !unit || typeof amount !== 'number') {
+            return null;
+        }
+
+        // Обрабатываем $$NOW
+        const baseDate = startDate === '$$NOW' ? new Date() : new Date(startDate);
+        
+        if (isNaN(baseDate.getTime())) {
+            return null;
+        }
+
+        const result = new Date(baseDate);
+        
+        switch (unit) {
+            case 'year':
+                result.setFullYear(result.getFullYear() + amount);
+                break;
+            case 'month':
+                result.setMonth(result.getMonth() + amount);
+                break;
+            case 'day':
+                result.setDate(result.getDate() + amount);
+                break;
+            case 'hour':
+                result.setHours(result.getHours() + amount);
+                break;
+            case 'minute':
+                result.setMinutes(result.getMinutes() + amount);
+                break;
+            case 'second':
+                result.setSeconds(result.getSeconds() + amount);
+                break;
+            case 'millisecond':
+                result.setMilliseconds(result.getMilliseconds() + amount);
+                break;
+            default:
+                this.logger.warn(`Неподдерживаемая единица времени: ${unit}`);
+                return null;
+        }
+
+        return result;
+    }
+
+    /**
+     * Обрабатывает оператор $dateSubtract
+     * @param {Object} opValue - Значение оператора
+     * @returns {Date|null} Результат выполнения оператора
+     */
+    _processDateSubtract(opValue) {
+        if (!opValue || typeof opValue !== 'object') {
+            return null;
+        }
+
+        const { startDate, unit, amount } = opValue;
+        
+        if (!startDate || !unit || typeof amount !== 'number') {
+            return null;
+        }
+
+        // Обрабатываем $$NOW
+        const baseDate = startDate === '$$NOW' ? new Date() : new Date(startDate);
+        
+        if (isNaN(baseDate.getTime())) {
+            return null;
+        }
+
+        const result = new Date(baseDate);
+        
+        switch (unit) {
+            case 'year':
+                result.setFullYear(result.getFullYear() - amount);
+                break;
+            case 'month':
+                result.setMonth(result.getMonth() - amount);
+                break;
+            case 'day':
+                result.setDate(result.getDate() - amount);
+                break;
+            case 'hour':
+                result.setHours(result.getHours() - amount);
+                break;
+            case 'minute':
+                result.setMinutes(result.getMinutes() - amount);
+                break;
+            case 'second':
+                result.setSeconds(result.getSeconds() - amount);
+                break;
+            case 'millisecond':
+                result.setMilliseconds(result.getMilliseconds() - amount);
+                break;
+            default:
+                this.logger.warn(`Неподдерживаемая единица времени: ${unit}`);
+                return null;
+        }
+
+        return result;
+    }
+
+    /**
+     * Обрабатывает оператор $dateDiff
+     * @param {Object} opValue - Значение оператора
+     * @returns {number|null} Результат выполнения оператора
+     */
+    _processDateDiff(opValue) {
+        if (!opValue || typeof opValue !== 'object') {
+            return null;
+        }
+
+        const { startDate, endDate, unit } = opValue;
+        
+        if (!startDate || !endDate || !unit) {
+            return null;
+        }
+
+        // Обрабатываем $$NOW
+        const start = startDate === '$$NOW' ? new Date() : new Date(startDate);
+        const end = endDate === '$$NOW' ? new Date() : new Date(endDate);
+        
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return null;
+        }
+
+        const diffMs = end.getTime() - start.getTime();
+        
+        switch (unit) {
+            case 'year':
+                return Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
+            case 'month':
+                return Math.floor(diffMs / (30.44 * 24 * 60 * 60 * 1000));
+            case 'day':
+                return Math.floor(diffMs / (24 * 60 * 60 * 1000));
+            case 'hour':
+                return Math.floor(diffMs / (60 * 60 * 1000));
+            case 'minute':
+                return Math.floor(diffMs / (60 * 1000));
+            case 'second':
+                return Math.floor(diffMs / 1000);
+            case 'millisecond':
+                return diffMs;
+            default:
+                this.logger.warn(`Неподдерживаемая единица времени: ${unit}`);
+                return null;
+        }
+    }
+
+    /**
      * Сравнивает два значения с учетом их типов
      * @param {*} actualValue - Фактическое значение
      * @param {*} expectedValue - Ожидаемое значение
@@ -406,6 +638,7 @@ class CounterProducer {
         // Если оба значения - числа, сравниваем как числа
         if (typeof actual === 'number' && typeof expected === 'number') {
             switch (operator) {
+                case 'eq': return actual === expected;
                 case 'gt': return actual > expected;
                 case 'gte': return actual >= expected;
                 case 'lt': return actual < expected;
@@ -417,10 +650,31 @@ class CounterProducer {
         // Если оба значения - строки, сравниваем как строки
         if (typeof actual === 'string' && typeof expected === 'string') {
             switch (operator) {
+                case 'eq': return actual === expected;
                 case 'gt': return actual > expected;
                 case 'gte': return actual >= expected;
                 case 'lt': return actual < expected;
                 case 'lte': return actual <= expected;
+                default: return false;
+            }
+        }
+        
+        // Если одно из значений - дата, сравниваем как даты
+        if (actual instanceof Date || expected instanceof Date) {
+            const actualDate = actual instanceof Date ? actual : new Date(actual);
+            const expectedDate = expected instanceof Date ? expected : new Date(expected);
+            
+            // Проверяем, что даты валидны
+            if (isNaN(actualDate.getTime()) || isNaN(expectedDate.getTime())) {
+                return false;
+            }
+            
+            switch (operator) {
+                case 'eq': return actualDate.getTime() === expectedDate.getTime();
+                case 'gt': return actualDate > expectedDate;
+                case 'gte': return actualDate >= expectedDate;
+                case 'lt': return actualDate < expectedDate;
+                case 'lte': return actualDate <= expectedDate;
                 default: return false;
             }
         }
@@ -474,6 +728,11 @@ class CounterProducer {
     _extractFieldValue(fact, fieldPath) {
         if (!fact || !fieldPath) {
             return undefined;
+        }
+
+        // Специальная обработка для $$NOW
+        if (fieldPath === '$$NOW') {
+            return new Date();
         }
 
         // Убираем префикс $ если он есть

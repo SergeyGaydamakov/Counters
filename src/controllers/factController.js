@@ -116,7 +116,7 @@ class FactController {
      */
     async processMessageWithCounters(message, debugMode) {
         const fact = this.factMapper.mapMessageToFact(message);
-        this.logger.debug(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
+        this.logger.info(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         if (factIndexes.length === 0) {
             this.logger.warn(`✓ Нет индексных значений для факта с типом ${fact.t}, обработка факта будет пропущена.`);

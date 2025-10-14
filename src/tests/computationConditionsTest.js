@@ -24,6 +24,7 @@ class ComputationConditionsTest {
         this.testExprOperators();
         this.testComplexConditions();
         this.testEdgeCases();
+        this.testNowOperator();
         
         this.printResults();
     }
@@ -501,6 +502,176 @@ class ComputationConditionsTest {
         });
 
         this.logger.info(`${groupName}: ${passed}/${testCases.length} тестов прошли успешно`);
+    }
+
+    /**
+     * Тестирует оператор $$NOW
+     */
+    testNowOperator() {
+        this.logger.info('Тестирование оператора $$NOW...');
+        
+        const counterProducer = new CounterProducer([]);
+        const testCases = [
+            {
+                name: '$$NOW в простом сравнении $eq',
+                fact: { d: { dt: new Date() } },
+                condition: { 'd.dt': { '$eq': '$$NOW' } },
+                expected: true
+            },
+            {
+                name: '$$NOW в сравнении $gte с текущей датой',
+                fact: { d: { dt: new Date() } },
+                condition: { 'd.dt': { '$gte': '$$NOW' } },
+                expected: true
+            },
+            {
+                name: '$$NOW в сравнении $lte с текущей датой',
+                fact: { d: { dt: new Date() } },
+                condition: { 'd.dt': { '$lte': '$$NOW' } },
+                expected: true
+            },
+            {
+                name: '$$NOW в сравнении $gt с прошлой датой',
+                fact: { d: { dt: new Date(Date.now() - 1000) } },
+                condition: { 'd.dt': { '$gt': '$$NOW' } },
+                expected: false
+            },
+            {
+                name: '$$NOW в сравнении $lt с будущей датой',
+                fact: { d: { dt: new Date(Date.now() + 1000) } },
+                condition: { 'd.dt': { '$lt': '$$NOW' } },
+                expected: false
+            },
+            {
+                name: '$$NOW в $dateAdd - час назад',
+                fact: { d: { dt: new Date(Date.now() - 30 * 60 * 1000) } }, // 30 минут назад
+                condition: { 
+                    'd.dt': { 
+                        '$gte': { 
+                            '$dateAdd': { 
+                                'startDate': '$$NOW', 
+                                'unit': 'hour', 
+                                'amount': -1 
+                            } 
+                        } 
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$$NOW в $dateAdd - день назад',
+                fact: { d: { dt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) } }, // 2 дня назад
+                condition: { 
+                    'd.dt': { 
+                        '$gte': { 
+                            '$dateAdd': { 
+                                'startDate': '$$NOW', 
+                                'unit': 'day', 
+                                'amount': -1 
+                            } 
+                        } 
+                    } 
+                },
+                expected: false
+            },
+            {
+                name: '$$NOW в $dateAdd - минута назад',
+                fact: { d: { dt: new Date(Date.now() - 30 * 1000) } }, // 30 секунд назад
+                condition: { 
+                    'd.dt': { 
+                        '$gte': { 
+                            '$dateAdd': { 
+                                'startDate': '$$NOW', 
+                                'unit': 'minute', 
+                                'amount': -1 
+                            } 
+                        } 
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$$NOW в $dateAdd - комбинированное условие',
+                fact: { d: { dt: new Date(Date.now() - 2 * 60 * 60 * 1000) } }, // 2 часа назад
+                condition: { 
+                    'd.dt': { 
+                        '$gte': { 
+                            '$dateAdd': { 
+                                'startDate': '$$NOW', 
+                                'unit': 'hour', 
+                                'amount': -3 
+                            } 
+                        },
+                        '$lte': '$$NOW'
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$$NOW в $dateAdd - невалидная единица времени',
+                fact: { d: { dt: new Date() } },
+                condition: { 
+                    'd.dt': { 
+                        '$gte': { 
+                            '$dateAdd': { 
+                                'startDate': '$$NOW', 
+                                'unit': 'invalid', 
+                                'amount': -1 
+                            } 
+                        } 
+                    } 
+                },
+                expected: false
+            },
+            {
+                name: '$$NOW в $dateAdd - невалидная дата',
+                fact: { d: { dt: new Date() } },
+                condition: { 
+                    'd.dt': { 
+                        '$gte': { 
+                            '$dateAdd': { 
+                                'startDate': 'invalid-date', 
+                                'unit': 'hour', 
+                                'amount': -1 
+                            } 
+                        } 
+                    } 
+                },
+                expected: false
+            }
+        ];
+
+        let passed = 0;
+        let failed = 0;
+
+        for (const testCase of testCases) {
+            try {
+                const result = counterProducer._matchesCondition(testCase.fact, testCase.condition);
+                if (result === testCase.expected) {
+                    passed++;
+                    this.logger.debug(`✅ ${testCase.name}: ${result}`);
+                } else {
+                    failed++;
+                    this.logger.error(`❌ ${testCase.name}: ожидалось ${testCase.expected}, получено ${result}`);
+                    this.logger.debug(`   Факт: ${JSON.stringify(testCase.fact)}`);
+                    this.logger.debug(`   Условие: ${JSON.stringify(testCase.condition)}`);
+                }
+            } catch (error) {
+                failed++;
+                this.logger.error(`❌ ${testCase.name}: ошибка - ${error.message}`);
+                this.logger.debug(`   Факт: ${JSON.stringify(testCase.fact)}`);
+                this.logger.debug(`   Условие: ${JSON.stringify(testCase.condition)}`);
+            }
+        }
+
+        this.testResults.push({
+            testName: '$$NOW оператор',
+            passed,
+            failed,
+            total: passed + failed
+        });
+
+        this.logger.info(`$$NOW оператор: ${passed} прошло, ${failed} не прошло из ${passed + failed}`);
     }
 
     /**

@@ -14,7 +14,7 @@ const connectionString = process.env.MONGODB_CONNECTION_STRING || 'mongodb://loc
 const databaseName = process.env.MONGODB_DATABASE_NAME || 'counters';
 
 // Параметры генерации фактов из .env
-const fieldConfigPath = process.env.FACT_FIELD_CONFIG_PATH || null;
+const fieldConfigPath = process.env.MESSAGE_CONFIG_PATH || null;
 const indexConfigPath = process.env.INDEX_CONFIG_PATH || null;
 const counterConfigPath = process.env.COUNTER_CONFIG_PATH || null;
 const targetSize = parseInt(process.env.FACT_TARGET_SIZE) || 500;

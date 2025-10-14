@@ -350,7 +350,7 @@ class MongoProvider {
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         const countersInfo = this.getCountersInfo(fact);
         if (!countersInfo) {
-            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?._t} нет подходящих счетчиков.`);
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
             return {
                 result: [],
                 processingTime: Date.now() - startTime,
@@ -813,6 +813,8 @@ class MongoProvider {
             return;
         }
 
+        const nowDate = new Date();
+
         if (Array.isArray(obj)) {
             // Если это массив, обрабатываем каждый элемент
             obj.forEach(item => this._replaceParametersRecursive(item, factData));
@@ -825,7 +827,10 @@ class MongoProvider {
                     if (typeof value === 'string' && value.startsWith('$$')) {
                         // Если значение начинается с $$, это переменная
                         const variableName = value.substring(2); // убираем $$
-                        if (factData.hasOwnProperty(variableName)) {
+                        if (variableName.toUpperCase() === 'NOW') {
+                            obj[key] = nowDate;
+                            this.logger.debug(`Заменена переменная ${value} на значение: ${nowDate}`);
+                        } else if (factData.hasOwnProperty(variableName)) {
                             // Заменяем переменную на значение из факта
                             obj[key] = factData[variableName];
                             this.logger.debug(`Заменена переменная ${value} на значение: ${factData[variableName]}`);
@@ -870,7 +875,8 @@ class MongoProvider {
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         const indexCountersInfo = this.getFactIndexCountersInfo(fact);
         if (!indexCountersInfo) {
-            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?._t} нет подходящих счетчиков.`);
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
+
             return {
                 result: [],
                 processingTime: Date.now() - startTime,
@@ -887,6 +893,7 @@ class MongoProvider {
         const indexHashValues = [];
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
         Object.keys(indexCountersInfo).forEach((indexTypeName) => {
+            this.logger.info(`Обрабатываются счетчики для типа индекса ${indexTypeName} для факта ${fact?._id}.`);
             const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
             if (!indexInfo) {
                 this.logger.warn(`Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
@@ -920,6 +927,30 @@ class MongoProvider {
                 { "$project": findFactProjectQuery }
             ];
         });
+
+        if (Object.keys(indexFacetStage).length === 0) {
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} не найдены релевантные счетчики. Счетчики не будут вычисляться.`);
+            return {
+                result: {},
+                processingTime: Date.now() - startTime,
+                debug: {
+                    totalIndexCount: factIndexInfos?.length,
+                    counterIndexCount: Object.keys(indexCountersInfo).length,
+                    factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
+                    relevantIndexCount: 0,
+                    relevantFactsCount: 0,
+                    relevantFactsSize: 0,
+                    indexQueryTime: 0,
+                    prepareCountersQueryTime: 0,
+                    countersQueryTime: 0,
+                    indexQuerySize: undefined,
+                    countersQueryCount: 0,
+                    countersQueryTotalSize: 0,
+                    indexQuery: undefined,
+                    countersQuery: undefined,
+                }
+            };
+        }
 
         // Предварительная фильтрация данных
         const matchIndexQuery = {
@@ -1001,7 +1032,7 @@ class MongoProvider {
         });
 
         if (!Object.keys(factFacetStage).length) {
-            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?._t} не найдены релевантные факты.`);
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} не найдены релевантные факты.`);
             return {
                 result: {},
                 processingTime: Date.now() - startTime,
@@ -1124,7 +1155,7 @@ class MongoProvider {
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         const countersInfo = this.getCountersInfo(fact);
         if (!countersInfo) {
-            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?._t} нет подходящих счетчиков.`);
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
             return {
                 result: [],
                 processingTime: Date.now() - startTime,

@@ -7,7 +7,7 @@
 @password = 1
 
 # Тип сообщения
-@messageType = 2
+@messageType = 4
 
 
 ### Health check
@@ -23,7 +23,7 @@ GET http://{{host}}/api/v1/message/{{messageType}}/iris
 @processedIrisMessage = {{newIrisMessage.response.body.*}}
 POST http://{{host}}/api/v1/message/iris
 Content-Type: text/xml
-Debug-Mode: false
+Debug-Mode: true
 
 {{processedIrisMessage}}
 
