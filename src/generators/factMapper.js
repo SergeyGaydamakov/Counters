@@ -223,6 +223,11 @@ class FactMapper {
         return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('hex');
     }
 
+    _hashBase64(factType, keyValue) {
+        const input = `${factType}:${keyValue}`;
+        return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('base64');
+    }
+
     /**
      * Валидация структуры сообщения
      */
@@ -266,7 +271,7 @@ class FactMapper {
         }
         // Получаем идентификатор факта
         if (keyRule.key_type === this.KEY_TYPE_HASH) {
-            return this._hashHex(message.t, message.d[keyRule.src]);
+            return this._hashBase64(message.t, message.d[keyRule.src]);
         } else if (keyRule.key_type === this.KEY_TYPE_VALUE) {
             return `${message.t}:${String(message.d[keyRule.src])}`;
         }

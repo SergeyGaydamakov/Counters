@@ -199,45 +199,43 @@ class MongoProviderTest {
             await this.testDisconnection('2. Тест отключения от MongoDB...');
             await this.testReconnection('3. Тест переподключения к MongoDB...');
             await this.testCheckConnection('4. Тест проверки подключения...');
-            /*            
-                        // Тесты создания базы данных
-                        await this.testCreateDatabase('5. Тест создания базы данных...');
-            
-                        // Тесты работы с фактами
-                        await this.testInsertFact('6. Тест вставки одного факта...');
-                        await this.testBulkInsert('7. Тест массовой вставки фактов...');
-                        await this.testGetFactsCollectionSchema('8. Тест получения схемы коллекции фактов...');
-                        await this.testClearFactsCollection('09. Тест очистки коллекции фактов...');
-            
-                        // Тесты индексных значений
-                        await this.testInsertFactIndexList('10. Тест вставки списка индексных значений...');
-                        await this.testGetFactIndexSchema('11. Тест получения схемы коллекции индексных значений...');
-                        await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
-            
-                        // Тесты повторных вызовов с теми же данными
-                        await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
-                        await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
-                        await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
-            
-                        // Тесты получения релевантных фактов
-                        await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
-                        await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
-                        await this.testGetRelevantFactsWithNoMatches('18. Тест получения релевантных фактов без совпадений...');
-                        await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
-                        await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
-                        await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
-                        // Тесты получения релевантных счетчиков фактов
-                        await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
-                        await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
-                        await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
-                        await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');
-                        await this.testGetRelevantFactCountersWithDepthFromDate('26. Тест получения релевантных счетчиков с глубиной от даты...');
-                        await this.testGetRelevantFactCountersWithBothParameters('27. Тест получения релевантных счетчиков с обоими параметрами...');
-            
-                        // Тесты статистики
-                        await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
-                        await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
-            */
+            // Тесты создания базы данных
+            await this.testCreateDatabase('5. Тест создания базы данных...');
+
+            // Тесты работы с фактами
+            await this.testInsertFact('6. Тест вставки одного факта...');
+            await this.testBulkInsert('7. Тест массовой вставки фактов...');
+            await this.testGetFactsCollectionSchema('8. Тест получения схемы коллекции фактов...');
+            await this.testClearFactsCollection('09. Тест очистки коллекции фактов...');
+
+            // Тесты индексных значений
+            await this.testInsertFactIndexList('10. Тест вставки списка индексных значений...');
+            await this.testGetFactIndexSchema('11. Тест получения схемы коллекции индексных значений...');
+            await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
+
+            // Тесты повторных вызовов с теми же данными
+            await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
+            await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
+            await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
+
+            // Тесты получения релевантных фактов
+            await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
+            await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
+            await this.testGetRelevantFactsWithNoMatches('18. Тест получения релевантных фактов без совпадений...');
+            await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
+            await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
+            await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
+            // Тесты получения релевантных счетчиков фактов
+            await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
+            await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
+            await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
+            await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');
+            await this.testGetRelevantFactCountersWithDepthFromDate('26. Тест получения релевантных счетчиков с глубиной от даты...');
+            await this.testGetRelevantFactCountersWithBothParameters('27. Тест получения релевантных счетчиков с обоими параметрами...');
+
+            // Тесты статистики
+            await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
+            await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
             // 
             await this.testProcessMessage('30. Тест обработки конкретного сообщения...');
         } catch (error) {
@@ -2286,22 +2284,22 @@ class MongoProviderTest {
             // Создаем тестовые факты с известными значениями полей
             const testMessages = [
                 {
-                "t": 1,
-                "d": {
-                    "id": "fddb001e88013b9a68eaac54",
-                    "amount": 1000,
-                    "dt": "2025-09-23T12:12:15.128Z",
-                    "f1": "WTECTalSmNeouPhLCNi",
-                    "f2": "value3",
-                    "f3": 3,
-                    "f4": "oXWiyLeTBsuRjcjYz",
-                    "f5": "wEKgtpTZbXAuoWKnk",
-                    "f6": "VvNJXizISJCoFGnzS",
-                    "f12": "Xd",
-                    "f20": "1234567890",
-                    "f21": "kIOBRhqYnRHxLdZ",
-                    "f22": "DLz"
-                }
+                    "t": 1,
+                    "d": {
+                        "id": "fddb001e88013b9a68eaac54",
+                        "amount": 1000,
+                        "dt": "2025-09-23T12:12:15.128Z",
+                        "f1": "WTECTalSmNeouPhLCNi",
+                        "f2": "value3",
+                        "f3": 3,
+                        "f4": "oXWiyLeTBsuRjcjYz",
+                        "f5": "wEKgtpTZbXAuoWKnk",
+                        "f6": "VvNJXizISJCoFGnzS",
+                        "f12": "Xd",
+                        "f20": "1234567890",
+                        "f21": "kIOBRhqYnRHxLdZ",
+                        "f22": "DLz"
+                    }
                 },
                 {
                     "t": 1,

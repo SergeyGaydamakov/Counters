@@ -35,7 +35,7 @@ class FactController {
 
         // Значения хеша
         this.factIndexer._indexConfig.forEach(config => {
-            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hashHex(config.indexType, '1234567890')}`);
+            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hashBase64(config.indexType, '1234567890')}`);
         });
     }
 

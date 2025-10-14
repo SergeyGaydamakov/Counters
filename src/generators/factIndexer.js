@@ -188,6 +188,11 @@ class FactIndexer {
         return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('hex');
     }
 
+    _hashBase64(indexType, indexValue) {
+        const input = `${indexType}:${indexValue}`;
+        return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('base64');
+    }
+
     /**
      * Преобразует значение в Date, если это возможно
      * @param {any} value - значение для преобразования
@@ -252,7 +257,7 @@ class FactIndexer {
                 // Вычисляем значение индекса в зависимости от indexValue
                 if (configItem.indexValue === this.INDEX_VALUE_HASH) {
                     // Хеш от типа индекса и значения поля
-                    indexValue = this._hashHex(configItem.indexType, fact.d[fieldName]);
+                    indexValue = this._hashBase64(configItem.indexType, fact.d[fieldName]);
                 } else if (configItem.indexValue === this.INDEX_VALUE_VALUE) {
                     // Само значение поля
                     indexValue = `${configItem.indexType}:${String(fact.d[fieldName])}`;
