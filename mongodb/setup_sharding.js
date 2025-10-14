@@ -14,6 +14,25 @@ let hasError = false;
 // print("process.argv: "+process.argv);
 // print("process.env: "+JSON.stringify(process.env));
 
+// Функция для конвертации Hex строки в Base64
+function hexToBase64(hexString) {
+    // Удаляем пробелы и проверяем четность длины
+    const cleanHex = hexString.replace(/\s/g, '');
+    if (cleanHex.length % 2 !== 0) {
+        throw new Error('Hex string length must be even');
+    }
+    
+    // Конвертируем hex в bytes
+    const bytes = [];
+    for (let i = 0; i < cleanHex.length; i += 2) {
+        bytes.push(parseInt(cleanHex.substr(i, 2), 16));
+    }
+    
+    // Конвертируем bytes в base64
+    const base64 = Buffer.from(bytes).toString('base64');
+    return base64;
+}
+
 // Функция для выполнения команд с обработкой ошибок
 function executeCommand(command, description) {
     try {
@@ -389,8 +408,8 @@ function CreateShardZones(databaseName) {
             namespace: databaseName + ".facts",
             keys: [
                 { _id: MinKey },
-                { _id: "5555555555555555555555555555555555555555" },
-                { _id: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
+                { _id: hexToBase64("5555555555555555555555555555555555555555") },
+                { _id: hexToBase64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") },
                 { _id: MaxKey }
             ]
         },
@@ -398,8 +417,8 @@ function CreateShardZones(databaseName) {
             namespace: databaseName + ".factIndex",
             keys: [
                 { "_id.h": MinKey},
-                { "_id.h": "5555555555555555555555555555555555555555555555555555555555555555"},
-                { "_id.h": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+                { "_id.h": hexToBase64("5555555555555555555555555555555555555555")},
+                { "_id.h": hexToBase64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")},
                 { "_id.h": MaxKey},
             ]
         },
