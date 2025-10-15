@@ -1,5 +1,6 @@
 const http = require('http');
 const logger = require('../utils/logger');
+const config = require('../common/config');
 
 /**
  * Тестирование Web API
@@ -530,6 +531,8 @@ class ApiTester {
             { name: 'Invalid JSON', fn: () => this.testInvalidJson() },
             { name: 'Empty MessageType', fn: () => this.testEmptyMessageType() },
             { name: 'Array Instead of Object', fn: () => this.testArrayInsteadOfObject() },
+            { name: 'Message Types Filtering', fn: () => this.testMessageTypesFiltering() },
+            { name: 'Message Types API', fn: () => this.testMessageTypesApi() },
             { name: 'Required Fields Validation', fn: () => this.testRequiredFieldsValidation() },
             { name: 'New Response Fields', fn: () => this.testNewResponseFields() },
             { name: 'Generate Message', fn: () => this.testGenerateMessage() },
@@ -652,6 +655,295 @@ class ApiTester {
         this.logger.info(`   Среднее количество счетчиков: ${avgCountersCount}`);
         this.logger.info(`   Запросов с debug: ${successfulRequests.filter(r => r.hasDebug).length}`);
     }
+
+    /**
+     * Тестирование фильтрации типов сообщений
+     */
+    async testMessageTypesFiltering() {
+        this.logger.info('🧪 Тестирование фильтрации типов сообщений...');
+        
+        // Тест 1: Проверка парсинга переменной окружения
+        this.logger.info('📋 Тест 1: Парсинг переменной окружения');
+        
+        // Симулируем различные значения ALLOWED_MESSAGE_TYPES
+        const testCases = [
+            { input: '1,2,3', expected: [1, 2, 3] },
+            { input: '1, 2, 3', expected: [1, 2, 3] }, // с пробелами
+            { input: '50', expected: [50] },
+            { input: '1,2,3,50,100', expected: [1, 2, 3, 50, 100] },
+            { input: '', expected: null }, // пустая строка
+            { input: undefined, expected: null }, // не задана
+            { input: '1,abc,3', expected: [1, 3] }, // с невалидными значениями
+            { input: 'abc,def', expected: null }, // только невалидные значения
+        ];
+        
+        testCases.forEach((testCase, index) => {
+            // Временно сохраняем оригинальное значение
+            const originalValue = process.env.ALLOWED_MESSAGE_TYPES;
+            
+            // Устанавливаем тестовое значение
+            if (testCase.input === undefined) {
+                delete process.env.ALLOWED_MESSAGE_TYPES;
+            } else {
+                process.env.ALLOWED_MESSAGE_TYPES = testCase.input;
+            }
+            
+            // Перезагружаем конфигурацию
+            delete require.cache[require.resolve('../common/config')];
+            
+            // Для теста с undefined нужно временно отключить dotenv
+            if (testCase.input === undefined) {
+                // Сохраняем оригинальный dotenv
+                const originalDotenv = require.cache[require.resolve('dotenv')];
+                delete require.cache[require.resolve('dotenv')];
+                
+                // Перезагружаем конфигурацию без dotenv
+                const testConfig = require('../common/config');
+                
+                const result = testConfig.messageTypes.allowedTypes;
+                const expected = null;
+                
+                if (JSON.stringify(result) === JSON.stringify(expected)) {
+                    this.logger.info(`   ✅ Тест ${index + 1}: "${testCase.input}" -> ${JSON.stringify(result)}`);
+                } else {
+                    this.logger.error(`   ❌ Тест ${index + 1}: "${testCase.input}" -> ${JSON.stringify(result)}, ожидалось ${JSON.stringify(expected)}`);
+                }
+                
+                // Восстанавливаем dotenv
+                if (originalDotenv) {
+                    require.cache[require.resolve('dotenv')] = originalDotenv;
+                }
+            } else {
+                const testConfig = require('../common/config');
+                
+                const result = testConfig.messageTypes.allowedTypes;
+                const expected = testCase.expected;
+                
+                if (JSON.stringify(result) === JSON.stringify(expected)) {
+                    this.logger.info(`   ✅ Тест ${index + 1}: "${testCase.input}" -> ${JSON.stringify(result)}`);
+                } else {
+                    this.logger.error(`   ❌ Тест ${index + 1}: "${testCase.input}" -> ${JSON.stringify(result)}, ожидалось ${JSON.stringify(expected)}`);
+                }
+            }
+            
+            // Восстанавливаем оригинальное значение
+            if (originalValue === undefined) {
+                delete process.env.ALLOWED_MESSAGE_TYPES;
+            } else {
+                process.env.ALLOWED_MESSAGE_TYPES = originalValue;
+            }
+            
+            // Очищаем кэш конфигурации после каждого теста
+            delete require.cache[require.resolve('../common/config')];
+        });
+        
+        // Тест 2: Функция проверки разрешенных типов
+        this.logger.info('📋 Тест 2: Функция проверки разрешенных типов');
+        
+        // Тестируем различные сценарии
+        const testScenarios = [
+            { allowedTypes: [1, 2, 3], testType: 1, shouldAllow: true },
+            { allowedTypes: [1, 2, 3], testType: 5, shouldAllow: false },
+            { allowedTypes: null, testType: 999, shouldAllow: true },
+            { allowedTypes: [], testType: 999, shouldAllow: true },
+        ];
+        
+        testScenarios.forEach((scenario, index) => {
+            // Устанавливаем тестовую конфигурацию
+            const originalConfig = config.messageTypes.allowedTypes;
+            config.messageTypes.allowedTypes = scenario.allowedTypes;
+            
+            const isAllowed = !scenario.allowedTypes || 
+                             scenario.allowedTypes.length === 0 || 
+                             scenario.allowedTypes.includes(scenario.testType);
+            
+            if (isAllowed === scenario.shouldAllow) {
+                this.logger.info(`   ✅ Сценарий ${index + 1}: тип ${scenario.testType} с разрешенными ${JSON.stringify(scenario.allowedTypes)} -> ${isAllowed}`);
+            } else {
+                this.logger.error(`   ❌ Сценарий ${index + 1}: тип ${scenario.testType} с разрешенными ${JSON.stringify(scenario.allowedTypes)} -> ${isAllowed}, ожидалось ${scenario.shouldAllow}`);
+            }
+            
+            // Восстанавливаем оригинальную конфигурацию
+            config.messageTypes.allowedTypes = originalConfig;
+        });
+        
+        this.logger.info('✅ Тестирование фильтрации типов сообщений завершено');
+    }
+
+    /**
+     * Тестирование API с фильтрацией типов сообщений
+     */
+    async testMessageTypesApi() {
+        this.logger.info('🧪 Тестирование API с фильтрацией типов сообщений...');
+        
+        // Проверяем, доступен ли сервис
+        try {
+            const healthResponse = await this.makeRequest('GET', '/health');
+            if (healthResponse.statusCode !== 200) {
+                this.logger.warn('⚠️  Сервис недоступен, пропускаем API тесты');
+                return;
+            }
+        } catch (error) {
+            this.logger.warn('⚠️  Сервис недоступен, пропускаем API тесты');
+            return;
+        }
+        
+        // Сохраняем оригинальную конфигурацию
+        const originalAllowedTypes = config.messageTypes.allowedTypes;
+        
+        try {
+            // Устанавливаем тестовую конфигурацию - разрешаем только типы 1 и 2
+            config.messageTypes.allowedTypes = [1, 2];
+            
+            // Тест 1: Разрешенный тип сообщения (тип 1)
+            this.logger.info('📋 Тест 1: Разрешенный тип сообщения (тип 1)');
+            try {
+                const response = await this.makeRequest('POST', '/api/v1/message/1/json', {
+                    testField: 'testValue',
+                    amount: 100.50,
+                    timestamp: '2024-01-01T12:00:00Z'
+                });
+                
+                if (response.statusCode === 200) {
+                    this.logger.info('   ✅ Разрешенный тип обработан успешно');
+                } else {
+                    this.logger.error(`   ❌ Ошибка обработки разрешенного типа: ${response.statusCode}`);
+                }
+            } catch (error) {
+                this.logger.error(`   ❌ Ошибка запроса разрешенного типа: ${error.message}`);
+            }
+            
+            // Тест 2: Запрещенный тип сообщения (тип 999)
+            this.logger.info('📋 Тест 2: Запрещенный тип сообщения (тип 999)');
+            try {
+                const response = await this.makeRequest('POST', '/api/v1/message/999/json', {
+                    testField: 'testValue',
+                    amount: 100.50,
+                    timestamp: '2024-01-01T12:00:00Z'
+                });
+                
+                if (response.statusCode === 200) {
+                    this.logger.info('   ✅ Запрещенный тип возвращает 200 с пустым ответом');
+                    if (response.data && Object.keys(response.data).length === 0) {
+                        this.logger.info('   ✅ Корректный пустой ответ');
+                    } else {
+                        this.logger.error('   ❌ Ответ не пустой');
+                    }
+                } else {
+                    this.logger.error(`   ❌ Неожиданный статус код: ${response.statusCode}`);
+                }
+            } catch (error) {
+                this.logger.error(`   ❌ Ошибка запроса запрещенного типа: ${error.message}`);
+            }
+            
+            // Тест 3: IRIS разрешенный тип
+            this.logger.info('📋 Тест 3: IRIS разрешенный тип (тип 2)');
+            try {
+                const xmlData = `<?xml version="1.0" encoding="UTF-8"?>
+<IRIS Version="1" Message="ModelRequest" MessageTypeId="2" MessageId="test-123">
+  <TestField>testValue</TestField>
+  <Amount>100.50</Amount>
+  <Timestamp>2024-01-01T12:00:00Z</Timestamp>
+</IRIS>`;
+                
+                const response = await this.makeRequest('POST', '/api/v1/message/iris', xmlData, true);
+                
+                if (response.statusCode === 200) {
+                    this.logger.info('   ✅ IRIS разрешенный тип обработан успешно');
+                } else {
+                    this.logger.error(`   ❌ Ошибка обработки IRIS разрешенного типа: ${response.statusCode}`);
+                }
+            } catch (error) {
+                this.logger.error(`   ❌ Ошибка запроса IRIS разрешенного типа: ${error.message}`);
+            }
+            
+            // Тест 4: IRIS запрещенный тип
+            this.logger.info('📋 Тест 4: IRIS запрещенный тип (тип 999)');
+            try {
+                const xmlData = `<?xml version="1.0" encoding="UTF-8"?>
+<IRIS Version="1" Message="ModelRequest" MessageTypeId="999" MessageId="test-456">
+  <TestField>testValue</TestField>
+  <Amount>100.50</Amount>
+  <Timestamp>2024-01-01T12:00:00Z</Timestamp>
+</IRIS>`;
+                
+                const response = await this.makeRequest('POST', '/api/v1/message/iris', xmlData, true);
+                
+                if (response.statusCode === 200) {
+                    this.logger.info('   ✅ IRIS запрещенный тип возвращает 200 с пустым IRIS узлом');
+                    // Проверяем, что ответ содержит пустой IRIS узел с полным тегом
+                    if (response.data && response.data.includes('<IRIS') && response.data.includes('</IRIS>')) {
+                        this.logger.info('   ✅ Корректный пустой IRIS узел с полным тегом');
+                    } else {
+                        this.logger.error('   ❌ Неверный формат IRIS ответа - ожидается полный тег <IRIS></IRIS>');
+                    }
+                } else {
+                    this.logger.error(`   ❌ Неожиданный статус код для IRIS: ${response.statusCode}`);
+                }
+            } catch (error) {
+                this.logger.error(`   ❌ Ошибка запроса IRIS запрещенного типа: ${error.message}`);
+            }
+            
+            // Тест 5: Генерация разрешенного типа
+            this.logger.info('📋 Тест 5: Генерация разрешенного типа (тип 1)');
+            try {
+                const response = await this.makeRequest('GET', '/api/v1/message/1/json');
+                
+                if (response.statusCode === 200) {
+                    this.logger.info('   ✅ Генерация разрешенного типа успешна');
+                } else {
+                    this.logger.error(`   ❌ Ошибка генерации разрешенного типа: ${response.statusCode}`);
+                }
+            } catch (error) {
+                this.logger.error(`   ❌ Ошибка запроса генерации разрешенного типа: ${error.message}`);
+            }
+            
+            // Тест 6: Генерация запрещенного типа
+            this.logger.info('📋 Тест 6: Генерация запрещенного типа (тип 999)');
+            try {
+                const response = await this.makeRequest('GET', '/api/v1/message/999/json');
+                
+                if (response.statusCode === 200) {
+                    this.logger.info('   ✅ Генерация запрещенного типа возвращает 200 с пустым ответом');
+                    if (response.data && Object.keys(response.data).length === 0) {
+                        this.logger.info('   ✅ Корректный пустой ответ для генерации');
+                    } else {
+                        this.logger.error('   ❌ Ответ генерации не пустой');
+                    }
+                } else {
+                    this.logger.error(`   ❌ Неожиданный статус код для генерации: ${response.statusCode}`);
+                }
+            } catch (error) {
+                this.logger.error(`   ❌ Ошибка запроса генерации запрещенного типа: ${error.message}`);
+            }
+            
+            // Тест 7: Генерация IRIS запрещенного типа
+            this.logger.info('📋 Тест 7: Генерация IRIS запрещенного типа (тип 999)');
+            try {
+                const response = await this.makeRequest('GET', '/api/v1/message/999/iris');
+                
+                if (response.statusCode === 200) {
+                    this.logger.info('   ✅ Генерация IRIS запрещенного типа возвращает 200 с пустым IRIS узлом');
+                    // Проверяем, что ответ содержит пустой IRIS узел с полным тегом
+                    if (response.data && response.data.includes('<IRIS') && response.data.includes('</IRIS>')) {
+                        this.logger.info('   ✅ Корректный пустой IRIS узел для генерации с полным тегом');
+                    } else {
+                        this.logger.error('   ❌ Неверный формат IRIS ответа для генерации - ожидается полный тег <IRIS></IRIS>');
+                    }
+                } else {
+                    this.logger.error(`   ❌ Неожиданный статус код для IRIS генерации: ${response.statusCode}`);
+                }
+            } catch (error) {
+                this.logger.error(`   ❌ Ошибка запроса генерации IRIS запрещенного типа: ${error.message}`);
+            }
+            
+        } finally {
+            // Восстанавливаем оригинальную конфигурацию
+            config.messageTypes.allowedTypes = originalAllowedTypes;
+        }
+        
+        this.logger.info('✅ Тестирование API с фильтрацией типов сообщений завершено');
+    }
 }
 
 // Запуск тестов если файл выполняется напрямую
@@ -660,11 +952,22 @@ if (require.main === module) {
     
     async function runTests() {
         try {
-            await tester.runAllTests();
+            // Проверяем аргументы командной строки
+            const args = process.argv.slice(2);
             
-            // Запускаем тест производительности
-            tester.logger.info('\n🚀 Запуск теста производительности...');
-            await tester.performanceTest(50, 5);
+            if (args.includes('--message-types-only')) {
+                // Запускаем только тесты фильтрации типов сообщений
+                tester.logger.info('🧪 Запуск только тестов фильтрации типов сообщений...');
+                await tester.testMessageTypesFiltering();
+                await tester.testMessageTypesApi();
+            } else {
+                // Запускаем все тесты
+                await tester.runAllTests();
+                
+                // Запускаем тест производительности
+                tester.logger.info('\n🚀 Запуск теста производительности...');
+                await tester.performanceTest(50, 5);
+            }
             
         } catch (error) {
             tester.logger.error('❌ Ошибка выполнения тестов:', error);

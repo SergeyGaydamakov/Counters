@@ -58,6 +58,18 @@ const config = {
         connectionString: process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017',
         databaseName: process.env.MONGODB_DATABASE_NAME || 'counters'
     },
+    
+    // Фильтрация типов сообщений
+    messageTypes: {
+        // Список разрешенных типов сообщений (через запятую)
+        // Если не задан, обрабатываются все типы
+        allowedTypes: process.env.ALLOWED_MESSAGE_TYPES ? 
+            (() => {
+                const types = process.env.ALLOWED_MESSAGE_TYPES.split(',').map(t => parseInt(t.trim())).filter(t => !isNaN(t));
+                return types.length > 0 ? types : null;
+            })() : 
+            null
+    },
 };
 
 module.exports = config;

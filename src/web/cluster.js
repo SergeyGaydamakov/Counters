@@ -14,6 +14,16 @@ const numCPUs = process.env.CLUSTER_WORKERS || os.cpus().length;
 if (cluster.isMaster) {
     logger.info(`🚀 Master процесс ${process.pid} запущен`);
     logger.info(`⚙️  Создаю ${numCPUs} воркеров для обработки запросов`);
+    
+    // Выводим информацию о разрешенных типах сообщений
+    const config = require('../common/config');
+    logger.info(`📨 Обрабатываемые типы сообщений:`);
+    if (config.messageTypes.allowedTypes && config.messageTypes.allowedTypes.length > 0) {
+        logger.info(`   - Разрешенные типы: ${config.messageTypes.allowedTypes.join(', ')}`);
+        logger.info(`   - Всего типов: ${config.messageTypes.allowedTypes.length}`);
+    } else {
+        logger.info(`   - Все типы сообщений разрешены (фильтрация отключена)`);
+    }
 
     // Создаем воркеры
     for (let i = 0; i < numCPUs; i++) {

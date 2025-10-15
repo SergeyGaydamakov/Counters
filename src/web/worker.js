@@ -121,6 +121,15 @@ async function initialize() {
         logger.info(`   - Счетчики: ${config.facts.counterConfigPath || 'не указан'}`);
         logger.info(`   - Поля: ${config.facts.fieldConfigPath || 'не указан'}`);
         logger.info(`   - Индексы: ${config.facts.indexConfigPath || 'не указан'}`);
+        
+        // Выводим информацию о разрешенных типах сообщений
+        logger.info(`📨 Обрабатываемые типы сообщений:`);
+        if (config.messageTypes.allowedTypes && config.messageTypes.allowedTypes.length > 0) {
+            logger.info(`   - Разрешенные типы: ${config.messageTypes.allowedTypes.join(', ')}`);
+            logger.info(`   - Всего типов: ${config.messageTypes.allowedTypes.length}`);
+        } else {
+            logger.info(`   - Все типы сообщений разрешены (фильтрация отключена)`);
+        }
 
         // Запускаем диагностику системы
         const diagnostics = new Diagnostics(logger);

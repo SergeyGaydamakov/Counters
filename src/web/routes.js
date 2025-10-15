@@ -4,8 +4,26 @@ const json2xml = require('json2xml');
 const { v4: uuidv4 } = require('uuid');
 
 const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
+const config = require('../common/config');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
+
+/**
+ * Проверяет, разрешен ли тип сообщения для обработки
+ * @param {number} messageType - тип сообщения
+ * @returns {boolean} true если тип разрешен, false если нет
+ */
+function isMessageTypeAllowed(messageType) {
+    const allowedTypes = config.messageTypes.allowedTypes;
+    
+    // Если список не задан, обрабатываем все типы
+    if (!allowedTypes || allowedTypes.length === 0) {
+        return true;
+    }
+    
+    // Проверяем, есть ли тип в списке разрешенных
+    return allowedTypes.includes(messageType);
+}
 
 /**
  * Создает маршруты API
@@ -72,13 +90,25 @@ function createRoutes(factController) {
                 });
             }
 
+            // Преобразуем messageType в число
+            const messageTypeNumber = parseInt(messageType.trim());
+            
+            // Проверяем, разрешен ли этот тип сообщения
+            if (!isMessageTypeAllowed(messageTypeNumber)) {
+                logger.warn(`Тип сообщения ${messageTypeNumber} не разрешен для обработки - возвращаем пустой ответ`, {
+                    allowedTypes: config.messageTypes.allowedTypes,
+                    messageType: messageTypeNumber
+                });
+                return res.status(200).json({});
+            }
+
             // Добавляем тип события в данные
             const message = {
-                t: parseInt(messageType.trim()), // Преобразуем в число
+                t: messageTypeNumber,
                 d: messageData  // Данные события должны быть в поле 'd'
             };
 
-            logger.debug(`Обработка JSON события типа: ${messageType}`, { messageData });
+            logger.debug(`Обработка JSON события типа: ${messageTypeNumber}`, { messageData });
 
             // Проверяем, что контроллер инициализирован
             if (!factController) {
@@ -147,6 +177,39 @@ function createRoutes(factController) {
                 });
             }
 
+            // Преобразуем messageType в число
+            const messageTypeNumber = parseInt(messageType.trim());
+            
+            // Проверяем, разрешен ли этот тип сообщения
+            if (!isMessageTypeAllowed(messageTypeNumber)) {
+                logger.warn(`Тип IRIS сообщения ${messageTypeNumber} не разрешен для обработки - возвращаем пустой IRIS узел`, {
+                    allowedTypes: config.messageTypes.allowedTypes,
+                    messageType: messageTypeNumber
+                });
+                
+                // Создаем пустой XML ответ с правильными атрибутами
+                const emptyResponse = {
+                    IRIS: {
+                        _text: ''  // Пустое содержимое для создания полного тега
+                    },
+                    _attributes: {
+                        Version: '1',
+                        Message: 'ModelResponse',
+                        MessageTypeId: messageType,
+                        MessageId: req.body?.MessageId || 'unknown'
+                    }
+                };
+
+                const xmlEmptyResponse = json2xml(emptyResponse, {
+                    header: true,
+                    attributes_key: '_attributes',
+                    chars_key: '_text'
+                });
+
+                res.set('Content-Type', 'application/xml');
+                return res.status(200).send(xmlEmptyResponse);
+            }
+
             if (!req.body || typeof req.body !== 'object') {
                 return res.status(400).json({
                     success: false,
@@ -168,11 +231,11 @@ function createRoutes(factController) {
 
             // Создаем сообщение в формате для FactController
             const message = {
-                t: parseInt(messageType.trim()),
+                t: messageTypeNumber,
                 d: messageData
             };
 
-            logger.info(`Обработка IRIS события типа: ${messageType}`, { message });
+            logger.info(`Обработка IRIS события типа: ${messageTypeNumber}`, { message });
 
             // Проверяем, что контроллер инициализирован
             if (!factController) {
@@ -287,6 +350,37 @@ function createRoutes(factController) {
                 });
             }
 
+            // Проверяем, разрешен ли этот тип сообщения
+            if (!isMessageTypeAllowed(messageTypeNumber)) {
+                logger.warn(`Запрос генерации IRIS сообщения типа ${messageTypeNumber} не разрешен - возвращаем пустой IRIS узел`, {
+                    allowedTypes: config.messageTypes.allowedTypes,
+                    messageType: messageTypeNumber
+                });
+                
+                // Создаем пустой XML ответ с правильными атрибутами
+                const messageId = uuidv4();
+                const emptyResponse = {
+                    IRIS: {
+                        _text: ''  // Пустое содержимое для создания полного тега
+                    },
+                    _attributes: {
+                        Version: '1',
+                        Message: 'ModelRequest',
+                        MessageTypeId: messageTypeNumber,
+                        MessageId: messageId
+                    }
+                };
+
+                const xmlEmptyResponse = json2xml(emptyResponse, {
+                    header: true,
+                    attributes_key: '_attributes',
+                    chars_key: '_text'
+                });
+
+                res.set('Content-Type', 'application/xml');
+                return res.status(200).send(xmlEmptyResponse);
+            }
+
             // Генерируем сообщение указанного типа
             const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
             
@@ -356,6 +450,15 @@ function createRoutes(factController) {
                     error: 'Неверный формат messageType',
                     message: 'messageType должен быть числом'
                 });
+            }
+
+            // Проверяем, разрешен ли этот тип сообщения
+            if (!isMessageTypeAllowed(messageTypeNumber)) {
+                logger.warn(`Запрос генерации JSON сообщения типа ${messageTypeNumber} не разрешен - возвращаем пустой ответ`, {
+                    allowedTypes: config.messageTypes.allowedTypes,
+                    messageType: messageTypeNumber
+                });
+                return res.status(200).json({});
             }
 
             // Генерируем сообщение указанного типа
