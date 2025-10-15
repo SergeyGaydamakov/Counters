@@ -8,11 +8,42 @@ const config = require('../common/config');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
-// Глобальные переменные для отслеживания статистики запросов
-let requestCounter = 0;
-let maxProcessingTime = null;
-let maxMetrics = null;
-let maxDebugInfo = null;
+// Глобальные переменные для отслеживания статистики запросов по потокам
+const threadStats = new Map(); // Map<processId, {requestCounter, maxProcessingTime, maxMetrics, maxDebugInfo}>
+
+/**
+ * Получает или создает статистику для текущего потока
+ * @returns {Object} объект со статистикой потока
+ */
+function getThreadStats() {
+    const processId = process.pid;
+    
+    if (!threadStats.has(processId)) {
+        threadStats.set(processId, {
+            requestCounter: 0,
+            maxProcessingTime: null,
+            maxMetrics: null,
+            maxDebugInfo: null
+        });
+    }
+    
+    return threadStats.get(processId);
+}
+
+/**
+ * Очищает статистику для текущего потока
+ */
+function clearThreadStats() {
+    const processId = process.pid;
+    threadStats.delete(processId);
+}
+
+/**
+ * Очищает статистику для всех потоков
+ */
+function clearAllThreadStats() {
+    threadStats.clear();
+}
 
 /**
  * Вычисляет CRC32 хеш для строки
@@ -66,31 +97,34 @@ async function saveDebugInfoIfNeeded(factController, processingTime, metrics, de
         // Получаем частоту сохранения из конфигурации
         const logSaveFrequency = config.logging.saveFrequency;
         
+        // Получаем статистику для текущего потока
+        const stats = getThreadStats();
+        
         // Увеличиваем счетчик запросов
-        requestCounter++;
+        stats.requestCounter++;
         
         // Обновляем максимальное время обработки и связанную информацию
-        if (!maxProcessingTime || (processingTime.total > maxProcessingTime.total)) {
-            maxProcessingTime = processingTime;
-            maxMetrics = metrics;
-            maxDebugInfo = debugInfo;
+        if (!stats.maxProcessingTime || (processingTime.total > stats.maxProcessingTime.total)) {
+            stats.maxProcessingTime = processingTime;
+            stats.maxMetrics = metrics;
+            stats.maxDebugInfo = debugInfo;
         }
         
         // Проверяем, достигли ли лимита запросов
-        if (requestCounter >= logSaveFrequency) {
+        if (stats.requestCounter >= logSaveFrequency) {
             if (factController && factController.dbProvider) {
                 const processId = process.pid;
                 // Сохраняем в лог
-                await factController.dbProvider.saveLog(processId, maxProcessingTime, maxMetrics, maxDebugInfo);
+                await factController.dbProvider.saveLog(processId, stats.maxProcessingTime, stats.maxMetrics, stats.maxDebugInfo);
                 
-                logger.debug(`Отладочная информация сохранена в лог`);
+                logger.debug(`Отладочная информация сохранена в лог для потока ${processId}`);
             }
             
-            // Сбрасываем счетчики
-            requestCounter = 0;
-            maxProcessingTime = null;
-            maxMetrics = null;
-            maxDebugInfo = null;
+            // Сбрасываем счетчики для текущего потока
+            stats.requestCounter = 0;
+            stats.maxProcessingTime = null;
+            stats.maxMetrics = null;
+            stats.maxDebugInfo = null;
         }
     } catch (error) {
         logger.error('Ошибка при сохранении отладочной информации в лог:', {
@@ -581,4 +615,9 @@ function createRoutes(factController) {
     return router;
 }
 
-module.exports = { createRoutes };
+module.exports = { 
+    createRoutes, 
+    getThreadStats, 
+    clearThreadStats, 
+    clearAllThreadStats 
+};
