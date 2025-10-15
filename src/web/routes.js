@@ -9,6 +9,29 @@ const config = require('../common/config');
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
 /**
+ * Вычисляет CRC32 хеш для строки
+ * @param {string} str - строка для хеширования
+ * @returns {number} CRC32 хеш
+ */
+function crc32(str) {
+    const buffer = Buffer.from(str, 'utf8');
+    let crc = 0xFFFFFFFF;
+    
+    for (let i = 0; i < buffer.length; i++) {
+        crc ^= buffer[i];
+        for (let j = 0; j < 8; j++) {
+            if (crc & 1) {
+                crc = (crc >>> 1) ^ 0xEDB88320;
+            } else {
+                crc = crc >>> 1;
+            }
+        }
+    }
+    
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+/**
  * Проверяет, разрешен ли тип сообщения для обработки
  * @param {number} messageType - тип сообщения
  * @returns {boolean} true если тип разрешен, false если нет
@@ -155,16 +178,6 @@ function createRoutes(factController) {
     // POST /api/v1/message/iris
     apiV1.post('/message/iris', async (req, res) => {
         try {
-            logger.info('Получен запрос IRIS', {
-                body: req.body,
-                headers: req.headers
-            });
-
-            const debugMode = req.headers['debug-mode'] === 'true';
-            if (debugMode) {
-                logger.info(`ВКЛЮЧЕН РЕЖИМ ОТЛАДКИ`);
-            }
-    
             // Извлекаем messageType из атрибута MessageTypeId входящего документа
             const messageType = req.body?.MessageTypeId;
             
@@ -210,6 +223,56 @@ function createRoutes(factController) {
                 return res.status(200).send(xmlEmptyResponse);
             }
 
+            // Извлекаем данные из XML запроса
+            const xmlData = req.body;
+            const messageId = xmlData.MessageId || 'unknown';
+            
+            // Проверяем, нужно ли обрабатывать этот запрос (уменьшение трафика)
+            if (config.messageTypes.irisTrafficReductionFactor > 1) {
+                const messageIdCRC32 = crc32(messageId);
+                const shouldProcess = (messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor) === 0;
+                
+                if (!shouldProcess) {
+                    logger.info(`IRIS запрос с MessageId ${messageId} пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor}`, {
+                        messageId,
+                        messageIdCRC32,
+                        remainder: messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor
+                    });
+                    
+                    // Возвращаем пустой ответ для пропущенных запросов
+                    const emptyResponse = {
+                        IRIS: {
+                            status: `Запрос пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor}`
+                        },
+                        _attributes: {
+                            Version: '1',
+                            Message: 'ModelResponse',
+                            MessageTypeId: messageType,
+                            MessageId: messageId
+                        }
+                    };
+
+                    const xmlEmptyResponse = json2xml(emptyResponse, {
+                        header: true,
+                        attributes_key: '_attributes',
+                        chars_key: '_text'
+                    });
+
+                    res.set('Content-Type', 'application/xml');
+                    return res.status(200).send(xmlEmptyResponse);
+                }
+            }
+
+            logger.info('Получен запрос IRIS', {
+                body: req.body,
+                headers: req.headers
+            });
+
+            const debugMode = req.headers['debug-mode'] === 'true';
+            if (debugMode) {
+                logger.info(`ВКЛЮЧЕН РЕЖИМ ОТЛАДКИ`);
+            }
+    
             if (!req.body || typeof req.body !== 'object') {
                 return res.status(400).json({
                     success: false,
@@ -218,10 +281,6 @@ function createRoutes(factController) {
                 });
             }
 
-            // Извлекаем данные из XML запроса
-            const xmlData = req.body;
-            const messageId = xmlData.MessageId || 'unknown';
-            
             // Преобразуем XML данные в формат для обработки
             // Убираем атрибуты корневого элемента и оставляем только данные
             const messageData = { ...xmlData };

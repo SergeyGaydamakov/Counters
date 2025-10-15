@@ -68,7 +68,10 @@ const config = {
                 const types = process.env.ALLOWED_MESSAGE_TYPES.split(',').map(t => parseInt(t.trim())).filter(t => !isNaN(t));
                 return types.length > 0 ? types : null;
             })() : 
-            null
+            null,
+        
+        // Коэффициент уменьшения трафика IRIS запросов (по умолчанию 1 - обрабатывать все)
+        irisTrafficReductionFactor: parseInt(process.env.IRIS_TRAFFIC_REDUCTION_FACTOR) || 1
     },
 };
 
