@@ -2283,9 +2283,15 @@ class MongoProviderTest {
                 countersCount: 5,
                 relevantFactsCount: 3
             };
+            const processingTime = {
+                total: 1500,
+                counters: 1000,
+                saveFact: 500,
+                saveIndex: 500
+            };
 
             // Вызываем метод saveLog
-            await this.provider.saveLog(processId, metrics, debugInfo);
+            await this.provider.saveLog(processId, processingTime, metrics, debugInfo);
 
             // Проверяем, что запись была сохранена, выполняя поиск в коллекции log
             const logCollection = this.provider._counterDb.collection(this.provider.LOG_COLLECTION_NAME);
@@ -2371,9 +2377,15 @@ class MongoProviderTest {
                 factTypes: [1, 2],
                 indexTypes: ['test_type_1']
             };
+            const testProcessingTime = {
+                total: 800,
+                counters: 800,
+                saveFact: 800,
+                saveIndex: 800
+            };
 
             // Сохраняем тестовую запись в лог
-            await this.provider.saveLog(testProcessId, testMetrics, testDebugInfo);
+            await this.provider.saveLog(testProcessId, testProcessingTime, testMetrics, testDebugInfo);
 
             // Проверяем, что запись была добавлена
             const countBefore = await this.provider.countLogCollection();

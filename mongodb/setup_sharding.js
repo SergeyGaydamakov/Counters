@@ -401,6 +401,10 @@ try {
                     bsonType: "string",
                     description: "идентификатор процесса обработки (process id)"
                 },
+                t: {
+                    bsonType: "object",
+                    description: "JSON объект со временем выполнения запроса"
+                },
                 m: {
                     bsonType: "object",
                     description: "JSON объект с метриками обработки (metrics)"

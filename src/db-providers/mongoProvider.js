@@ -1289,16 +1289,18 @@ class MongoProvider {
     /**
      * Сохраняет запись в коллекцию логов
      * @param {string} processId - идентификатор процесса обработки (process id)
+     * @param {Object} processingTime - JSON объект со временем выполнения запроса (processing time)
      * @param {Object} metrics - JSON объект с метриками обработки (metrics)
      * @param {Object} debugInfo - JSON объект с отладочной информацией (debug info)
      */
-    async saveLog(processId, metrics, debugInfo) {
+    async saveLog(processId, processingTime, metrics, debugInfo) {
         this.checkConnection();
         const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
         await logCollection.insertOne({
             _id: new ObjectId(),
             c: new Date(),
-            p: processId,
+            p: String(processId),
+            t: processingTime,
             m: metrics,
             di: debugInfo
         });
@@ -1999,6 +2001,10 @@ class MongoProvider {
                         p: {
                             bsonType: "string",
                             description: "идентификатор процесса обработки (process id)"
+                        },
+                        t: {
+                            bsonType: "object",
+                            description: "JSON объект со временем выполнения запроса"
                         },
                         m: {
                             bsonType: "object",

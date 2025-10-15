@@ -44,7 +44,8 @@ const config = {
     
     // Логирование
     logging: {
-        enableRequestLogging: process.env.ENABLE_REQUEST_LOGGING !== 'false'
+        enableRequestLogging: process.env.ENABLE_REQUEST_LOGGING !== 'false',
+        saveFrequency: parseInt(process.env.LOG_SAVE_FREQUENCY) || 100
     },
     
     // Мониторинг
