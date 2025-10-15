@@ -265,6 +265,7 @@
     "comment": "Тестовый счетчик для поля f6 с временным окном",
     "indexTypeName": "idx_f6",
     "computationConditions": {
+      "t": [7, 8, 9],
       "d.f6": {
         "$regex": "^[7-9]",
         "$options": "i"

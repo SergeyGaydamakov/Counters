@@ -555,7 +555,7 @@ class MongoProvider {
      * @param {Object} fact - факт
      * @returns {Promise<Array>} выражение для вычисления счетчиков по фактам
      */
-    getCountersInfo(fact) {
+    oldGetCountersInfo(fact) {
         if (!this._counterProducer) {
             this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
             return this.getDefaultCountersInfo();
@@ -1059,7 +1059,7 @@ class MongoProvider {
         this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
-        const countersInfo = this.getCountersInfo(fact);
+        const countersInfo = this.oldGetCountersInfo(fact);
         if (!countersInfo) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
             return {
@@ -1197,7 +1197,7 @@ class MongoProvider {
         this.logger.debug(`Получение релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
-        const countersInfo = this.getCountersInfo(fact);
+        const countersInfo = this.oldGetCountersInfo(fact);
         if (!countersInfo) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
             return {

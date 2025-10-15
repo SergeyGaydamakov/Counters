@@ -878,6 +878,37 @@ class CounterProducer {
     }
 
     /**
+     * Получает конфигурацию счетчиков для указанного типа факта с кешированием ранее вычисленного результата
+     * @param {integer} type - Тип факта
+     * @returns {Array<Object>} Массив конфигураций счетчиков для указанного типа факта
+     */
+    getCounterConfigByType(type) {
+        if (!this._counterConfigByType) {
+            this._counterConfigByType = {};
+        }
+        if (!this._counterConfigByType[type]) {
+            // Находим счетчики, у которых в computationConditions есть MessageTypeId и его значение равно type
+            this._counterConfigByType[type] = [];
+            this._counterConfig.forEach(counter => {
+                // Проверяем только одно условие на MessageTypeId
+                const messageTypeIdValue = counter.computationConditions["d.MessageTypeId"] || counter.computationConditions["t"];
+                const condition = { "d.MessageTypeId": messageTypeIdValue };
+                // Создаем факт с указанным типом для проверки условия
+                const fact = {
+                    "d": {
+                        "MessageTypeId": type,
+                        "t": type
+                    }
+                };
+                if (!messageTypeIdValue || this._matchesCondition(fact, condition)) {
+                    this._counterConfigByType[type].push(counter);
+                }
+            });
+        }
+        return this._counterConfigByType[type];
+    }
+
+    /**
      * Новый метод. Получает счетчики для факта
      * @param {Object} fact - Факт для обработки
      * @returns {Object|null} Объект с полем factCounters, или null если нет подходящих счетчиков
@@ -891,7 +922,7 @@ class CounterProducer {
 
         const factCounters = [];
         // Проходим по всем счетчикам и проверяем условия
-        for (const counter of this._counterConfig) {
+        for (const counter of this.getCounterConfigByType(fact.t)) {
             if (this._matchesCondition(fact, counter.computationConditions)) {
                 if (!counter.attributes) {
                     this.logger.warn(`Счетчик '${counter.name}' не имеет атрибутов (attributes). Счетчик не будет добавлен.`);
