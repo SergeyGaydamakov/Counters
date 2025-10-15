@@ -186,8 +186,8 @@ class FactIndexerTest {
             const f5Index = indexValues.find(iv => iv.v === 'value5');
 
             // f1 должен иметь хеш (indexValue = 1), f5 должен иметь само значение (indexValue = 2)
-            if (f1Index._id.h.length !== 40) {
-                throw new Error(`f1 должен иметь хеш длиной 40 символов, получено ${f1Index._id.h.length}`);
+            if (f1Index._id.h.length !==28) {
+                throw new Error(`f1 должен иметь хеш длиной 28 символов (Base64), получено ${f1Index._id.h.length}`);
             }
             if (f5Index._id.h !== '5:value5') {
                 throw new Error(`f5 должен иметь само значение поля, получено ${f5Index._id.h}`);
@@ -272,8 +272,8 @@ class FactIndexerTest {
 
             hashFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.v === val);
-                if (indexValue._id.h.length !== 40) {
-                    throw new Error(`Поле ${val} должно иметь хеш длиной 40 символов, получено ${indexValue._id.h.length}`);
+                if (indexValue._id.h.length !== 28) {
+                    throw new Error(`Поле ${val} должно иметь хеш длиной 28 символов (Base64), получено ${indexValue._id.h.length}`);
                 }
             });
 

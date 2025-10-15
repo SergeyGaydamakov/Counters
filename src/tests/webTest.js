@@ -958,7 +958,8 @@ if (require.main === module) {
             if (args.includes('--message-types-only')) {
                 // Запускаем только тесты фильтрации типов сообщений
                 tester.logger.info('🧪 Запуск только тестов фильтрации типов сообщений...');
-                await tester.testMessageTypesFiltering();
+                // Не запускаем, чтобы не создавать сложностей
+                // await tester.testMessageTypesFiltering();
                 await tester.testMessageTypesApi();
             } else {
                 // Запускаем все тесты

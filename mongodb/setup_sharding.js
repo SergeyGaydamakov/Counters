@@ -7,6 +7,8 @@ print("=== Настройка шардирования для коллекций
 const DATABASE_NAME = "counters"; // Замените на нужное имя базы данных
 const FACTS_COLLECTION = "facts";
 const FACT_INDEX_COLLECTION = "factIndex";
+const LOG_COLLECTION = "log";
+
 
 // Управление выполняется в admin базе данных
 const adminDb = db.getSiblingDB("admin");
@@ -370,7 +372,140 @@ if (!factIndexShardingResult.success) {
     quit(1);
 }
 
-// 9. Создание зон шардирования
+
+
+
+
+
+
+// 9. Создание схемы для коллекции log
+try {
+    print(`\n9. Создание схемы валидации для коллекции ${LOG_COLLECTION}...`);
+
+    const logSchema = {
+        $jsonSchema: {
+            bsonType: "object",
+            title: "Схема для коллекции фактов",
+            description: "Схема для коллекции фактов",
+            required: ["_id", "t", "c", "d"],
+            properties: {
+                _id: {
+                    bsonType: "object",
+                    description: "первичный ключ"
+                },
+                c: {
+                    bsonType: "date",
+                    description: "Дата и время создания записи в журнал"
+                },
+                p: {
+                    bsonType: "string",
+                    description: "идентификатор процесса обработки (process id)"
+                },
+                m: {
+                    bsonType: "object",
+                    description: "JSON объект с метриками обработки (metrics)"
+                },
+                di: {
+                    bsonType: "object",
+                    description: "JSON объект с отладочной информацией (debug info)"
+                }
+            },
+            additionalProperties: false
+        }
+    };
+
+    const logDb = db.getSiblingDB(DATABASE_NAME);
+    const logCollections = logDb.getCollectionInfos({ name: LOG_COLLECTION });
+
+    // Параметры создания коллекции для производственной среды
+    const productionCreateOptions = {
+        validator: logSchema,
+        /* Замедляет работу
+        clusteredIndex: {
+            key: { "_id": 1 },
+            unique: true,
+            name: "facts clustered key" 
+        },
+        */
+        validationLevel: "off",
+        validationAction: "warn"
+    };
+    // Тестовая среда
+    const testCreateOptions = {
+        validator: logSchema,
+        validationLevel: "strict",
+        validationAction: "error"
+    };
+    if (logCollections.length > 0) {
+        // Коллекция существует, обновляем схему валидации
+        logDb.runCommand({
+            collMod: LOG_COLLECTION,
+            validator: logSchema,
+            validationLevel: "moderate",
+            validationAction: "warn"
+        });
+        print("✓ Схема валидации для коллекции log обновлена");
+    } else {
+        // Коллекция не существует, создаем с валидацией
+        logDb.createCollection(LOG_COLLECTION, productionCreateOptions);
+        print("✓ Коллекция log создана со схемой валидации");
+    }
+} catch (error) {
+    print(`✗ Ошибка создания схемы для log: ${error.message}`);
+    hasError = true;
+}
+
+// 10.Индексы для коллекции log
+try {
+    print(`\n10. Создание индексов для коллекции ${LOG_COLLECTION}...`);
+    const logCollection = db.getSiblingDB(DATABASE_NAME).getCollection(LOG_COLLECTION);
+    const logIndexes = logCollection.getIndexes();
+    print(`Существующие индексы для коллекции ${LOG_COLLECTION}:`);
+    logIndexes.forEach(index => {
+        print(`  ${index.name}: ${JSON.stringify(index.key)}`);
+    });
+    const indexesToCreate = [
+        // Вспомогательный индекс для поиска
+        {
+            key: { c: -1 },
+            options: {
+                name: 'idx_c',
+                background: true,
+                unique: false
+            },
+            shardIndex: false
+        }
+    ];
+    for (const indexSpec of indexesToCreate) {
+        if (logIndexes.find(index => JSON.stringify(index.key) === JSON.stringify(indexSpec.key)) === undefined) {
+            logCollection.createIndex(indexSpec.key, indexSpec.options);
+            print(`✓ Индекс ${indexSpec.options.name} создан`);
+        } else {
+            print(`✓ Индекс ${indexSpec.options.name} уже существует`);
+        }
+    }
+
+    const lastLogIndexes = logCollection.getIndexes();
+    print(`Итоговые индексы для коллекции ${LOG_COLLECTION}:`);
+    lastLogIndexes.forEach(index => {
+        print(`  ${index.name}: ${JSON.stringify(index.key)}`);
+    });
+} catch (error) {
+    print(`✗ Ошибка создания индексов для ${LOG_COLLECTION}: ${error.message}`);
+    hasError = true;
+}
+
+// 11. Настройка шардирования для коллекции log
+print(`\n11. Настройка шардирования для коллекции ${LOG_COLLECTION}...`);
+const shardResult = sh.shardCollection(`${DATABASE_NAME}.${LOG_COLLECTION}`, { _id: 'hashed' });
+
+if (!shardResult.ok) {
+    print(`Ошибка: Не удалось настроить шардирование для коллекции ${FACTS_COLLECTION}`);
+    quit(1);
+}
+
+
+// 12. Создание зон шардирования
 function CreateShardZones(databaseName) {
     sh.stopBalancer();
     print("Creating shard zones:");
