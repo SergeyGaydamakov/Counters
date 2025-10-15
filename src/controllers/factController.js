@@ -74,7 +74,6 @@ class FactController {
      */
     async processMessage(message) {
         const fact = this.factMapper.mapMessageToFact(message);
-        this.logger.debug(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         if (factIndexes.length === 0) {
             this.logger.warn(`✓ Нет индексных значений для факта с типом ${fact.t}, обработка факта будет пропущена.`);
@@ -116,7 +115,6 @@ class FactController {
      */
     async processMessageWithCounters(message, debugMode) {
         const fact = this.factMapper.mapMessageToFact(message);
-        this.logger.info(`*** Для сообщения ${message.t} будет создан новый факт ${fact.t}: ${fact._id}`);
         const factIndexes = this.factIndexer.index(fact);
         if (factIndexes.length === 0) {
             this.logger.warn(`✓ Нет индексных значений для факта с типом ${fact.t}, обработка факта будет пропущена.`);
@@ -132,7 +130,6 @@ class FactController {
             };
         }
         const hashValuesForSearch = this.factIndexer.getHashValuesForSearch(factIndexes);
-        this.logger.info(`*** Для сообщения ${message.t} будут сохранены ${hashValuesForSearch.length} индексных значений: ${hashValuesForSearch.map(value => value.index.indexTypeName).join(', ')}`);
         const startTime = Date.now();
         const [factCountersResult, factResult, indexResult] = await Promise.all([
             this.dbProvider.getRelevantFactCounters(hashValuesForSearch, fact, this.MAX_DEPTH_LIMIT, this.MAX_DEPTH_FROM_DATE, debugMode),

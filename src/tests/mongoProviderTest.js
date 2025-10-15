@@ -1644,7 +1644,6 @@ class MongoProviderTest {
             const searchHashValuesForSearch = this.indexer.getHashValuesForSearch(searchFactIndexValues);
             const countersResult = await this.provider.getRelevantFactCounters(searchHashValuesForSearch, excludedFact);
             const counters = countersResult.result;
-            this.logger.info(`*** countersResult: ${JSON.stringify(counters)}`);
 
             // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
             if (typeof counters !== 'object' || counters === null) {
@@ -1975,7 +1974,6 @@ class MongoProviderTest {
             const searchHashValuesForSearch = this.indexer.getHashValuesForSearch(searchFactIndexValues);
             const countersResult = await this.provider.getRelevantFactCounters(searchHashValuesForSearch, searchFact, 2);
             const counters = countersResult.result;
-            this.logger.debug(`*** Получены счетчики: ${JSON.stringify(counters)}`);
 
             // Проверяем результаты - теперь метод возвращает объект напрямую, а не массив
             if (typeof counters !== 'object' || counters === null) {
@@ -2518,7 +2516,6 @@ class MongoProviderTest {
             const searchHashValuesForSearch = testIndexer.getHashValuesForSearch(searchFactIndexValues);
             const countersResult = await testProvider.getRelevantFactCounters(searchHashValuesForSearch, fact);
             const counters = countersResult.result;
-            this.logger.info(`*** countersResult: ${JSON.stringify(counters)}`);
 
             this.testResults.passed++;
             this.logger.debug('   ✓ Успешно');

@@ -48,7 +48,6 @@ class MongoProvider {
      * @throws {Error} если mongoCounters не соответствует требуемому интерфейсу
      */
     _validateMongoCountersInterface(mongoCounters) {
-        this.logger.info('**** Проверка интерфейса mongoCounters...');
         if (!mongoCounters) {
             // Будем работать по умолчанию
             this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики не будут создаваться.');
@@ -788,7 +787,7 @@ class MongoProvider {
         const indexFacetStage = {};
         const indexHashValues = [];
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
-        this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
+        // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
         Object.keys(indexCountersInfo).forEach((indexTypeName) => {
             const counters = indexCountersInfo[indexTypeName] ? indexCountersInfo[indexTypeName] : {};
             this.logger.info(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
@@ -997,7 +996,6 @@ class MongoProvider {
             if (error) {
                 this.logger.warn(`Запрос для индекса ${indexName} завершился с ошибкой: ${error}`);
             } else {
-                this.logger.debug(`*** Запрос для индекса ${indexName} завершен успешно, получены счетчики: ${JSON.stringify(counters)}`);
                 if (counters) {
                     Object.assign(mergedCounters, counters);
                 }

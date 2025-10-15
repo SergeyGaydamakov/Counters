@@ -490,13 +490,11 @@ class FactControllerTest {
 
             // Вызываем метод processMessageWithCounters
             const result = await this.controller.processMessageWithCounters(testMessage);
-            this.logger.debug(`*** 1`);
 
             // Проверяем структуру результата
             if (!result || typeof result !== 'object') {
                 throw new Error('processMessageWithCounters должен возвращать объект');
             }
-            this.logger.debug(`*** 2`);
 
             // Проверяем наличие обязательных полей в результате
             const requiredFields = ['fact', 'counters', 'saveFactResult', 'saveIndexResult'];
@@ -505,13 +503,11 @@ class FactControllerTest {
                     throw new Error(`Отсутствует обязательное поле: ${field}`);
                 }
             }
-            this.logger.debug(`*** 3`);
 
             // Проверяем структуру факта
             if (!result.fact || typeof result.fact !== 'object') {
                 throw new Error('Поле fact должно быть объектом');
             }
-            this.logger.debug(`*** 4`);
 
             // Проверяем обязательные поля факта
             const factRequiredFields = ['_id', 't', 'c', 'd'];
@@ -520,20 +516,17 @@ class FactControllerTest {
                     throw new Error(`Отсутствует обязательное поле в факте: ${field}`);
                 }
             }
-            this.logger.debug(`*** 5`);
 
             // Проверяем, что counters является массивом
             if (!result.counters ||  typeof result.counters !== 'object') {
                 throw new Error('Поле counters должно быть объектом');
             }
 
-            this.logger.debug(`*** 6`);
             // Проверяем, что saveFactResult содержит информацию о сохранении
             if (!result.saveFactResult || typeof result.saveFactResult !== 'object') {
                 throw new Error('Поле saveFactResult должно быть объектом');
             }
 
-            this.logger.debug(`*** 7`);
             // Проверяем, что saveIndexResult содержит информацию о сохранении индексов
             if (!result.saveIndexResult || typeof result.saveIndexResult !== 'object') {
                 throw new Error('Поле saveIndexResult должно быть объектом');
