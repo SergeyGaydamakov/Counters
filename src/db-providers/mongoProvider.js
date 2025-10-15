@@ -36,6 +36,7 @@ class MongoProvider {
 
         this.FACT_COLLECTION_NAME = "facts";
         this.FACT_INDEX_COLLECTION_NAME = "factIndex";
+        this.LOG_COLLECTION_NAME = "log";
         this._counterClient = null;
         this._counterDb = null;
         this._isConnected = false;
@@ -332,111 +333,6 @@ class MongoProvider {
             throw error;
         }
     }
-
-    /**
-     * Получает релевантные факты для заданного факта с целью вычисления счетчиков
-     * @param {Array<Object>} indexInfos - массив объектов с информацией об индексных значениях
-     * @param {Object} fact - факт
-     * @param {number} depthLimit - максимальное количество фактов для получения
-     * @param {Date} depthFromDate - дата, с которой начинать поиск фактов
-     * @returns {Promise<Array>} релевантные факты
-     */
-    async getRelevantFacts(indexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
-        this.checkConnection();
-        const startTime = Date.now();
-
-        this.logger.debug(`Получение релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
-
-        // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
-        const countersInfo = this.getCountersInfo(fact);
-        if (!countersInfo) {
-            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
-            return {
-                result: [],
-                processingTime: Date.now() - startTime,
-            };
-        }
-
-        // Убираем из поиска лишние индексы, поэтому получаем список хешей значений индексов факта для индексов из счетчиков
-        const indexHashValues = [];
-        countersInfo.indexTypeNames.forEach(item => {
-            const index = indexInfos.find(info => info.index.indexTypeName === item);
-            if (!index) {
-                this.logger.warn(`Тип индекса ${item} не найден в списке индексных значений.`);
-            } else {
-                indexHashValues.push(index.hashValue);
-            }
-        });
-
-        // Сформировать агрегирующий запрос к коллекции factIndex,
-        // получить уникальные значения поля _id
-        // и результат объединить с фактом из коллекции facts
-        const matchQuery = {
-            "_id.h": {
-                "$in": indexHashValues
-            }
-        };
-        if (fact) {
-            matchQuery["_id.f"] = {
-                "$ne": fact._id
-            };
-        }
-        if (depthFromDate) {
-            matchQuery.d = {
-                "$gte": depthFromDate
-            };
-        }
-        const findOptions = {
-            batchSize: 5000,
-            readConcern: this.READ_CONCERN,
-            readPreference: "secondaryPreferred",
-            comment: "getRelevantFactCounters - find",
-            projection: { "_id": 1 }
-        };
-        // Создаем локальные ссылки на коллекции для этого запроса
-        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
-        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
-
-        // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
-        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
-        // Сформировать агрегирующий запрос к коллекции facts,
-        const aggregateQuery = [
-            {
-                "$match": {
-                    "_id": {
-                        "$in": relevantFactIds.map(item => item._id.f)
-                    }
-                }
-            }
-        ];
-
-        // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
-
-        // Выполнить агрегирующий запрос
-        const aggregateOptions = {
-            batchSize: 5000,
-            readConcern: this.READ_CONCERN,
-            readPreference: { mode: "secondaryPreferred" },
-            comment: "getRelevantFactCounters - aggregate",
-        };
-        const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(5000).toArray();
-        this.logger.debug(`✓ Получено ${result.length} фактов`);
-        // this.logger.debug(JSON.stringify(result, null, 2));
-        // Возвращаем массив фактов
-        return {
-            result: result,
-            processingTime: Date.now() - startTime,
-            debug: {
-                totalIndexCount: indexInfos?.length,
-                countersFactCount: Object.keys(countersInfo?.facetStages).length,
-                countersIndexCount: countersInfo?.indexTypeNames?.length,
-                filteredIndexCount: indexHashValues?.length,
-                relevantFactsCount: relevantFactIds.length,
-                aggregateQuery: aggregateQuery,
-            }
-        };
-    }
-
 
     /**
      * Выдает счетчики применительно к факту, с разбивкой по типам индексов
@@ -935,7 +831,7 @@ class MongoProvider {
             return {
                 result: {},
                 processingTime: Date.now() - startTime,
-                debug: {
+                metrics: {
                     totalIndexCount: factIndexInfos?.length,
                     counterIndexCount: Object.keys(indexCountersInfo).length,
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
@@ -945,11 +841,13 @@ class MongoProvider {
                     indexQueryTime: 0,
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
-                    indexQuerySize: undefined,
                     countersQueryCount: 0,
+                },
+                debug: {
+                    indexQuerySize: 0,
                     countersQueryTotalSize: 0,
-                    indexQuery: undefined,
-                    countersQuery: undefined,
+                    indexQuery: null,
+                    countersQuery: null,
                 }
             };
         }
@@ -981,6 +879,7 @@ class MongoProvider {
             { "$project": projectIndexQuery },
             { "$facet": indexFacetStage }
         ];
+        const indexQuerySize = debugMode ? JSON.stringify(aggregateIndexQuery).length : undefined;
 
         // Выполняем первый агрегирующий запрос на список идентификаторов фактов в разрезе по индексов
         const aggregateIndexOptions = {
@@ -995,7 +894,7 @@ class MongoProvider {
         const startIndexQueryTime = Date.now();
         const factIndexResult = await factIndexCollection.aggregate(aggregateIndexQuery, aggregateIndexOptions).toArray();
         const stopIndexQueryTime = Date.now();
-        const relevantFactsSize = JSON.stringify(factIndexResult).length;
+        const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
         const factIdsByIndexName = factIndexResult[0];
         this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIdsByIndexName)} \n`);
 
@@ -1032,13 +931,14 @@ class MongoProvider {
                 { "$project": projectState }
             ];
         });
+        const countersQueryTotalSize = debugMode ? JSON.stringify(factFacetStage).length : undefined;
 
         if (!Object.keys(factFacetStage).length) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} не найдены релевантные факты.`);
             return {
                 result: {},
                 processingTime: Date.now() - startTime,
-                debug: {
+                metrics: {
                     totalIndexCount: factIndexInfos?.length,
                     counterIndexCount: Object.keys(indexCountersInfo).length,
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
@@ -1048,11 +948,13 @@ class MongoProvider {
                     indexQueryTime: stopIndexQueryTime - startIndexQueryTime,
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
-                    indexQuerySize: debugMode ? JSON.stringify(aggregateIndexQuery).length : undefined,
                     countersQueryCount: 0,
+                },
+                debug: {
+                    indexQuerySize: indexQuerySize,
                     countersQueryTotalSize: 0,
-                    indexQuery: debugMode ? aggregateIndexQuery : undefined,
-                    countersQuery: undefined,
+                    indexQuery: aggregateIndexQuery,
+                    countersQuery: null,
                 }
             };
         }
@@ -1127,21 +1029,23 @@ class MongoProvider {
         return {
             result: Object.keys(mergedCounters).length ? mergedCounters : {},
             processingTime: Date.now() - startTime,
-            debug: {
+            metrics: {
                 totalIndexCount: factIndexInfos?.length,
                 counterIndexCount: Object.keys(indexCountersInfo).length,
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                 relevantIndexCount: Object.keys(factIdsByIndexName).length,
                 relevantFactsCount: relevantFactsCount,
-                relevantFactsSize: relevantFactsSize,
                 indexQueryTime: stopIndexQueryTime - startIndexQueryTime,
                 prepareCountersQueryTime: startCountersQueryTime - startPrepareCountersQueryTime,
                 countersQueryTime: stopCountersQueryTime - startCountersQueryTime,
-                indexQuerySize: debugMode ? JSON.stringify(aggregateIndexQuery).length : undefined,
                 countersQueryCount: Object.keys(factFacetStage).length,
-                countersQueryTotalSize: debugMode ? JSON.stringify(factFacetStage).length : undefined,
-                indexQuery: debugMode ? aggregateIndexQuery : undefined,
-                countersQuery: debugMode ? factFacetStage : undefined,
+                countersQueryTotalSize: countersQueryTotalSize,
+            },
+            debug: {
+                relevantFactsSize: relevantFactsSize,
+                indexQuerySize: indexQuerySize,
+                indexQuery: aggregateIndexQuery,
+                countersQuery: factFacetStage,
             }
         };
     }
@@ -1278,6 +1182,127 @@ class MongoProvider {
         };
     }
 
+    /**
+     * (Не используется) Получает релевантные факты для заданного факта с целью вычисления счетчиков
+     * @param {Array<Object>} indexInfos - массив объектов с информацией об индексных значениях
+     * @param {Object} fact - факт
+     * @param {number} depthLimit - максимальное количество фактов для получения
+     * @param {Date} depthFromDate - дата, с которой начинать поиск фактов
+     * @returns {Promise<Array>} релевантные факты
+     */
+    async getRelevantFacts(indexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined) {
+        this.checkConnection();
+        const startTime = Date.now();
+
+        this.logger.debug(`Получение релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+
+        // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
+        const countersInfo = this.getCountersInfo(fact);
+        if (!countersInfo) {
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
+            return {
+                result: [],
+                processingTime: Date.now() - startTime,
+            };
+        }
+
+        // Убираем из поиска лишние индексы, поэтому получаем список хешей значений индексов факта для индексов из счетчиков
+        const indexHashValues = [];
+        countersInfo.indexTypeNames.forEach(item => {
+            const index = indexInfos.find(info => info.index.indexTypeName === item);
+            if (!index) {
+                this.logger.warn(`Тип индекса ${item} не найден в списке индексных значений.`);
+            } else {
+                indexHashValues.push(index.hashValue);
+            }
+        });
+
+        // Сформировать агрегирующий запрос к коллекции factIndex,
+        // получить уникальные значения поля _id
+        // и результат объединить с фактом из коллекции facts
+        const matchQuery = {
+            "_id.h": {
+                "$in": indexHashValues
+            }
+        };
+        if (fact) {
+            matchQuery["_id.f"] = {
+                "$ne": fact._id
+            };
+        }
+        if (depthFromDate) {
+            matchQuery.d = {
+                "$gte": depthFromDate
+            };
+        }
+        const findOptions = {
+            batchSize: 5000,
+            readConcern: this.READ_CONCERN,
+            readPreference: "secondaryPreferred",
+            comment: "getRelevantFactCounters - find",
+            projection: { "_id": 1 }
+        };
+        // Создаем локальные ссылки на коллекции для этого запроса
+        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+
+        // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
+        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
+        // Сформировать агрегирующий запрос к коллекции facts,
+        const aggregateQuery = [
+            {
+                "$match": {
+                    "_id": {
+                        "$in": relevantFactIds.map(item => item._id.f)
+                    }
+                }
+            }
+        ];
+
+        // this.logger.debug(`Агрегационный запрос: ${JSON.stringify(aggregateQuery, null, 2)}`);
+
+        // Выполнить агрегирующий запрос
+        const aggregateOptions = {
+            batchSize: 5000,
+            readConcern: this.READ_CONCERN,
+            readPreference: { mode: "secondaryPreferred" },
+            comment: "getRelevantFactCounters - aggregate",
+        };
+        const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(5000).toArray();
+        this.logger.debug(`✓ Получено ${result.length} фактов`);
+        // this.logger.debug(JSON.stringify(result, null, 2));
+        // Возвращаем массив фактов
+        return {
+            result: result,
+            processingTime: Date.now() - startTime,
+            debug: {
+                totalIndexCount: indexInfos?.length,
+                countersFactCount: Object.keys(countersInfo?.facetStages).length,
+                countersIndexCount: countersInfo?.indexTypeNames?.length,
+                filteredIndexCount: indexHashValues?.length,
+                relevantFactsCount: relevantFactIds.length,
+                aggregateQuery: aggregateQuery,
+            }
+        };
+    }
+
+    /**
+     * Сохраняет запись в коллекцию логов
+     * @param {string} processId - идентификатор процесса обработки (process id)
+     * @param {Object} metrics - JSON объект с метриками обработки (metrics)
+     * @param {Object} debugInfo - JSON объект с отладочной информацией (debug info)
+     */
+    async saveLog(processId, metrics, debugInfo) {
+        this.checkConnection();
+        const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+        await logCollection.insertOne({
+            _id: new ObjectId(),
+            c: new Date(),
+            p: processId,
+            m: metrics,
+            di: debugInfo
+        });
+    }
 
     // ============================================================================
     // ГРУППА 3: РАБОТА С ДАННЫМИ ДЛЯ ТЕСТОВ
@@ -1410,6 +1435,59 @@ class MongoProvider {
             return result;
         } catch (error) {
             this.logger.error('✗ Ошибка при подсчете числа документов в коллекции индексных значений:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Очищает коллекцию логов
+     * @returns {Promise<Object>} результат очистки
+     */
+    async clearLogCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+
+            const deleteOptions = {
+                readConcern: this.READ_CONCERN,
+                readPreference: "primary",
+                writeConcern: {
+                    w: "majority",
+                    j: true,
+                    wtimeout: 5000
+                },
+                comment: "clearLogCollection",
+            };
+            const result = await logCollection.deleteMany({}, deleteOptions);
+            this.logger.debug(`✓ Удалено ${result.deletedCount} записей из коллекции ${this.LOG_COLLECTION_NAME}`);
+            return result;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при очистке коллекции логов:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Подсчитывает количество документов в коллекции логов
+     * @returns {Promise<number>} количество документов
+     */
+    async countLogCollection() {
+        if (!this._isConnected) {
+            throw new Error('Нет подключения к MongoDB');
+        }
+
+        try {
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+
+            const result = await logCollection.countDocuments();
+            return result;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при подсчете числа документов в коллекции логов:', error.message);
             throw error;
         }
     }
@@ -1671,8 +1749,6 @@ class MongoProvider {
         }
     }
 
-
-
     /**
      * Создает схему валидации для коллекции индексных значений
      * @returns {Promise<boolean>} результат создания схемы
@@ -1896,6 +1972,155 @@ class MongoProvider {
         }
     }
 
+    /**
+     * Создает схему валидации для коллекции логов
+     * @returns {Promise<boolean>} результат создания схемы
+     */
+    async _createLogCollectionSchema() {
+        this.checkConnection();
+
+        try {
+            // Определяем схему валидации JSON для коллекции factIndex
+            const schema = {
+                $jsonSchema: {
+                    bsonType: "object",
+                    title: "Схема для коллекции логов",
+                    description: "Схема для коллекции логов",
+                    required: ["_id", "c"],
+                    properties: {
+                        _id: {
+                            bsonType: "objectId",
+                            description: "первичный ключ"
+                        },
+                        c: {
+                            bsonType: "date",
+                            description: "Дата и время создания записи в журнал"
+                        },
+                        p: {
+                            bsonType: "string",
+                            description: "идентификатор процесса обработки (process id)"
+                        },
+                        m: {
+                            bsonType: "object",
+                            description: "JSON объект с метриками обработки (metrics)"
+                        },
+                        di: {
+                            bsonType: "object",
+                            description: "JSON объект с отладочной информацией (debug info)"
+                        }
+                    },
+                    additionalProperties: false
+                }
+            };
+
+            // Проверяем, существует ли коллекция
+            const collections = await this._counterDb.listCollections({ name: this.LOG_COLLECTION_NAME }).toArray();
+
+            if (collections.length > 0) {
+                // Коллекция существует, обновляем схему валидации
+                this.logger.debug(`Обновление схемы валидации для существующей коллекции ${this.LOG_COLLECTION_NAME}...`);
+                await this._counterDb.command({
+                    collMod: this.LOG_COLLECTION_NAME,
+                    validator: schema,
+                    validationLevel: "moderate",
+                    validationAction: "warn"
+                });
+            } else {
+                // Коллекция не существует, создаем с валидацией
+                this.logger.debug(`Создание новой коллекции ${this.LOG_COLLECTION_NAME} со схемой валидации...`);
+                // Параметры создания коллекции для производственной среды
+                const productionCreateOptions = {
+                    validator: schema,
+                    /* Замедляет работу
+                    clusteredIndex: {
+                        key: { "_id": 1, "d": 1 },
+                        unique: true
+                    },
+                    */
+                    validationLevel: "off",
+                    validationAction: "warn"
+                };
+                // Тестовая среда
+                const testCreateOptions = {
+                    validator: schema,
+                    validationLevel: "strict",
+                    validationAction: "error"
+                };
+                await this._counterDb.createCollection(this.LOG_COLLECTION_NAME, testCreateOptions);
+            }
+
+            this.logger.debug(`✓ Схема валидации для коллекции ${this.LOG_COLLECTION_NAME} успешно создана/обновлена`);
+
+            return true;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при создании схемы коллекции индексных значений:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Создает индексы для коллекции индексных значений
+     * @returns {Promise<boolean>} результат создания индексов
+     */
+    async _createLogIndexes(adminDb) {
+        try {
+            if (!this._isConnected) {
+                throw new Error('Нет подключения к MongoDB');
+            }
+
+            const indexesToCreate = [
+                {
+                    key: { "c": -1 },
+                    options: {
+                        name: 'idx_c',
+                        background: true
+                    }
+                }
+            ];
+
+            let successCount = 0;
+            let errors = [];
+
+            this.logger.debug(`Создание индексов для коллекции индексных значений ${this.LOG_COLLECTION_NAME}...`);
+
+            // Создаем локальную ссылку на коллекцию для этого запроса
+            const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+
+            for (const indexSpec of indexesToCreate) {
+                try {
+                    await logCollection.createIndex(indexSpec.key, indexSpec.options);
+                    this.logger.debug(`✓ Создан индекс: ${indexSpec.options.name}`);
+                    successCount++;
+                } catch (error) {
+                    // Если индекс уже существует, это не ошибка
+                    if (error.code === 85 || error.message.includes('already exists')) {
+                        this.logger.warn(`⚠ Индекс ${indexSpec.options.name} уже существует`);
+                        successCount++;
+                    } else {
+                        this.logger.error(`✗ Ошибка создания индекса ${indexSpec.options.name}:`, error.message);
+                        errors.push({ index: indexSpec.options.name, error: error.message });
+                    }
+                }
+            }
+            // Шардирование после создания индексов, чтобы не создавался шардированный индекс
+            await this._shardCollection(adminDb, this.LOG_COLLECTION_NAME, { "_id": "hashed" }, false);
+            this.logger.info(`✓ Выполнено шардирование коллекции ${this.LOG_COLLECTION_NAME}`);
+
+            this.logger.debug(`\n=== Результат создания индексов для логов ===`);
+            this.logger.debug(`✓ Успешно создано/проверено: ${successCount}/${indexesToCreate.length} индексов`);
+
+            if (errors.length > 0) {
+                this.logger.error(`✗ Ошибок: ${errors.length}`);
+                errors.forEach(err => this.logger.error(`  - ${err.index}: ${err.error}`));
+            }
+
+            return errors.length === 0;
+        } catch (error) {
+            this.logger.error('✗ Ошибка при создании индексов для индексных значений:', error.message);
+            return false;
+        }
+    }
+
 
     /**
      * Проверка, что база данных создана
@@ -1983,8 +2208,22 @@ class MongoProvider {
                 this.logger.error('✗ Ошибка создания схемы factIndex:', error.message);
             }
 
-            // 3. Создание индексов для коллекции facts
-            this.logger.debug('\n3. Создание индексов для коллекции facts...');
+            // 3. Создание схемы для коллекции factIndex
+            this.logger.debug('\n3. Создание схемы для коллекции log...');
+            try {
+                results.logSchema = await this._createLogCollectionSchema();
+                if (results.logSchema) {
+                    this.logger.debug('✓ Схема для коллекции log создана успешно');
+                } else {
+                    results.errors.push('Не удалось создать схему для коллекции log');
+                }
+            } catch (error) {
+                results.errors.push(`Ошибка создания схемы log: ${error.message}`);
+                this.logger.error('✗ Ошибка создания схемы log:', error.message);
+            }
+
+            // 4. Создание индексов для коллекции facts
+            this.logger.debug('\n4. Создание индексов для коллекции facts...');
             try {
                 results.factsIndexes = await this._createFactIndexes(adminDb);
                 if (results.factsIndexes) {
@@ -1997,8 +2236,8 @@ class MongoProvider {
                 this.logger.error('✗ Ошибка создания индексов facts:', error.message);
             }
 
-            // 4. Создание индексов для коллекции factIndex
-            this.logger.debug('\n4. Создание индексов для коллекции factIndex...');
+            // 5. Создание индексов для коллекции factIndex
+            this.logger.debug('\n5. Создание индексов для коллекции factIndex...');
             try {
                 results.factIndexIndexes = await this._createFactIndexIndexes(adminDb);
                 if (results.factIndexIndexes) {
@@ -2009,6 +2248,20 @@ class MongoProvider {
             } catch (error) {
                 results.errors.push(`Ошибка создания индексов factIndex: ${error.message}`);
                 this.logger.error('✗ Ошибка создания индексов factIndex:', error.message);
+            }
+
+            // 6. Создание индексов для коллекции log
+            this.logger.debug('\n6. Создание индексов для коллекции log...');
+            try {
+                results.logIndexes = await this._createLogIndexes(adminDb);
+                if (results.logIndexes) {
+                    this.logger.debug('✓ Индексы для коллекции log созданы успешно');
+                } else {
+                    results.errors.push('Не удалось создать индексы для коллекции log');
+                }
+            } catch (error) {
+                results.errors.push(`Ошибка создания индексов log: ${error.message}`);
+                this.logger.error('✗ Ошибка создания индексов log:', error.message);
             }
 
             // Определяем общий успех

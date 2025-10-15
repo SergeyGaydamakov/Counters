@@ -191,7 +191,7 @@ class MongoProviderTest {
      * Запуск всех тестов
      */
     async runAllTests() {
-        this.logger.debug('=== Тестирование всех методов MongoProvider (29 тестов) ===\n');
+        this.logger.debug('=== Тестирование всех методов MongoProvider (32 теста) ===\n');
 
         try {
             // Тесты подключения
@@ -236,8 +236,12 @@ class MongoProviderTest {
             // Тесты статистики
             await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
             await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
+            
+            // Тесты работы с логами
+            await this.testSaveLog('30. Тест сохранения записи в лог...');
+            await this.testClearLogCollection('31. Тест очистки коллекции логов...');
             // 
-            await this.testProcessMessage('30. Тест обработки конкретного сообщения...');
+            await this.testProcessMessage('32. Тест обработки конкретного сообщения...');
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
@@ -2253,6 +2257,152 @@ class MongoProviderTest {
         } catch (error) {
             this.testResults.failed++;
             this.testResults.errors.push(`testGetRelevantFactCountersWithBothParameters: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест сохранения записи в лог
+     */
+    async testSaveLog(title) {
+        this.logger.debug(title);
+
+        try {
+            // Подготавливаем тестовые данные
+            const processId = 'test-process-' + Date.now();
+            const metrics = {
+                totalFacts: 10,
+                processedFacts: 8,
+                errors: 2,
+                processingTime: 1500,
+                memoryUsage: '256MB'
+            };
+            const debugInfo = {
+                factTypes: [1, 2, 3],
+                indexTypes: ['test_type_1', 'test_type_2'],
+                countersCount: 5,
+                relevantFactsCount: 3
+            };
+
+            // Вызываем метод saveLog
+            await this.provider.saveLog(processId, metrics, debugInfo);
+
+            // Проверяем, что запись была сохранена, выполняя поиск в коллекции log
+            const logCollection = this.provider._counterDb.collection(this.provider.LOG_COLLECTION_NAME);
+            
+            // Ищем запись по processId
+            const savedLog = await logCollection.findOne({ p: processId });
+
+            if (!savedLog) {
+                throw new Error('Запись в лог не была сохранена');
+            }
+
+            // Проверяем структуру сохраненной записи
+            if (!savedLog._id) {
+                throw new Error('Отсутствует поле _id в сохраненной записи лога');
+            }
+
+            if (!savedLog.c || !(savedLog.c instanceof Date)) {
+                throw new Error('Отсутствует или некорректно поле c (дата создания) в сохраненной записи лога');
+            }
+
+            if (savedLog.p !== processId) {
+                throw new Error(`Некорректное значение поля p (processId): ожидалось ${processId}, получено ${savedLog.p}`);
+            }
+
+            if (!savedLog.m || typeof savedLog.m !== 'object') {
+                throw new Error('Отсутствует или некорректно поле m (metrics) в сохраненной записи лога');
+            }
+
+            if (!savedLog.di || typeof savedLog.di !== 'object') {
+                throw new Error('Отсутствует или некорректно поле di (debugInfo) в сохраненной записи лога');
+            }
+
+            // Проверяем содержимое метрик
+            if (savedLog.m.totalFacts !== metrics.totalFacts) {
+                throw new Error(`Некорректное значение totalFacts: ожидалось ${metrics.totalFacts}, получено ${savedLog.m.totalFacts}`);
+            }
+
+            if (savedLog.m.processedFacts !== metrics.processedFacts) {
+                throw new Error(`Некорректное значение processedFacts: ожидалось ${metrics.processedFacts}, получено ${savedLog.m.processedFacts}`);
+            }
+
+            // Проверяем содержимое отладочной информации
+            if (!Array.isArray(savedLog.di.factTypes)) {
+                throw new Error('Поле factTypes в debugInfo должно быть массивом');
+            }
+
+            if (savedLog.di.factTypes.length !== debugInfo.factTypes.length) {
+                throw new Error(`Некорректная длина массива factTypes: ожидалось ${debugInfo.factTypes.length}, получено ${savedLog.di.factTypes.length}`);
+            }
+
+            // Проверяем, что дата создания близка к текущему времени (в пределах 5 секунд)
+            const now = new Date();
+            const timeDiff = Math.abs(now.getTime() - savedLog.c.getTime());
+            if (timeDiff > 5000) {
+                throw new Error(`Дата создания записи слишком отличается от текущего времени: разница ${timeDiff}мс`);
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testSaveLog: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест очистки коллекции логов
+     */
+    async testClearLogCollection(title) {
+        this.logger.debug(title);
+
+        try {
+            // Сначала добавляем тестовые данные в коллекцию логов
+            const testProcessId = 'test-clear-process-' + Date.now();
+            const testMetrics = {
+                totalFacts: 5,
+                processedFacts: 5,
+                errors: 0,
+                processingTime: 800
+            };
+            const testDebugInfo = {
+                factTypes: [1, 2],
+                indexTypes: ['test_type_1']
+            };
+
+            // Сохраняем тестовую запись в лог
+            await this.provider.saveLog(testProcessId, testMetrics, testDebugInfo);
+
+            // Проверяем, что запись была добавлена
+            const countBefore = await this.provider.countLogCollection();
+            if (countBefore === 0) {
+                throw new Error('Тестовая запись в лог не была добавлена для тестирования очистки');
+            }
+
+            // Очищаем коллекцию логов
+            const result = await this.provider.clearLogCollection();
+
+            if (typeof result.deletedCount !== 'number') {
+                throw new Error('Некорректный результат очистки коллекции логов');
+            }
+
+            if (result.deletedCount !== countBefore) {
+                throw new Error(`Ожидалось удалить ${countBefore} записей логов, удалено ${result.deletedCount}`);
+            }
+
+            // Проверяем, что коллекция логов пуста
+            const countAfter = await this.provider.countLogCollection();
+            if (countAfter !== 0) {
+                throw new Error(`Коллекция логов не пуста после очистки, осталось ${countAfter} записей`);
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testClearLogCollection: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }

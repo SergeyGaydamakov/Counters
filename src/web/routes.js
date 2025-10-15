@@ -8,6 +8,12 @@ const config = require('../common/config');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
+// Глобальные переменные для отслеживания статистики запросов
+let requestCounter = 0;
+let maxProcessingTime = 0;
+let maxDebugInfo = null;
+let maxProcessingTimeRequest = null;
+
 /**
  * Вычисляет CRC32 хеш для строки
  * @param {string} str - строка для хеширования
@@ -46,6 +52,73 @@ function isMessageTypeAllowed(messageType) {
     
     // Проверяем, есть ли тип в списке разрешенных
     return allowedTypes.includes(messageType);
+}
+
+/**
+ * Сохраняет отладочную информацию в лог, если достигнут лимит запросов
+ * @param {Object} factController - экземпляр FactController
+ * @param {Object} debugInfo - отладочная информация
+ * @param {number} processingTime - время обработки
+ * @param {Object} requestData - данные запроса
+ */
+async function saveDebugInfoIfNeeded(factController, debugInfo, processingTime, requestData) {
+    try {
+        // Получаем частоту сохранения из переменной окружения (по умолчанию 100)
+        const logSaveFrequency = parseInt(process.env.LOG_SAVE_FREQUENCY || '100');
+        
+        // Увеличиваем счетчик запросов
+        requestCounter++;
+        
+        // Обновляем максимальное время обработки и связанную информацию
+        if (processingTime > maxProcessingTime) {
+            maxProcessingTime = processingTime;
+            maxDebugInfo = debugInfo;
+            maxProcessingTimeRequest = requestData;
+        }
+        
+        // Проверяем, достигли ли лимита запросов
+        if (requestCounter >= logSaveFrequency) {
+            if (maxDebugInfo && factController && factController.mongoProvider) {
+                const processId = `api-json-${Date.now()}-${requestCounter}`;
+                const metrics = {
+                    totalRequests: requestCounter,
+                    maxProcessingTime: maxProcessingTime,
+                    averageProcessingTime: maxProcessingTime / requestCounter,
+                    logSaveFrequency: logSaveFrequency,
+                    messageType: maxProcessingTimeRequest?.messageType || 'unknown',
+                    factId: maxProcessingTimeRequest?.factId || 'unknown'
+                };
+                
+                const debugInfoForLog = {
+                    requestData: maxProcessingTimeRequest,
+                    debugInfo: maxDebugInfo,
+                    processingTime: maxProcessingTime,
+                    requestCounter: requestCounter
+                };
+                
+                // Сохраняем в лог
+                await factController.mongoProvider.saveLog(processId, metrics, debugInfoForLog);
+                
+                logger.info(`Отладочная информация сохранена в лог`, {
+                    processId,
+                    requestCounter,
+                    maxProcessingTime,
+                    messageType: maxProcessingTimeRequest?.messageType
+                });
+            }
+            
+            // Сбрасываем счетчики
+            requestCounter = 0;
+            maxProcessingTime = 0;
+            maxDebugInfo = null;
+            maxProcessingTimeRequest = null;
+        }
+    } catch (error) {
+        logger.error('Ошибка при сохранении отладочной информации в лог:', {
+            error: error.message,
+            stack: error.stack
+        });
+    }
 }
 
 /**
@@ -146,6 +219,21 @@ function createRoutes(factController) {
             // Обрабатываем сообщение через контроллер
             const result = await factController.processMessageWithCounters(message, debugMode);
 
+            // Сохраняем отладочную информацию в лог, если необходимо
+            const processingTime = result.processingTime ? result.processingTime.total : 0;
+            const requestData = {
+                messageType: messageTypeNumber,
+                factId: result.fact._id,
+                messageData: messageData,
+                debugMode: debugMode
+            };
+            
+            // Асинхронно сохраняем отладочную информацию (не блокируем ответ)
+            saveDebugInfoIfNeeded(factController, result.debug, processingTime, requestData)
+                .catch(error => {
+                    logger.error('Ошибка при сохранении отладочной информации:', error);
+                });
+
             logger.info(`Сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
                 processingTime: result.processingTime ? result.processingTime.total : 'N/A'
@@ -156,6 +244,7 @@ function createRoutes(factController) {
                 factId: result.fact._id,
                 counters: result.counters || {},
                 processingTime: result.processingTime || { total: 0, message: 'No processing time available' },
+                metrics: result.metrics,
                 debug: result.debug
             });
 
@@ -321,7 +410,8 @@ function createRoutes(factController) {
                     Counters: result.counters,
                     Timestamp: new Date().toISOString(),
                     ProcessingTime: result.processingTime || { total: 0 },
-                    debug: JSON.stringify(result.debug)
+                    Metrics: result.metrics,
+                    Debug: JSON.stringify(result.debug)
                 },
                 _attributes: {
                     Version: '1',
