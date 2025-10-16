@@ -168,7 +168,7 @@ class Diagnostics {
         results.services.ports.application.connections = portUsage.connections;
 
         // Проверка MongoDB
-        this.logger.info('🍃 Проверка подключения к MongoDB...');
+        this.logger.info('🍃 Проверка подключения к MongoDB ${config.database.connectionString}...');
         results.services.mongodb = await this.checkMongoDB(config.database.connectionString);
 
         // Генерация рекомендаций

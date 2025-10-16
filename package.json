@@ -28,7 +28,6 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
-    "json2xml": "^0.1.3",
     "mongodb": "^6.20.0",
     "uuid": "^13.0.0",
     "xml2js": "^0.6.2"
@@ -43,7 +42,9 @@
   "author": "",
   "license": "MIT",
   "pkg": {
-    "targets": ["node18-linux-x64"],
+    "targets": [
+      "node18-linux-x64"
+    ],
     "outputPath": "dist",
     "assets": [
       "countersConfig.json",

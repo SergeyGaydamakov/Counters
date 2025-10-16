@@ -5,6 +5,13 @@ const {ERROR_WRONG_MESSAGE_TYPE} = require('../common/errors')
 
 /**
  * Класс для генерации случайных тестовых данных
+ * Поддерживаемые типы данных для генерации:
+ * - string
+ * - integer
+ * - date
+ * - enum
+ * - objectId
+ * - boolean
  * 
  * Структура сообщения (message):
  * @property {string} _id - Идентификатор сообщения uuidv4

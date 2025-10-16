@@ -1,6 +1,6 @@
 const express = require('express');
 const Logger = require('../utils/logger');
-const json2xml = require('json2xml');
+const xml2js = require('xml2js');
 const { ObjectId } = require('mongodb');
 
 const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
@@ -66,6 +66,35 @@ function crc32(str) {
     }
     
     return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+// В src/utils/dateFormatter.js
+function formatDatesInObject(obj, dateFormat = 'iso') {
+    const formatters = {
+        'iso': (date) => date.toISOString(),
+        'local': (date) => date.toLocaleString('sv-SE'),
+        'custom': (date) => date.toISOString().replace('T', ' ').replace('Z', ''),
+        'russian': (date) => date.toLocaleDateString('ru-RU')
+    };
+    
+    const formatter = formatters[dateFormat] || formatters.iso;
+    
+    function processValue(value) {
+        if (value instanceof Date) {
+            return formatter(value);
+        } else if (Array.isArray(value)) {
+            return value.map(processValue);
+        } else if (value && typeof value === 'object') {
+            const result = {};
+            for (const [key, val] of Object.entries(value)) {
+                result[key] = processValue(val);
+            }
+            return result;
+        }
+        return value;
+    }
+    
+    return processValue(obj);
 }
 
 /**
@@ -306,11 +335,21 @@ function createRoutes(factController) {
                     }
                 };
 
-                const xmlEmptyResponse = json2xml(emptyResponse, {
-                    header: true,
-                    attributes_key: '_attributes',
-                    chars_key: '_text'
+                const formattedEmptyResponse = formatDatesInObject(emptyResponse, 'custom');
+                const builder = new xml2js.Builder({
+                    rootName: 'IRIS',
+                    headless: false,
+                    renderOpts: { 
+                        pretty: true,
+                        indent: '  ',
+                        newline: '\n'
+                    },
+                    attrkey: '_attributes',
+                    charkey: '_text',
+                    explicitArray: false,
+                    mergeAttrs: true
                 });
+                const xmlEmptyResponse = builder.buildObject(formattedEmptyResponse);
 
                 res.set('Content-Type', 'application/xml');
                 return res.status(200).send(xmlEmptyResponse);
@@ -345,18 +384,28 @@ function createRoutes(factController) {
                         }
                     };
 
-                    const xmlEmptyResponse = json2xml(emptyResponse, {
-                        header: true,
-                        attributes_key: '_attributes',
-                        chars_key: '_text'
+                    const formattedEmptyResponse = formatDatesInObject(emptyResponse, 'custom');
+                    const builder = new xml2js.Builder({
+                        rootName: 'IRIS',
+                        headless: false,
+                        renderOpts: { 
+                            pretty: true,
+                            indent: '  ',
+                            newline: '\n'
+                        },
+                        attrkey: '_attributes',
+                        charkey: '_text',
+                        explicitArray: false,
+                        mergeAttrs: true
                     });
+                    const xmlEmptyResponse = builder.buildObject(formattedEmptyResponse);
 
                     res.set('Content-Type', 'application/xml');
                     return res.status(200).send(xmlEmptyResponse);
                 }
             }
 
-            logger.info('Получен запрос IRIS', {
+            logger.debug('Получен запрос IRIS', {
                 body: req.body,
                 headers: req.headers
             });
@@ -432,11 +481,24 @@ function createRoutes(factController) {
             };
 
             // Конвертируем JSON в XML
-            const xmlResponse = json2xml(jsonResponse, {
-                header: true,
-                attributes_key: '_attributes',
-                chars_key: '_text'
+            const formattedJson = formatDatesInObject(jsonResponse, 'custom');
+            const builder = new xml2js.Builder({
+                rootName: 'IRIS',
+                headless: false, // эквивалент header: true в json2xml
+                renderOpts: { 
+                    pretty: true,
+                    indent: '  ',
+                    newline: '\n'
+                },
+                // Обработка атрибутов (аналог attributes_key: '_attributes')
+                attrkey: '_attributes',
+                // Обработка текстового содержимого (аналог chars_key: '_text') 
+                charkey: '_text',
+                // Дополнительные опции для совместимости
+                explicitArray: false,
+                mergeAttrs: true
             });
+            xmlResponse = builder.buildObject(formattedJson);
 
             // Устанавливаем правильный Content-Type для XML
             res.set('Content-Type', 'application/xml');
@@ -458,7 +520,7 @@ function createRoutes(factController) {
                     Error: {
                         Code: '500',
                         Message: error.message,
-                        Timestamp: new Date().toISOString()
+                        Timestamp: new Date()
                     }
                 },
                 _attributes: {
@@ -469,11 +531,21 @@ function createRoutes(factController) {
                 }
             };
 
-            const xmlErrorResponse = json2xml(errorResponse, {
-                header: true,
-                attributes_key: '_attributes',
-                chars_key: '_text'
+            const formattedErrorResponse = formatDatesInObject(errorResponse, 'custom');
+            const builder = new xml2js.Builder({
+                rootName: 'IRIS',
+                headless: false,
+                renderOpts: { 
+                    pretty: true,
+                    indent: '  ',
+                    newline: '\n'
+                },
+                attrkey: '_attributes',
+                charkey: '_text',
+                explicitArray: false,
+                mergeAttrs: true
             });
+            const xmlErrorResponse = builder.buildObject(formattedErrorResponse);
 
             res.set('Content-Type', 'application/xml');
             res.status(500).send(xmlErrorResponse);
@@ -511,13 +583,14 @@ function createRoutes(factController) {
 
             // Генерируем сообщение указанного типа
             const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
-            
+            const formattedMessageData = formatDatesInObject(generatedMessage.d, 'custom');
+
             // Создаем XML вручную для корректного форматирования
             const messageId = new ObjectId().toString();
             let xml = `<IRIS Version="1" Message="ModelRequest" MessageTypeId="${messageTypeNumber}" MessageId="${messageId}">\n`;
             
             // Добавляем все поля из сгенерированного сообщения как дочерние элементы
-            for (const [key, value] of Object.entries(generatedMessage.d)) {
+            for (const [key, value] of Object.entries(formattedMessageData)) {
                 xml += `\t<${key}>${value}</${key}>\n`;
             }
             

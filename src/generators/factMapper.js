@@ -37,6 +37,7 @@ class FactMapper {
     constructor(configPathOrMapArray = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this._mappingConfig = [];
+        this._mappingRulesCache = new Map(); // Кеш для правил маппинга по типам сообщений
         
         if (!configPathOrMapArray) {
             this.logger.info('Конфигурация не задана. Маппинг не будет производиться.');
@@ -328,7 +329,7 @@ class FactMapper {
         // Применяем правила маппинга
         applicableRules.forEach(rule => {
             if (rule.src in messageData) {
-                // Если исходное поле существует, копируем его значение в целевое поле
+                // Если исходное поле существует, копируем его значение в целевое поле с учетом типа поля в generator.type
                 factData[rule.dst] = messageData[rule.src];
                 this.logger.debug(`Применено правило маппинга: ${rule.src} -> ${rule.dst} для типа ${messageType}`);
             } else {
@@ -358,9 +359,27 @@ class FactMapper {
      * @returns {Array<Object>} Массив правил маппинга для данного типа
      */
     getMappingRulesForType(messageType) {
-        return this._mappingConfig.filter(rule => 
+        // Проверяем кеш
+        if (this._mappingRulesCache.has(messageType)) {
+            return this._mappingRulesCache.get(messageType);
+        }
+        
+        // Если нет в кеше, вычисляем и сохраняем
+        const rules = this._mappingConfig.filter(rule => 
             rule.message_types.includes(messageType)
         );
+        
+        this._mappingRulesCache.set(messageType, rules);
+        return rules;
+    }
+
+    /**
+     * Очищает кеш правил маппинга
+     * Полезно при изменении конфигурации во время выполнения
+     */
+    clearMappingRulesCache() {
+        this._mappingRulesCache.clear();
+        this.logger.debug('Кеш правил маппинга очищен');
     }
 
 }

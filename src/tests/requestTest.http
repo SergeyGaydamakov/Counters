@@ -3,6 +3,7 @@
 # Ctrl+Alt+H
 #
 @host = localhost:3000
+# @host = 192.168.88.254:3000
 @login = 1
 @password = 1
 
@@ -26,6 +27,28 @@ Content-Type: text/xml
 Debug-Mode: true
 
 {{processedIrisMessage}}
+
+
+### Обработка IRIS XML сообщения
+POST http://{{host}}/api/v1/message/iris
+Content-Type: text/xml
+Debug-Mode: false
+
+<IRIS Version="2" Message="ModelRequest" MessageTypeId="1" MessageId="3323123" custom="test">
+  <id>d6b40af9c2929f8068f0eaeb</id>
+  <amount>6513363</amount>
+  <dt>2025-09-16 13:55:44</dt>
+  <f1>"1234567890"</f1>
+  <f2>value1</f2>
+  <f3>1</f3>
+  <f4>"1234567890"</f4>
+  <f5>"1234567890"</f5>
+  <f6>"1234567890"</f6>
+  <f12>"1234567890"</f12>
+  <f20>"1234567890"</f20>
+  <f21>"1234567890"</f21>
+  <f22>"1234567890"</f22>
+</IRIS>
 
 
 ### Обработка IRIS XML сообщения
