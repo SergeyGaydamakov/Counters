@@ -741,6 +741,111 @@ class MongoProvider {
         }
     }
 
+
+
+    async _getRelevantFactsByIndex(indexNameQuery, debugMode = false) {
+        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+        const startFindFactIndexTime = Date.now();
+        const factIndexResult = await factIndexCollection.find(indexNameQuery.factIndexFindQuery, indexNameQuery.factIndexFindOptions).sort(indexNameQuery.factIndexFindSort).limit(indexNameQuery.depthLimit).toArray();
+        const stopFindFactIndexTime = Date.now();
+        const indexQuerySize = debugMode ? JSON.stringify(indexNameQuery.factIndexFindQuery).length : undefined;
+        const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
+        const factIds = factIndexResult.map(item => item._id.f);
+        this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIds)} \n`);
+        return {
+            factIds: factIds,
+            metrics: {
+                findFactIndexTime: stopFindFactIndexTime - startFindFactIndexTime,
+                relevantFactsCount: factIndexResult.length,
+                relevantFactsSize: relevantFactsSize,
+                indexQuerySize: indexQuerySize,
+            },
+            debug: {
+                indexQuery: indexNameQuery.factIndexFindQuery,
+                indexSort: indexNameQuery.factIndexFindSort,
+                depthLimit: indexNameQuery.depthLimit,
+            }
+        };
+    }
+
+
+    async _getCounters(indexTypeName, factIds, indexCounterList, debugMode = false) {
+        if (!factIds || !factIds.length) {
+            this.logger.warn(`Для типа индекса ${indexTypeName} не найден список релевантных фактов.`);
+            return { 
+                counters: null, 
+                error: "No relevant facts found",
+                metrics: {
+                    countersQueryTime: 0,
+                    countersQueryCount: 0,
+                    countersQuerySize: 0,
+                    countersSize: 0,
+                },
+                debug: {
+                    countersQuery: null,
+                }
+            };
+        }
+        // Финальный этап агрегации для улучшения формата результатов: преобразование из массивов в объект
+        const projectState = {};
+        Object.keys(indexCounterList).forEach(counterName => {
+            projectState[counterName] = { "$arrayElemAt": ["$" + counterName, 0] };
+        });
+        const factFacetStage = [
+            {
+                "$match": {
+                    "_id": { "$in": factIds }
+                }
+            },
+            { "$facet": indexCounterList },
+            { "$project": projectState }
+        ];
+        const countersQuerySize = debugMode ? JSON.stringify(factFacetStage).length : undefined;
+        // Выполнить агрегирующий запрос
+        const aggregateFactOptions = {
+            batchSize: 5000,
+            readConcern: this.READ_CONCERN,
+            readPreference: { mode: "secondaryPreferred" },
+            comment: "getRelevantFactCounters - aggregate",
+        };
+        // this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
+        // this.logger.info(`Агрегационный запрос на счетчики по фактам: ${JSON.stringify(factFacetStage)}`);
+        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        const startCountersQueryTime = Date.now();
+        try {
+            this.logger.debug(`Агрегационный запрос для индекса ${indexTypeName}: ${JSON.stringify(factFacetStage)}`);
+            const countersResult = await factsCollection.aggregate(factFacetStage, aggregateFactOptions).toArray();
+            const countersSize = debugMode ? JSON.stringify(countersResult[0]).length : undefined;
+            return {
+                counters: countersResult[0],
+                metrics: {
+                    countersQueryTime: Date.now() - startCountersQueryTime,
+                    countersQueryCount: 1,
+                    countersQuerySize: countersQuerySize,
+                    countersSize: countersSize,
+                },
+                debug: {
+                    countersQuery: factFacetStage,
+                }
+            };
+        } catch (error) {
+            this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
+            return { 
+                counters: null, 
+                error: error.message,
+                metrics: {
+                    countersQueryTime: Date.now() - startCountersQueryTime,
+                    countersQueryCount: 1,
+                    countersQuerySize: countersQuerySize,
+                    countersSize: 0,
+                },
+                debug: {
+                    countersQuery: factFacetStage,
+                }
+            };
+        }
+    }
+
     /**
      * Получает счетчики по фактам для заданного факта
      * @param {Array<Object>} factIndexInfos - массив объектов с информацией об индексных значениях, применимых к факту
@@ -762,6 +867,196 @@ class MongoProvider {
      * @returns {Promise<Array>} счетчики по фактам
      */
     async getRelevantFactCounters(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
+        this.checkConnection();
+        const startTime = Date.now();
+
+        this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+
+        // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
+        const indexCountersInfo = this.getFactIndexCountersInfo(fact);
+        if (!indexCountersInfo) {
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
+
+            return {
+                result: [],
+                processingTime: Date.now() - startTime,
+            };
+        }
+
+        // Перебираем все индексы, по которым нужно построить счетчики и формируем агрегационный запрос
+        const queriesByIndexName = {};
+        // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
+        // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
+        Object.keys(indexCountersInfo).forEach((indexTypeName) => {
+            const counters = indexCountersInfo[indexTypeName] ? indexCountersInfo[indexTypeName] : {};
+            this.logger.info(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
+            const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
+            if (!indexInfo) {
+                this.logger.warn(`Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
+                return;
+            }
+            const factIndexFindQuery = {
+                "_id.h": indexInfo.hashValue
+            };
+            if (depthFromDate) {
+                factIndexFindQuery["d"] = {
+                    "$gte": depthFromDate
+                };
+            }
+            queriesByIndexName[indexTypeName] = {
+                factIndexFindQuery: factIndexFindQuery,
+                factIndexFindOptions: {
+                    batchSize: 5000,
+                    readConcern: this.READ_CONCERN,
+                    readPreference: { mode: "secondaryPreferred" },
+                    comment: "getRelevantFactsByIndex - find",
+                    projection: { "_id.f": 1 }
+                },
+                factIndexFindSort: {
+                    "_id.h": 1,
+                    "d": -1
+                },
+                depthLimit: Math.min(indexInfo.index.limit ?? 100, depthLimit),
+            };
+        });
+
+        if (Object.keys(queriesByIndexName).length === 0) {
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} не найдены релевантные счетчики. Счетчики не будут вычисляться.`);
+            return {
+                result: {},
+                processingTime: Date.now() - startTime,
+                metrics: {
+                    totalIndexCount: factIndexInfos?.length,
+                    counterIndexCount: Object.keys(indexCountersInfo).length,
+                    factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
+                    relevantIndexCount: 0,
+                    relevantFactsCount: 0,
+                    relevantFactsSize: 0,
+                    indexQueryTime: 0,
+                    prepareCountersQueryTime: 0,
+                    countersQueryTime: 0,
+                    countersQueryCount: 0,
+                },
+                debug: {
+                    indexQuerySize: 0,
+                    countersQueryTotalSize: 0,
+                    indexQuery: null,
+                    countersQuery: null,
+                }
+            };
+        }
+
+        // Создаем массив промисов для параллельного выполнения запросов
+        const startPrepareQueriesTime = Date.now();
+        const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeName) => {
+            const indexNameQuery = queriesByIndexName[indexTypeName];
+            const startQuery = Date.now();
+            const indexNameResult = await this._getRelevantFactsByIndex(indexNameQuery, debugMode);
+            const countersResult = await this._getCounters(indexTypeName, indexNameResult.factIds, indexCountersInfo[indexTypeName], debugMode);
+            return {
+                indexTypeName: indexTypeName,
+                counters: countersResult.counters,
+                error: countersResult.error,
+                processingTime: Date.now() - startQuery,
+                metrics: { ...indexNameResult.metrics, ...countersResult.metrics },
+                debug: { ...indexNameResult.debug, ...countersResult.debug },
+            };
+        });
+
+        // Ждем выполнения всех запросов
+        const startQueriesTime = Date.now();
+        const queryResults = await Promise.all(queryPromises);
+        const stopQueriesTime = Date.now();
+
+        // Объединяем результаты в один JSON объект
+        const mergedCounters = {};
+        const mergedStatistics = {};
+        let relevantFactsCount = 0;
+        let indexQueryTime = 0;
+        let countersQueryTime = 0;
+        let countersQueryCount = 0;
+        let relevantFactsSize = 0;
+        let indexQuerySize = 0;
+        let countersTotalSize = 0;
+        let countersQuerySize = 0;
+        const indexQuery = {};
+        const countersQuery = {};
+        queryResults.forEach((result) => {
+            if (result.counters) {
+                Object.assign(mergedCounters, result.counters);
+            }
+            mergedStatistics[result.indexTypeName] = {
+                processingTime: result.processingTime,
+                metrics: result.metrics
+            };
+            relevantFactsCount += result.metrics.relevantFactsCount ?? 0;
+            indexQueryTime = Math.max(indexQueryTime, result.metrics.indexQueryTime ?? 0);
+            countersQueryTime = Math.max(countersQueryTime, result.metrics.countersQueryTime ?? 0);
+            countersQueryCount += result.metrics.countersQueryCount ?? 0;
+            relevantFactsSize += result.metrics.relevantFactsSize ?? 0;
+            indexQuerySize += result.metrics.indexQuerySize ?? 0;
+            countersQuerySize += result.metrics.countersQuerySize ?? 0;
+            countersTotalSize += result.metrics.countersSize ?? 0;
+            indexQuery[result.indexTypeName] = {
+                query: result.debug.indexQuery,
+                sort: result.debug.indexSort,
+                depthLimit: result.debug.depthLimit,
+            };
+            countersQuery[result.indexTypeName] = result.debug.countersQuery;
+        });
+
+        this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
+
+        /**
+         * Структура отладочной информации debug:
+         * totalIndexCount - общее количество индексируемых полей факта (связка по полям факта и индекса)
+         * counterIndexCount - количество индексов с счетчиками, применимых к факту (после фильтрации по условию computationConditions)
+         * factCountersCount - общее количество счетчиков по всем индексам, применимых к факту (после фильтрации по условию computationConditions)
+         * relevantIndexCount - количество релевантных индексов (индексы, которые имеют факты после поиска по индексам)
+         * relevantFactsCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
+         * indexQueryTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
+         * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
+         * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
+         * countersQueryCount - число одновременных запросов на вычисление счетчиков
+         * relevantFactsSize - размер массива релевантных фактов (факты, которые попали после поиска по индексам)
+         * countersTotalSize - размер полученных всех счетчиков по всем индексам,
+         * indexQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
+         * countersQuerySize - размер запросов вычисления счетчиков по релевантным фактам
+         * 
+         * indexQuery - запрос по индексам для поиска ИД релевантных фактов
+         * countersQuery - запрос на вычисление счетчиков по релевантным фактам
+         */
+
+        // Возвращаем массив статистики
+        return {
+            result: Object.keys(mergedCounters).length ? mergedCounters : {},
+            processingTime: Date.now() - startTime,
+            statistics: mergedStatistics,
+            metrics: {
+                totalIndexCount: factIndexInfos?.length,
+                counterIndexCount: Object.keys(indexCountersInfo).length,
+                factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
+                relevantIndexCount: Object.keys(queriesByIndexName).length,
+                relevantFactsCount: relevantFactsCount,
+                indexQueryTime: indexQueryTime,
+                prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
+                processingQueriesTime: stopQueriesTime - startQueriesTime,
+                countersQueryTime: countersQueryTime,
+                countersQueryCount: countersQueryCount,
+                relevantFactsSize: relevantFactsSize,
+                countersTotalSize: countersTotalSize,
+                indexQuerySize: indexQuerySize,
+                countersQuerySize: countersQuerySize,
+            },
+            debug: {
+                indexQuery: indexQuery,
+                countersQuery: countersQuery,
+            }
+        };
+    }
+
+    // Старая реализация получения счетчиков по релевантным фактам
+    async oldGetRelevantFactCounters(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
         this.checkConnection();
         const startTime = Date.now();
 

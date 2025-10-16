@@ -82,9 +82,19 @@ function formatDatesInObject(obj, dateFormat = 'iso') {
     function processValue(value) {
         if (value instanceof Date) {
             return formatter(value);
+        } else if (value instanceof ObjectId) {
+            return value.toString();
         } else if (Array.isArray(value)) {
             return value.map(processValue);
         } else if (value && typeof value === 'object') {
+            // Проверяем, является ли объект примитивным (имеет метод toString)
+            // и не является ли он обычным объектом с ключами
+            if (value.constructor && value.constructor.name !== 'Object' && 
+                typeof value.toString === 'function' && 
+                Object.keys(value).length === 0) {
+                return value.toString();
+            }
+            
             const result = {};
             for (const [key, val] of Object.entries(value)) {
                 result[key] = processValue(val);
