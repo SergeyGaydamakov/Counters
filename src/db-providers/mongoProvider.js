@@ -1031,7 +1031,6 @@ class MongoProvider {
         return {
             result: Object.keys(mergedCounters).length ? mergedCounters : {},
             processingTime: Date.now() - startTime,
-            statistics: mergedStatistics,
             metrics: {
                 totalIndexCount: factIndexInfos?.length,
                 counterIndexCount: Object.keys(indexCountersInfo).length,
@@ -1047,6 +1046,7 @@ class MongoProvider {
                 countersTotalSize: countersTotalSize,
                 indexQuerySize: indexQuerySize,
                 countersQuerySize: countersQuerySize,
+                statistics: mergedStatistics,
             },
             debug: {
                 indexQuery: indexQuery,
