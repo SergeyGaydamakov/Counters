@@ -1,7 +1,7 @@
 const express = require('express');
 const Logger = require('../utils/logger');
 const json2xml = require('json2xml');
-const { v4: uuidv4 } = require('uuid');
+const { ObjectId } = require('mongodb');
 
 const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
 const config = require('../common/config');
@@ -513,7 +513,7 @@ function createRoutes(factController) {
             const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
             
             // Создаем XML вручную для корректного форматирования
-            const messageId = uuidv4();
+            const messageId = new ObjectId().toString();
             let xml = `<IRIS Version="1" Message="ModelRequest" MessageTypeId="${messageTypeNumber}" MessageId="${messageId}">\n`;
             
             // Добавляем все поля из сгенерированного сообщения как дочерние элементы
