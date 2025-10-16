@@ -8,15 +8,21 @@ echo * Кодировка UTF-8
 echo *
 
 rem Ищем MongoShell
+SET MONGO_PATH_WRK=C:\Sergeyg\MongoDB\bin
 SET MONGO_PATH_8_2=C:\Program Files\MongoDB\Server\8.2\bin
 SET MONGO_PATH_7_0=C:\Program Files\MongoDB\Server\7.0\bin
 SET MONGO_PATH_6_0=C:\Program Files\MongoDB\Server\6.0\bin
+
+
+SET MONGO_PATH_SHELL_WRK=C:\Sergeyg\Distr\Mongodb\bin
 SET MONGO_PATH_SHELL=C:\Program Files\mongosh
 
 IF EXIST "%MONGO_PATH_6_0%\mongod.exe" SET MONGO_PATH=%MONGO_PATH_6_0%
 IF EXIST "%MONGO_PATH_7_0%\mongod.exe" SET MONGO_PATH=%MONGO_PATH_7_0%
 IF EXIST "%MONGO_PATH_8_2%\mongod.exe" SET MONGO_PATH=%MONGO_PATH_8_2%
+IF EXIST "%MONGO_PATH_WRK%\mongod.exe" SET MONGO_PATH=%MONGO_PATH_WRK%
 
+IF EXIST "%MONGO_PATH_SHELL_WRK%\mongosh.exe" SET MONGO_PATH_SHELL=%MONGO_PATH_SHELL_WRK%
 IF NOT EXIST "%MONGO_PATH_SHELL%\mongosh.exe" GOTO mongo_not_found
 rem IF NOT EXIST "%MONGO_PATH_SHELL%\mongosh.exe" GOTO mongo_not_found
 IF NOT EXIST "%MONGO_PATH%\mongod.exe" GOTO mongo_not_found
@@ -30,6 +36,7 @@ echo * На компьютере не найдены все или часть ф
 echo * %MONGO_PATH_6_0%
 echo * %MONGO_PATH_7_0%
 echo * %MONGO_PATH_8_2%
+echo * %MONGO_PATH_SERGEYG%
 echo * 
 echo * Mongo Shell:
 echo * %MONGO_PATH_SHELL%
