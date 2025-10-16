@@ -41,5 +41,18 @@
     "cluster"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "pkg": {
+    "targets": ["node18-linux-x64"],
+    "outputPath": "dist",
+    "assets": [
+      "countersConfig.json",
+      "indexConfig.json",
+      "messageConfig.json"
+    ],
+    "scripts": [
+      "src/**/*.js"
+    ]
+  },
+  "bin": "src/web/cluster.js"
 }

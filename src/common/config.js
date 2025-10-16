@@ -48,12 +48,6 @@ const config = {
         saveFrequency: parseInt(process.env.LOG_SAVE_FREQUENCY) || 100
     },
     
-    // Мониторинг
-    monitoring: {
-        healthCheckInterval: parseInt(process.env.HEALTH_CHECK_INTERVAL) || 30000, // 30 секунд
-        enableMetrics: process.env.ENABLE_METRICS !== 'false'
-    },
-
     // Строка подключения к MongoDB
     database: {
         connectionString: process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017',
