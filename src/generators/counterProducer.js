@@ -235,7 +235,7 @@ class CounterProducer {
                         gtValue = new Date();
                     } else if (typeof opValue === 'object' && opValue !== null) {
                         // Проверяем, является ли это оператором даты
-                        const dateResult = this._processDateOperator(opValue);
+                        const dateResult = this._processDateOperator(opValue, fact);
                         if (dateResult !== null) {
                             gtValue = dateResult;
                         }
@@ -251,7 +251,7 @@ class CounterProducer {
                         gteValue = new Date();
                     } else if (typeof opValue === 'object' && opValue !== null) {
                         // Проверяем, является ли это оператором даты
-                        const dateResult = this._processDateOperator(opValue);
+                        const dateResult = this._processDateOperator(opValue, fact);
                         if (dateResult !== null) {
                             gteValue = dateResult;
                         }
@@ -267,7 +267,7 @@ class CounterProducer {
                         ltValue = new Date();
                     } else if (typeof opValue === 'object' && opValue !== null) {
                         // Проверяем, является ли это оператором даты
-                        const dateResult = this._processDateOperator(opValue);
+                        const dateResult = this._processDateOperator(opValue, fact);
                         if (dateResult !== null) {
                             ltValue = dateResult;
                         }
@@ -283,7 +283,7 @@ class CounterProducer {
                         lteValue = new Date();
                     } else if (typeof opValue === 'object' && opValue !== null) {
                         // Проверяем, является ли это оператором даты
-                        const dateResult = this._processDateOperator(opValue);
+                        const dateResult = this._processDateOperator(opValue, fact);
                         if (dateResult !== null) {
                             lteValue = dateResult;
                         }
@@ -444,7 +444,7 @@ class CounterProducer {
      * @param {Object} operator - Объект с оператором даты
      * @returns {Date|null} Результат выполнения оператора или null при ошибке
      */
-    _processDateOperator(operator) {
+    _processDateOperator(operator, fact = null) {
         if (!operator || typeof operator !== 'object') {
             return null;
         }
@@ -452,11 +452,11 @@ class CounterProducer {
         for (const [op, opValue] of Object.entries(operator)) {
             switch (op) {
                 case '$dateAdd':
-                    return this._processDateAdd(opValue);
+                    return this._processDateAdd(opValue, fact);
                 case '$dateSubtract':
-                    return this._processDateSubtract(opValue);
+                    return this._processDateSubtract(opValue, fact);
                 case '$dateDiff':
-                    return this._processDateDiff(opValue);
+                    return this._processDateDiff(opValue, fact);
                 default:
                     this.logger.warn(`Неподдерживаемый оператор даты: ${op}`);
                     return null;
@@ -471,7 +471,7 @@ class CounterProducer {
      * @param {Object} opValue - Значение оператора
      * @returns {Date|null} Результат выполнения оператора
      */
-    _processDateAdd(opValue) {
+    _processDateAdd(opValue, fact = null) {
         if (!opValue || typeof opValue !== 'object') {
             return null;
         }
@@ -482,8 +482,21 @@ class CounterProducer {
             return null;
         }
 
-        // Обрабатываем $$NOW
-        const baseDate = startDate === '$$NOW' ? new Date() : new Date(startDate);
+        // Обрабатываем $$NOW и поля факта
+        let baseDate;
+        if (startDate === '$$NOW') {
+            baseDate = new Date();
+        } else if (typeof startDate === 'string' && startDate.startsWith('$')) {
+            // Это поле факта
+            if (fact) {
+                const fieldValue = this._extractFieldValue(fact, startDate);
+                baseDate = fieldValue instanceof Date ? fieldValue : new Date(fieldValue);
+            } else {
+                return null;
+            }
+        } else {
+            baseDate = new Date(startDate);
+        }
         
         if (isNaN(baseDate.getTime())) {
             return null;
@@ -526,7 +539,7 @@ class CounterProducer {
      * @param {Object} opValue - Значение оператора
      * @returns {Date|null} Результат выполнения оператора
      */
-    _processDateSubtract(opValue) {
+    _processDateSubtract(opValue, fact = null) {
         if (!opValue || typeof opValue !== 'object') {
             return null;
         }
@@ -537,8 +550,21 @@ class CounterProducer {
             return null;
         }
 
-        // Обрабатываем $$NOW
-        const baseDate = startDate === '$$NOW' ? new Date() : new Date(startDate);
+        // Обрабатываем $$NOW и поля факта
+        let baseDate;
+        if (startDate === '$$NOW') {
+            baseDate = new Date();
+        } else if (typeof startDate === 'string' && startDate.startsWith('$')) {
+            // Это поле факта
+            if (fact) {
+                const fieldValue = this._extractFieldValue(fact, startDate);
+                baseDate = fieldValue instanceof Date ? fieldValue : new Date(fieldValue);
+            } else {
+                return null;
+            }
+        } else {
+            baseDate = new Date(startDate);
+        }
         
         if (isNaN(baseDate.getTime())) {
             return null;
@@ -581,7 +607,7 @@ class CounterProducer {
      * @param {Object} opValue - Значение оператора
      * @returns {number|null} Результат выполнения оператора
      */
-    _processDateDiff(opValue) {
+    _processDateDiff(opValue, fact = null) {
         if (!opValue || typeof opValue !== 'object') {
             return null;
         }
@@ -592,9 +618,34 @@ class CounterProducer {
             return null;
         }
 
-        // Обрабатываем $$NOW
-        const start = startDate === '$$NOW' ? new Date() : new Date(startDate);
-        const end = endDate === '$$NOW' ? new Date() : new Date(endDate);
+        // Обрабатываем $$NOW и поля факта
+        let start, end;
+        
+        if (startDate === '$$NOW') {
+            start = new Date();
+        } else if (typeof startDate === 'string' && startDate.startsWith('$')) {
+            if (fact) {
+                const fieldValue = this._extractFieldValue(fact, startDate);
+                start = fieldValue instanceof Date ? fieldValue : new Date(fieldValue);
+            } else {
+                return null;
+            }
+        } else {
+            start = new Date(startDate);
+        }
+        
+        if (endDate === '$$NOW') {
+            end = new Date();
+        } else if (typeof endDate === 'string' && endDate.startsWith('$')) {
+            if (fact) {
+                const fieldValue = this._extractFieldValue(fact, endDate);
+                end = fieldValue instanceof Date ? fieldValue : new Date(fieldValue);
+            } else {
+                return null;
+            }
+        } else {
+            end = new Date(endDate);
+        }
         
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
             return null;
@@ -730,6 +781,12 @@ class CounterProducer {
             return undefined;
         }
 
+        // Проверяем, что fieldPath является строкой
+        if (typeof fieldPath !== 'string') {
+            this.logger.warn(`_extractFieldValue: fieldPath должен быть строкой, получен тип: ${typeof fieldPath}, значение: ${fieldPath}`);
+            return undefined;
+        }
+
         // Специальная обработка для $$NOW
         if (fieldPath === '$$NOW') {
             return new Date();
@@ -755,65 +812,144 @@ class CounterProducer {
     }
 
     /**
+     * Обрабатывает операнд в $expr (строка или объект с оператором даты)
+     * @param {*} operand - Операнд (строка поля или объект с оператором даты)
+     * @param {Object} fact - Факт для обработки
+     * @returns {*} Значение операнда
+     */
+    _processExprOperand(operand, fact) {
+        if (typeof operand === 'string') {
+            return this._extractFieldValue(fact, operand);
+        } else if (typeof operand === 'number') {
+            return operand;
+        } else if (typeof operand === 'object' && operand !== null) {
+            // Это может быть оператор даты
+            if (operand.$dateAdd) {
+                return this._processDateAdd(operand.$dateAdd, fact);
+            } else if (operand.$dateSubtract) {
+                return this._processDateSubtract(operand.$dateSubtract, fact);
+            } else if (operand.$dateDiff) {
+                return this._processDateDiff(operand.$dateDiff, fact);
+            } else {
+                this.logger.warn(`_processExprOperand: неподдерживаемый объект: ${JSON.stringify(operand)}`);
+                return null;
+            }
+        } else {
+            this.logger.warn(`_processExprOperand: операнд должен быть строкой, числом или объектом, получен тип: ${typeof operand}`);
+            return null;
+        }
+    }
+
+    /**
      * Обрабатывает выражение $expr с полями факта
      * @param {Object} fact - Факт для обработки
      * @param {Object} exprValue - Значение выражения $expr
      * @returns {boolean} Результат выполнения выражения
      */
     _processExprExpression(fact, exprValue) {
-        if (!exprValue || typeof exprValue !== 'object') {
+        if (!exprValue || typeof exprValue !== 'object' || Array.isArray(exprValue)) {
+            this.logger.warn(`_processExprExpression: exprValue должен быть объектом, получен тип: ${typeof exprValue}, значение: ${exprValue}`);
             return false;
         }
 
         // Обрабатываем операторы сравнения в $expr
         for (const [operator, operands] of Object.entries(exprValue)) {
+            // Проверяем, что operands является массивом
+            if (!Array.isArray(operands)) {
+                this.logger.warn(`_processExprExpression: operands должен быть массивом, получен тип: ${typeof operands}, значение: ${operands}`);
+                continue;
+            }
+            
             switch (operator) {
                 case '$eq':
                     if (Array.isArray(operands) && operands.length === 2) {
                         const [field1, field2] = operands;
-                        const value1 = this._extractFieldValue(fact, field1);
-                        const value2 = this._extractFieldValue(fact, field2);
+                        const value1 = this._processExprOperand(field1, fact);
+                        const value2 = this._processExprOperand(field2, fact);
                         return value1 === value2;
                     }
                     break;
                 case '$ne':
                     if (Array.isArray(operands) && operands.length === 2) {
                         const [field1, field2] = operands;
-                        const value1 = this._extractFieldValue(fact, field1);
-                        const value2 = this._extractFieldValue(fact, field2);
+                        const value1 = this._processExprOperand(field1, fact);
+                        const value2 = this._processExprOperand(field2, fact);
                         return value1 !== value2;
                     }
                     break;
                 case '$gt':
                     if (Array.isArray(operands) && operands.length === 2) {
                         const [field1, field2] = operands;
-                        const value1 = this._extractFieldValue(fact, field1);
-                        const value2 = this._extractFieldValue(fact, field2);
+                        const value1 = this._processExprOperand(field1, fact);
+                        const value2 = this._processExprOperand(field2, fact);
                         return this._compareValues(value1, value2, 'gt');
                     }
                     break;
                 case '$gte':
                     if (Array.isArray(operands) && operands.length === 2) {
                         const [field1, field2] = operands;
-                        const value1 = this._extractFieldValue(fact, field1);
-                        const value2 = this._extractFieldValue(fact, field2);
+                        const value1 = this._processExprOperand(field1, fact);
+                        const value2 = this._processExprOperand(field2, fact);
                         return this._compareValues(value1, value2, 'gte');
                     }
                     break;
                 case '$lt':
                     if (Array.isArray(operands) && operands.length === 2) {
                         const [field1, field2] = operands;
-                        const value1 = this._extractFieldValue(fact, field1);
-                        const value2 = this._extractFieldValue(fact, field2);
+                        const value1 = this._processExprOperand(field1, fact);
+                        const value2 = this._processExprOperand(field2, fact);
                         return this._compareValues(value1, value2, 'lt');
                     }
                     break;
                 case '$lte':
                     if (Array.isArray(operands) && operands.length === 2) {
                         const [field1, field2] = operands;
-                        const value1 = this._extractFieldValue(fact, field1);
-                        const value2 = this._extractFieldValue(fact, field2);
+                        const value1 = this._processExprOperand(field1, fact);
+                        const value2 = this._processExprOperand(field2, fact);
                         return this._compareValues(value1, value2, 'lte');
+                    }
+                    break;
+                case '$and':
+                    if (Array.isArray(operands)) {
+                        // Проверяем, что все условия в $and выполняются
+                        return operands.every(condition => {
+                            if (typeof condition === 'object' && condition !== null) {
+                                return this._processExprExpression(fact, condition);
+                            }
+                            return false;
+                        });
+                    }
+                    break;
+                case '$or':
+                    if (Array.isArray(operands)) {
+                        // Проверяем, что хотя бы одно условие в $or выполняется
+                        return operands.some(condition => {
+                            if (typeof condition === 'object' && condition !== null) {
+                                return this._processExprExpression(fact, condition);
+                            }
+                            return false;
+                        });
+                    }
+                    break;
+                case '$dateAdd':
+                    // Обрабатываем $dateAdd в $expr
+                    if (typeof operands === 'object' && operands !== null) {
+                        const result = this._processDateAdd(operands, fact);
+                        return result !== null;
+                    }
+                    break;
+                case '$dateSubtract':
+                    // Обрабатываем $dateSubtract в $expr
+                    if (typeof operands === 'object' && operands !== null) {
+                        const result = this._processDateSubtract(operands, fact);
+                        return result !== null;
+                    }
+                    break;
+                case '$dateDiff':
+                    // Обрабатываем $dateDiff в $expr
+                    if (typeof operands === 'object' && operands !== null) {
+                        const result = this._processDateDiff(operands, fact);
+                        return result !== null;
                     }
                     break;
                 default:

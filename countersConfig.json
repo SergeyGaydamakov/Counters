@@ -4,17 +4,20 @@
     "comment": "Общий счетчик для всех типов сообщений",
     "indexTypeName": "idx_f2",
     "computationConditions": {
-      "t": [1,2,3,4,5,6,7,8,9,10]
+      "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     },
     "evaluationConditions": {
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -700
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -700
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -41,28 +44,34 @@
         "$regex": "^123456",
         "$options": "i"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -1
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -1
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
       "d.f1": {
         "$in": ["1234567890", "1111111111", "2222222222"]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -2
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -2
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -82,14 +91,17 @@
       "d.f2": {
         "$in": ["value1", "value2", "value3"]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -1
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -1
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -97,14 +109,17 @@
         "$regex": "value[1-5]",
         "$options": "i"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -2
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -2
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -125,28 +140,34 @@
         "$gte": 1,
         "$lte": 5
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -3
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -3
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
       "d.f3": {
         "$in": [1, 2, 3, 4, 5]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -6
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -6
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -170,14 +191,17 @@
         "$regex": "[a-z]$",
         "$options": "i"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -365
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -365
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -185,14 +209,17 @@
         "$regex": "^(111|222|333)",
         "$options": "i"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "minute",
-            "amount": -60
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "minute",
+              "amount": -60
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -220,14 +247,17 @@
         "$gte": 1000,
         "$lte": 5000
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -4
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -4
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -238,14 +268,17 @@
         "$gte": 2000,
         "$lte": 8000
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -8
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -8
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -270,36 +303,44 @@
         "$regex": "^[7-9]",
         "$options": "i"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -1
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -1
+            }
           }
-        },
-        "$lte": "$$NOW"
+        ]
       }
     },
     "evaluationConditions": {
       "d.f6": {
         "$in": ["7777777777", "8888888888", "9999999999"]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -2
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -2
+            }
           }
-        },
-        "$lte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -1
+        ],
+        "$lte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -1
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -326,14 +367,17 @@
       "d.f2": {
         "$ne": "value10"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -2
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -2
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -343,14 +387,17 @@
       "d.f2": {
         "$in": ["value1", "value2", "value3", "value4", "value5"]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -4
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -4
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -378,14 +425,17 @@
         "$gte": 3,
         "$lte": 8
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -6
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -6
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -396,14 +446,17 @@
       "d.f3": {
         "$in": [3, 4, 5, 6, 7, 8]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -12
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -12
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -427,42 +480,54 @@
         "$regex": "^[3-4]",
         "$options": "i"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -3
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -3
+            }
           }
-        },
-        "$lte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -1
+        ],
+        "$lte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -1
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
       "d.f9": {
         "$in": ["3333333333", "4444444444"]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -5
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -5
+            }
           }
-        },
-        "$lte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -2
+        ],
+        "$lte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -2
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -489,14 +554,17 @@
       "d.a": {
         "$gte": 5000
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -8
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -8
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -506,14 +574,17 @@
       "d.a": {
         "$gte": 8000
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -16
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -16
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -543,14 +614,17 @@
         "$regex": "value[5-7]",
         "$options": "i"
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -12
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -12
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -561,14 +635,17 @@
       "d.f2": {
         "$in": ["value5", "value6", "value7"]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -24
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -24
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -596,14 +673,17 @@
         "$gte": 2,
         "$lte": 6
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -1
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -1
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -613,14 +693,17 @@
       "d.f3": {
         "$in": [2, 3, 4, 5, 6]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -2
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -2
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -653,14 +736,17 @@
       "d.f3": {
         "$gte": 4
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -6
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -6
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -683,14 +769,17 @@
       "d.f3": {
         "$gte": 5
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -12
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -12
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -721,21 +810,27 @@
         "$gte": 2000,
         "$lte": 7000
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -4
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -4
+            }
           }
-        },
-        "$lte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "minute",
-            "amount": -30
+        ],
+        "$lte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "minute",
+              "amount": -30
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -746,21 +841,27 @@
         "$gte": 3000,
         "$lte": 9000
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "hour",
-            "amount": -8
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "hour",
+              "amount": -8
+            }
           }
-        },
-        "$lte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "minute",
-            "amount": -15
+        ],
+        "$lte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "minute",
+              "amount": -15
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {
@@ -797,14 +898,17 @@
       "d.f3": {
         "$in": [1, 2, 3]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -1
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -1
+            }
           }
-        }
+        ]
       }
     },
     "evaluationConditions": {
@@ -817,14 +921,17 @@
       "d.f3": {
         "$in": [1, 2, 3]
       },
-      "d.dt": {
-        "$gte": {
-          "$dateAdd": {
-            "startDate": "$$NOW",
-            "unit": "day",
-            "amount": -2
+      "$expr": {
+        "$gte": [
+          "$d.dt",
+          {
+            "$dateAdd": {
+              "startDate": "$$NOW",
+              "unit": "day",
+              "amount": -2
+            }
           }
-        }
+        ]
       }
     },
     "attributes": {

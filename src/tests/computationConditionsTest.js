@@ -22,6 +22,9 @@ class ComputationConditionsTest {
         this.testStringOperators();
         this.testLogicalOperators();
         this.testExprOperators();
+        this.testExtendedExprOperators();
+        this.testExprDateOperators();
+        this.testExtendedExprEdgeCases();
         this.testComplexConditions();
         this.testEdgeCases();
         this.testNegationOperators();
@@ -324,6 +327,366 @@ class ComputationConditionsTest {
         ];
 
         this.runTestGroup('Операторы $expr', testCases);
+    }
+
+    /**
+     * Тестирует расширенные операторы $expr с $and и $or
+     */
+    testExtendedExprOperators() {
+        const testCases = [
+            {
+                name: '$expr с $and - оба условия выполняются',
+                fact: { 
+                    d: { 
+                        Amount: 500, 
+                        Threshold: 100,
+                        Status: 'active',
+                        Type: 'premium'
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$and': [
+                            { '$gt': ['$d.Amount', '$d.Threshold'] },
+                            { '$eq': ['$d.Status', '$d.Status'] }
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с $and - одно условие не выполняется',
+                fact: { 
+                    d: { 
+                        Amount: 50, 
+                        Threshold: 100,
+                        Status: 'active',
+                        Type: 'premium'
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$and': [
+                            { '$gt': ['$d.Amount', '$d.Threshold'] },
+                            { '$eq': ['$d.Status', '$d.Status'] }
+                        ]
+                    } 
+                },
+                expected: false
+            },
+            {
+                name: '$expr с $or - одно условие выполняется',
+                fact: { 
+                    d: { 
+                        Amount: 50, 
+                        Threshold: 100,
+                        Status: 'inactive',
+                        Type: 'premium'
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$or': [
+                            { '$gt': ['$d.Amount', '$d.Threshold'] },
+                            { '$eq': ['$d.Type', '$d.Type'] }
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с $or - ни одно условие не выполняется',
+                fact: { 
+                    d: { 
+                        Amount: 50, 
+                        Threshold: 100,
+                        Status: 'inactive',
+                        Type: 'basic'
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$or': [
+                            { '$gt': ['$d.Amount', '$d.Threshold'] },
+                            { '$eq': ['$d.Type', 'premium'] }
+                        ]
+                    } 
+                },
+                expected: false
+            },
+            {
+                name: '$expr с вложенными $and и $or',
+                fact: { 
+                    d: { 
+                        Amount: 500, 
+                        Threshold: 100,
+                        Status: 'active',
+                        Type: 'premium',
+                        Region: 'US'
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$and': [
+                            { '$gt': ['$d.Amount', '$d.Threshold'] },
+                            { 
+                                '$or': [
+                                    { '$eq': ['$d.Type', '$d.Type'] },
+                                    { '$eq': ['$d.Region', 'EU'] }
+                                ]
+                            }
+                        ]
+                    } 
+                },
+                expected: true
+            }
+        ];
+
+        this.runTestGroup('Расширенные операторы $expr', testCases);
+    }
+
+    /**
+     * Тестирует операторы дат в $expr
+     */
+    testExprDateOperators() {
+        const now = new Date();
+        const pastDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 1 день назад
+        const futureDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 1 день вперед
+
+        const testCases = [
+            {
+                name: '$expr с $dateAdd - сравнение с полем факта',
+                fact: { 
+                    d: { 
+                        Timestamp: pastDate,
+                        CreatedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000) // 3 дня назад
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$lte': [
+                            '$d.Timestamp',
+                            {
+                                '$dateAdd': {
+                                    'startDate': '$d.CreatedAt',
+                                    'unit': 'day',
+                                    'amount': 2
+                                }
+                            }
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с $dateAdd - сравнение с $$NOW',
+                fact: { 
+                    d: { 
+                        Timestamp: pastDate
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$lt': [
+                            '$d.Timestamp',
+                            {
+                                '$dateAdd': {
+                                    'startDate': '$$NOW',
+                                    'unit': 'hour',
+                                    'amount': -1
+                                }
+                            }
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с $dateSubtract',
+                fact: { 
+                    d: { 
+                        Timestamp: pastDate,
+                        CreatedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000) // 3 дня назад
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$gt': [
+                            '$d.Timestamp',
+                            {
+                                '$dateSubtract': {
+                                    'startDate': '$d.CreatedAt',
+                                    'unit': 'day',
+                                    'amount': 1
+                                }
+                            }
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с $dateDiff',
+                fact: { 
+                    d: { 
+                        StartDate: pastDate,
+                        EndDate: now
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$gte': [
+                            {
+                                '$dateDiff': {
+                                    'startDate': '$d.StartDate',
+                                    'endDate': '$d.EndDate',
+                                    'unit': 'day'
+                                }
+                            },
+                            0
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с комбинированными операторами дат',
+                fact: { 
+                    d: { 
+                        Timestamp: pastDate,
+                        CreatedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 дня назад
+                        ExpiryDate: futureDate
+                    } 
+                },
+                condition: { 
+                    '$expr': { 
+                        '$and': [
+                            {
+                                '$lte': [
+                                    '$d.Timestamp',
+                                    {
+                                        '$dateAdd': {
+                                            'startDate': '$d.CreatedAt',
+                                            'unit': 'day',
+                                            'amount': 2
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                '$gt': [
+                                    '$d.ExpiryDate',
+                                    {
+                                        '$dateAdd': {
+                                            'startDate': '$$NOW',
+                                            'unit': 'hour',
+                                            'amount': 23
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    } 
+                },
+                expected: true
+            }
+        ];
+
+        this.runTestGroup('Операторы дат в $expr', testCases);
+    }
+
+    /**
+     * Тестирует граничные случаи для расширенных $expr
+     */
+    testExtendedExprEdgeCases() {
+        const testCases = [
+            {
+                name: '$expr с пустым $and',
+                fact: { d: { Amount: 100 } },
+                condition: { 
+                    '$expr': { 
+                        '$and': []
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с пустым $or',
+                fact: { d: { Amount: 100 } },
+                condition: { 
+                    '$expr': { 
+                        '$or': []
+                    } 
+                },
+                expected: false
+            },
+            {
+                name: '$expr с несуществующими полями в $and',
+                fact: { d: { Amount: 100 } },
+                condition: { 
+                    '$expr': { 
+                        '$and': [
+                            { '$eq': ['$d.Amount', 100] },
+                            { '$eq': ['$d.NonExistentField', '$d.NonExistentField'] }
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с несуществующими полями в $or',
+                fact: { d: { Amount: 100 } },
+                condition: { 
+                    '$expr': { 
+                        '$or': [
+                            { '$eq': ['$d.NonExistentField1', 'value1'] },
+                            { '$eq': ['$d.Amount', 100] }
+                        ]
+                    } 
+                },
+                expected: true
+            },
+            {
+                name: '$expr с невалидным оператором даты',
+                fact: { d: { Amount: 100 } },
+                condition: { 
+                    '$expr': { 
+                        '$lt': [
+                            '$d.Amount',
+                            {
+                                '$dateAdd': {
+                                    'startDate': 'invalid-date',
+                                    'unit': 'day',
+                                    'amount': 1
+                                }
+                            }
+                        ]
+                    } 
+                },
+                expected: false
+            },
+            {
+                name: '$expr с невалидной единицей времени',
+                fact: { d: { Amount: 100 } },
+                condition: { 
+                    '$expr': { 
+                        '$lt': [
+                            '$d.Amount',
+                            {
+                                '$dateAdd': {
+                                    'startDate': '$$NOW',
+                                    'unit': 'invalid-unit',
+                                    'amount': 1
+                                }
+                            }
+                        ]
+                    } 
+                },
+                expected: false
+            }
+        ];
+
+        this.runTestGroup('Граничные случаи расширенных $expr', testCases);
     }
 
     /**
