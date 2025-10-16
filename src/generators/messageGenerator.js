@@ -135,7 +135,7 @@ class MessageGenerator {
             throw new Error(`Поле конфигурации ${fieldIndex}: generator.type должен быть строкой`);
         }
 
-        const validTypes = ['string', 'integer', 'date', 'enum', 'objectId', 'boolean'];
+        const validTypes = ['string', 'integer', 'float', 'date', 'enum', 'objectId', 'boolean'];
         if (!validTypes.includes(generator.type)) {
             throw new Error(`Поле конфигурации [${fieldIndex}] ${generator.src} : generator.type = ${generator.type}, а должно быть одним из: ${validTypes.join(', ')}`);
         }
@@ -209,6 +209,35 @@ class MessageGenerator {
                         }
                     } else {
                         throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для integer должен быть целым числом или массивом целых чисел`);
+                    }
+                }
+                break;
+
+            case 'float':
+                if (generator.min !== undefined && typeof generator.min !== 'number') {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.min для float должен быть числом`);
+                }
+                if (generator.max !== undefined && typeof generator.max !== 'number') {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.max для float должен быть числом`);
+                }
+                if (generator.min !== undefined && generator.max !== undefined && generator.min > generator.max) {
+                    throw new Error(`Поле конфигурации ${fieldIndex}: generator.min не может быть больше generator.max`);
+                }
+                if (generator.default_value !== undefined) {
+                    if (typeof generator.default_value === 'number') {
+                        // Одиночное значение - валидно
+                    } else if (Array.isArray(generator.default_value)) {
+                        // Массив значений - проверяем, что все элементы числа
+                        if (generator.default_value.length === 0) {
+                            throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для float не может быть пустым массивом`);
+                        }
+                        for (let k = 0; k < generator.default_value.length; k++) {
+                            if (typeof generator.default_value[k] !== 'number') {
+                                throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для float должен содержать только числа, но элемент [${k}] имеет тип ${typeof generator.default_value[k]}`);
+                            }
+                        }
+                    } else {
+                        throw new Error(`Поле конфигурации ${fieldIndex}: generator.default_value для float должен быть числом или массивом чисел`);
                     }
                 }
                 break;
@@ -463,6 +492,23 @@ class MessageGenerator {
     }
 
     /**
+     * Генерирует случайное число с плавающей точкой в заданном диапазоне
+     * @param {number} min - минимальное значение
+     * @param {number} max - максимальное значение
+     * @param {number} defaultValue - значение по умолчанию
+     * @param {number} defaultRandom - вероятность использования значения по умолчанию (0-1)
+     * @returns {number} случайное число с плавающей точкой
+     */
+    _generateRandomFloat(min = 0.0, max = 100.0, defaultValue = null, defaultRandom = 0) {
+        // Проверяем, нужно ли использовать значение по умолчанию
+        if (defaultValue !== null && Math.random() < defaultRandom) {
+            return this._getDefaultValue(defaultValue);
+        }
+        
+        return Math.random() * (max - min) + min;
+    }
+
+    /**
      * Генерирует случайную дату в заданном диапазоне
      * @param {string|Date} minDate - минимальная дата (строка или Date)
      * @param {string|Date} maxDate - максимальная дата (строка или Date)
@@ -542,6 +588,11 @@ class MessageGenerator {
                 const minInt = generatorConfig.min !== undefined ? generatorConfig.min : 0;
                 const maxInt = generatorConfig.max !== undefined ? generatorConfig.max : 100;
                 return this._generateRandomInteger(minInt, maxInt, defaultValue, defaultRandom);
+
+            case 'float':
+                const minFloat = generatorConfig.min !== undefined ? generatorConfig.min : 0.0;
+                const maxFloat = generatorConfig.max !== undefined ? generatorConfig.max : 100.0;
+                return this._generateRandomFloat(minFloat, maxFloat, defaultValue, defaultRandom);
 
             case 'date':
                 const minDate = generatorConfig.min !== undefined ? generatorConfig.min : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);

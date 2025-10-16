@@ -39,6 +39,15 @@ class FactMapperTest {
         this.testConflictingDstValidation('14. Тест валидации конфликтующих dst полей...');
         this.testFileSearchInPaths('15. Тест поиска файла в разных директориях...');
         this.testMessageConfigValidation('16. Тест валидации messageConfig.json...');
+        this.testTypeConversion('17. Тест конвертации типов...');
+        this.testStringTypeConversion('18. Тест конвертации в string...');
+        this.testIntegerTypeConversion('19. Тест конвертации в integer...');
+        this.testFloatTypeConversion('20. Тест конвертации в float...');
+        this.testDateTypeConversion('21. Тест конвертации в date...');
+        this.testEnumTypeConversion('22. Тест конвертации в enum...');
+        this.testObjectIdTypeConversion('23. Тест конвертации в objectId...');
+        this.testBooleanTypeConversion('24. Тест конвертации в boolean...');
+        this.testDefaultTypeConversion('25. Тест конвертации с типом по умолчанию...');
         
         this.printResults();
     }
@@ -933,6 +942,391 @@ class FactMapperTest {
 
         } catch (error) {
             this.assert(false, 'Валидация messageConfig.json', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации типов
+     */
+    testTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'stringField',
+                    dst: 'convertedString',
+                    message_types: [5001],
+                    generator: { type: 'string' }
+                },
+                {
+                    src: 'intField',
+                    dst: 'convertedInt',
+                    message_types: [5001],
+                    generator: { type: 'integer' }
+                },
+                {
+                    src: 'dateField',
+                    dst: 'convertedDate',
+                    message_types: [5001],
+                    generator: { type: 'date' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            const inputMessage = {
+                stringField: 123,
+                intField: '456',
+                dateField: '2025-01-15T10:30:00Z'
+            };
+
+            const mappedMessageData = mapper.mapMessageData(inputMessage, 5001);
+            
+            this.assert(typeof mappedMessageData === 'object', 'mapMessageData возвращает объект');
+            this.assert(typeof mappedMessageData.convertedString === 'string', 'stringField конвертирован в string');
+            this.assert(mappedMessageData.convertedString === '123', 'stringField корректно конвертирован в string');
+            this.assert(typeof mappedMessageData.convertedInt === 'number', 'intField конвертирован в integer');
+            this.assert(mappedMessageData.convertedInt === 456, 'intField корректно конвертирован в integer');
+            this.assert(mappedMessageData.convertedDate instanceof Date, 'dateField конвертирован в Date');
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация типов', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации в string
+     */
+    testStringTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'stringField',
+                    message_types: [5002],
+                    generator: { type: 'string' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            
+            // Тест различных типов входных данных
+            const testCases = [
+                { input: 123, expected: '123' },
+                { input: true, expected: 'true' },
+                { input: null, expected: null },
+                { input: undefined, expected: undefined },
+                { input: { obj: 'test' }, expected: '[object Object]' },
+                { input: [1, 2, 3], expected: '1,2,3' }
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const inputMessage = { field1: testCase.input };
+                const mappedMessageData = mapper.mapMessageData(inputMessage, 5002);
+                
+                this.assert(mappedMessageData.stringField === testCase.expected, 
+                    `String конвертация тест ${index + 1}`, 
+                    `Ожидалось '${testCase.expected}', получено '${mappedMessageData.stringField}'`);
+            });
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация в string', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации в integer
+     */
+    testIntegerTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'intField',
+                    message_types: [5003],
+                    generator: { type: 'integer' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            
+            // Тест различных типов входных данных
+            const testCases = [
+                { input: '123', expected: 123 },
+                { input: '456.789', expected: 456 },
+                { input: '0', expected: 0 },
+                { input: '-100', expected: -100 },
+                { input: 'abc', expected: 0 }, // невалидное значение
+                { input: null, expected: null },
+                { input: undefined, expected: undefined }
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const inputMessage = { field1: testCase.input };
+                const mappedMessageData = mapper.mapMessageData(inputMessage, 5003);
+                
+                this.assert(mappedMessageData.intField === testCase.expected, 
+                    `Integer конвертация тест ${index + 1}`, 
+                    `Ожидалось ${testCase.expected}, получено ${mappedMessageData.intField}`);
+            });
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация в integer', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации в float
+     */
+    testFloatTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'floatField',
+                    message_types: [5009],
+                    generator: { type: 'float' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            
+            // Тест различных типов входных данных
+            const testCases = [
+                { input: '123.45', expected: 123.45 },
+                { input: '456', expected: 456.0 },
+                { input: '0.123', expected: 0.123 },
+                { input: '-100.5', expected: -100.5 },
+                { input: 'abc', expected: 0.0 }, // невалидное значение
+                { input: null, expected: null },
+                { input: undefined, expected: undefined },
+                { input: '3.14159', expected: 3.14159 },
+                { input: Infinity, expected: 0.0 }, // Infinity как невалидное значение
+                { input: -Infinity, expected: 0.0 } // -Infinity как невалидное значение
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const inputMessage = { field1: testCase.input };
+                const mappedMessageData = mapper.mapMessageData(inputMessage, 5009);
+                
+                this.assert(mappedMessageData.floatField === testCase.expected, 
+                    `Float конвертация тест ${index + 1}`, 
+                    `Ожидалось ${testCase.expected}, получено ${mappedMessageData.floatField}`);
+            });
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация в float', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации в date
+     */
+    testDateTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'dateField',
+                    message_types: [5004],
+                    generator: { type: 'date' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            
+            // Тест различных типов входных данных
+            const testCases = [
+                { input: '2025-01-15T10:30:00Z', expectedType: 'Date' },
+                { input: '2025-01-15', expectedType: 'Date' },
+                { input: 'invalid-date', expectedType: 'Date' }, // невалидная дата
+                { input: null, expected: null }
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const inputMessage = { field1: testCase.input };
+                const mappedMessageData = mapper.mapMessageData(inputMessage, 5004);
+                
+                if (testCase.expected !== undefined) {
+                    // Для null ожидаем точное совпадение
+                    this.assert(mappedMessageData.dateField === testCase.expected, 
+                        `Date конвертация тест ${index + 1}`, 
+                        `Ожидалось ${testCase.expected}, получено ${mappedMessageData.dateField}`);
+                } else {
+                    // Для остальных случаев ожидаем объект Date
+                    this.assert(mappedMessageData.dateField instanceof Date, 
+                        `Date конвертация тест ${index + 1}`, 
+                        `Ожидался объект Date, получен ${typeof mappedMessageData.dateField}`);
+                }
+            });
+
+            // Отдельный тест для undefined - когда поле отсутствует в объекте
+            const inputMessageWithoutField = {}; // поле field1 отсутствует
+            const mappedMessageDataWithoutField = mapper.mapMessageData(inputMessageWithoutField, 5004);
+            this.assert(!('dateField' in mappedMessageDataWithoutField), 
+                'Date конвертация тест 5', 
+                'Поле не должно быть создано, если исходное поле отсутствует');
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация в date', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации в enum (эквивалент string)
+     */
+    testEnumTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'enumField',
+                    message_types: [5005],
+                    generator: { type: 'enum' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            
+            // Тест различных типов входных данных
+            const testCases = [
+                { input: 123, expected: '123' },
+                { input: true, expected: 'true' },
+                { input: 'test', expected: 'test' },
+                { input: null, expected: null },
+                { input: undefined, expected: undefined }
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const inputMessage = { field1: testCase.input };
+                const mappedMessageData = mapper.mapMessageData(inputMessage, 5005);
+                
+                this.assert(mappedMessageData.enumField === testCase.expected, 
+                    `Enum конвертация тест ${index + 1}`, 
+                    `Ожидалось '${testCase.expected}', получено '${mappedMessageData.enumField}'`);
+            });
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация в enum', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации в objectId
+     */
+    testObjectIdTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'objectIdField',
+                    message_types: [5006],
+                    generator: { type: 'objectId' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            
+            // Тест различных типов входных данных
+            const testCases = [
+                { input: '507f1f77bcf86cd799439011', expected: '507f1f77bcf86cd799439011' },
+                { input: 123, expected: '123' },
+                { input: true, expected: 'true' },
+                { input: null, expected: null },
+                { input: undefined, expected: undefined }
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const inputMessage = { field1: testCase.input };
+                const mappedMessageData = mapper.mapMessageData(inputMessage, 5006);
+                
+                this.assert(mappedMessageData.objectIdField === testCase.expected, 
+                    `ObjectId конвертация тест ${index + 1}`, 
+                    `Ожидалось '${testCase.expected}', получено '${mappedMessageData.objectIdField}'`);
+            });
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация в objectId', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации в boolean
+     */
+    testBooleanTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'boolField',
+                    message_types: [5007],
+                    generator: { type: 'boolean' }
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            
+            // Тест различных типов входных данных
+            const testCases = [
+                { input: true, expected: true },
+                { input: false, expected: false },
+                { input: 'true', expected: true },
+                { input: 'false', expected: false },
+                { input: '1', expected: true },
+                { input: '0', expected: false },
+                { input: 'yes', expected: true },
+                { input: 'no', expected: false },
+                { input: 1, expected: true },
+                { input: 0, expected: false },
+                { input: 'invalid', expected: false },
+                { input: null, expected: null },
+                { input: undefined, expected: undefined }
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const inputMessage = { field1: testCase.input };
+                const mappedMessageData = mapper.mapMessageData(inputMessage, 5007);
+                
+                this.assert(mappedMessageData.boolField === testCase.expected, 
+                    `Boolean конвертация тест ${index + 1}`, 
+                    `Ожидалось ${testCase.expected}, получено ${mappedMessageData.boolField}`);
+            });
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация в boolean', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест конвертации с типом по умолчанию (string)
+     */
+    testDefaultTypeConversion(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'field1',
+                    dst: 'defaultField',
+                    message_types: [5008]
+                    // Нет generator.type - должен использоваться string по умолчанию
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            const inputMessage = { field1: 123 };
+            const mappedMessageData = mapper.mapMessageData(inputMessage, 5008);
+            
+            this.assert(typeof mappedMessageData.defaultField === 'string', 'Тип по умолчанию string');
+            this.assert(mappedMessageData.defaultField === '123', 'Корректная конвертация в string по умолчанию');
+            
+        } catch (error) {
+            this.assert(false, 'Конвертация с типом по умолчанию', `Ошибка: ${error.message}`);
         }
     }
 

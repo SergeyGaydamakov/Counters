@@ -214,6 +214,81 @@ class FactMapper {
     }
 
     /**
+     * Конвертирует значение в указанный тип
+     * @param {any} value - значение для конвертации
+     * @param {string} targetType - целевой тип (string, integer, float, date, enum, objectId, boolean)
+     * @returns {any} конвертированное значение
+     */
+    _convertValueToType(value, targetType) {
+        if (value === undefined) {
+            return value;
+        }
+        if (value === null) {
+            return null;
+        }
+
+        switch (targetType) {
+            case 'string':
+            case 'enum': // enum эквивалентен string
+                return String(value);
+            
+            case 'integer':
+                const intValue = parseInt(value, 10);
+                if (isNaN(intValue)) {
+                    this.logger.warn(`Не удалось конвертировать значение '${value}' в integer, используется 0`);
+                    return 0;
+                }
+                return intValue;
+            
+            case 'float':
+                const floatValue = parseFloat(value);
+                if (isNaN(floatValue) || !isFinite(floatValue)) {
+                    this.logger.warn(`Не удалось конвертировать значение '${value}' в float, используется 0.0`);
+                    return 0.0;
+                }
+                return floatValue;
+            
+            case 'date':
+                if (value instanceof Date) {
+                    return value;
+                }
+                const dateValue = new Date(value);
+                if (isNaN(dateValue.getTime())) {
+                    this.logger.warn(`Не удалось конвертировать значение '${value}' в date, используется текущая дата`);
+                    return new Date();
+                }
+                return dateValue;
+            
+            case 'objectId':
+                // Для objectId просто возвращаем строковое представление
+                return String(value);
+            
+            case 'boolean':
+                if (typeof value === 'boolean') {
+                    return value;
+                }
+                if (typeof value === 'string') {
+                    const lowerValue = value.toLowerCase();
+                    if (lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes') {
+                        return true;
+                    }
+                    if (lowerValue === 'false' || lowerValue === '0' || lowerValue === 'no') {
+                        return false;
+                    }
+                }
+                if (typeof value === 'number') {
+                    return value !== 0;
+                }
+                // Для всех остальных случаев возвращаем false
+                return false;
+            
+            default:
+                this.logger.warn(`Неизвестный тип '${targetType}', используется исходное значение`);
+                return value;
+        }
+    }
+
+    /**
      * Хеш функция для создания уникального индекса из типа и значения поля
      * @param {number|string} factType - тип факта
      * @param {string} factValue - значение факта
@@ -329,9 +404,19 @@ class FactMapper {
         // Применяем правила маппинга
         applicableRules.forEach(rule => {
             if (rule.src in messageData) {
-                // Если исходное поле существует, копируем его значение в целевое поле с учетом типа поля в generator.type
-                factData[rule.dst] = messageData[rule.src];
-                this.logger.debug(`Применено правило маппинга: ${rule.src} -> ${rule.dst} для типа ${messageType}`);
+                // Получаем исходное значение
+                const sourceValue = messageData[rule.src];
+                
+                // Определяем целевой тип (по умолчанию string, если не указан)
+                const targetType = (rule.generator && rule.generator.type) ? rule.generator.type : 'string';
+                
+                // Конвертируем значение в целевой тип
+                const convertedValue = this._convertValueToType(sourceValue, targetType);
+                
+                // Сохраняем конвертированное значение в целевое поле
+                factData[rule.dst] = convertedValue;
+                
+                this.logger.debug(`Применено правило маппинга: ${rule.src} -> ${rule.dst} (${typeof sourceValue} -> ${targetType}) для типа ${messageType}`);
             } else {
                 this.logger.debug(`Исходное поле '${rule.src}' не найдено в факте для типа ${messageType}`);
             }
