@@ -1,6 +1,7 @@
 // Импортируем систему логирования
 const Logger = require('./utils/logger');
 const axios = require('axios');
+const config = require('./common/config');
 const MessageGenerator = require('./generators/messageGenerator');
 
 // Загружаем переменные окружения из .env файла
@@ -24,6 +25,11 @@ function initializeMessageGenerator() {
     try {
         messageGenerator = new MessageGenerator(messageConfigPath);
         availableMessageTypes = messageGenerator.getAvailableTypes();
+        // Фильтруем доступные типы сообщений по разрешенным типам
+        const allowedMessageTypes = config.messageTypes.allowedTypes;
+        if (allowedMessageTypes) {
+            availableMessageTypes = availableMessageTypes.filter(type => allowedMessageTypes.includes(type));
+        }
         logger.info('✓ MessageGenerator успешно инициализирован');
         logger.info(`✓ Загружено ${availableMessageTypes.length} типов сообщений из ${messageConfigPath}`);
     } catch (error) {

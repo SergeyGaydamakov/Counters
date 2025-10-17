@@ -25,7 +25,7 @@ const requestLogger = (req, res, next) => {
         if (res.statusCode >= 400) {
             logger.warn('HTTP Request', logData);
         } else {
-            logger.info('HTTP Request', logData);
+            logger.debug('HTTP Request', logData);
         }
     });
     

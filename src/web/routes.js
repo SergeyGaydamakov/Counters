@@ -279,7 +279,7 @@ function createRoutes(factController) {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });
 
-            logger.info(`Сообщение ${messageType} успешно обработано`, {
+            logger.debug(`Сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
                 processingTime: result.processingTime ? result.processingTime.total : 'N/A'
             });
@@ -377,7 +377,7 @@ function createRoutes(factController) {
                 const shouldProcess = (messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor) === 0;
                 
                 if (!shouldProcess) {
-                    logger.info(`IRIS запрос с MessageId ${messageId} пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor}`, {
+                    logger.debug(`IRIS запрос с MessageId ${messageId} пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor}`, {
                         messageId,
                         messageIdCRC32,
                         remainder: messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor
@@ -448,7 +448,7 @@ function createRoutes(factController) {
                 d: messageData
             };
 
-            logger.info(`Обработка IRIS события типа: ${messageTypeNumber}`, { message });
+            logger.debug(`Обработка IRIS события типа: ${messageTypeNumber}`, { message });
 
             // Проверяем, что контроллер инициализирован
             if (!factController) {
@@ -469,7 +469,7 @@ function createRoutes(factController) {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });
 
-            logger.info(`IRIS сообщение ${messageType} успешно обработано`, {
+            logger.debug(`IRIS сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
                 processingTime: result.processingTime ? result.processingTime.total : 'N/A'
             });
@@ -608,7 +608,7 @@ function createRoutes(factController) {
             
             xml += '</IRIS>';
             
-            logger.info(`IRIS сообщение типа ${messageTypeNumber} успешно сгенерировано`);
+            logger.debug(`IRIS сообщение типа ${messageTypeNumber} успешно сгенерировано`);
 
             // Устанавливаем правильный Content-Type для XML
             res.set('Content-Type', 'application/xml');
@@ -668,7 +668,7 @@ function createRoutes(factController) {
             // Генерируем сообщение указанного типа
             const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
             
-            logger.info(`Сообщение типа ${messageTypeNumber} успешно сгенерировано`);
+            logger.debug(`Сообщение типа ${messageTypeNumber} успешно сгенерировано`);
 
             res.json(generatedMessage.d);
 

@@ -219,7 +219,7 @@ class FactMapper {
      * @param {string} targetType - целевой тип (string, integer, float, date, enum, objectId, boolean)
      * @returns {any} конвертированное значение
      */
-    _convertValueToType(value, targetType) {
+    _convertValueToType(value, targetType, srcName, dstName) {
         if (value === undefined) {
             return value;
         }
@@ -235,7 +235,7 @@ class FactMapper {
             case 'integer':
                 const intValue = parseInt(value, 10);
                 if (isNaN(intValue)) {
-                    this.logger.warn(`Не удалось конвертировать значение '${value}' в integer, используется 0`);
+                    this.logger.warn(`Не удалось конвертировать значение '${value}' в integer, используется 0 для поля "${srcName}" -> "${dstName}"`);
                     return 0;
                 }
                 return intValue;
@@ -243,7 +243,7 @@ class FactMapper {
             case 'float':
                 const floatValue = parseFloat(value);
                 if (isNaN(floatValue) || !isFinite(floatValue)) {
-                    this.logger.warn(`Не удалось конвертировать значение '${value}' в float, используется 0.0`);
+                    this.logger.warn(`Не удалось конвертировать значение '${value}' в float, используется 0.0 для поля "${srcName}" -> "${dstName}"`);
                     return 0.0;
                 }
                 return floatValue;
@@ -254,7 +254,7 @@ class FactMapper {
                 }
                 const dateValue = new Date(value);
                 if (isNaN(dateValue.getTime())) {
-                    this.logger.warn(`Не удалось конвертировать значение '${value}' в date, используется текущая дата`);
+                    this.logger.warn(`Не удалось конвертировать значение '${value}' в date, используется текущая дата для поля "${srcName}" -> "${dstName}"`);
                     return new Date();
                 }
                 return dateValue;
@@ -283,7 +283,7 @@ class FactMapper {
                 return false;
             
             default:
-                this.logger.warn(`Неизвестный тип '${targetType}', используется исходное значение`);
+                this.logger.warn(`Неизвестный тип '${targetType}', используется исходное значение для поля "${srcName}" -> "${dstName}"`);
                 return value;
         }
     }
@@ -411,7 +411,7 @@ class FactMapper {
                 const targetType = (rule.generator && rule.generator.type) ? rule.generator.type : 'string';
                 
                 // Конвертируем значение в целевой тип
-                const convertedValue = this._convertValueToType(sourceValue, targetType);
+                const convertedValue = this._convertValueToType(sourceValue, targetType, rule.src, rule.dst);
                 
                 // Сохраняем конвертированное значение в целевое поле
                 factData[rule.dst] = convertedValue;

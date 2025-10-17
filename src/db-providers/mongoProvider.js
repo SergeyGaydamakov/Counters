@@ -5,12 +5,18 @@
 const { MongoClient, ObjectId } = require('mongodb');
 const Logger = require('../utils/logger');
 
+let _mongoClient = null;
+
 /**
  * Класс-провайдер для работы с MongoDB коллекциями facts и factIndex
  * Содержит методы для управления подключением, схемами, вставкой данных, запросами и статистикой
  */
 class MongoProvider {
+    // Читаем всегда локальную копию данных
     READ_CONCERN = { level: "local" };
+    // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
+    WRITE_CONCERN = { w: "majority", j: false, wtimeout: 5000 };
+    
     /**
      * Конструктор MongoProvider
      * @param {string} connectionString - Строка подключения к MongoDB
@@ -70,6 +76,32 @@ class MongoProvider {
     // ГРУППА 1: УПРАВЛЕНИЕ ПОДКЛЮЧЕНИЕМ
     // ============================================================================
 
+    _getMongoClient(connectionString) {
+        if (_mongoClient) {
+            return _mongoClient;
+        }
+        // Опции для подключения по умолчанию
+        const defaultOptions = {
+            readConcern: this.READ_CONCERN,
+            readPreference: "primary",
+            writeConcern: this.WRITE_CONCERN,
+            appName: "CounterTest",
+            // monitorCommands: true,
+            minPoolSize: 100,
+            maxPoolSize: 800,
+            maxIdleTimeMS: 60000,
+            maxConnecting: 10,
+            serverSelectionTimeoutMS: 60000,
+        };
+        try {
+            _mongoClient = new MongoClient(connectionString, defaultOptions);
+            return _mongoClient;
+        } catch (error) {
+            _mongoClient = null;
+            throw error;
+        }
+    }
+
     /**
      * Подключение к MongoDB
      * Создается 3 подключения для параллельной работы
@@ -79,24 +111,7 @@ class MongoProvider {
         try {
             this.logger.debug(`Подключение к MongoDB: ${this.connectionString}`);
 
-            // Опции для подключения по умолчанию
-            const defaultOptions = {
-                readConcern: this.READ_CONCERN,
-                readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
-                appName: "CounterTest",
-                // monitorCommands: true,
-                minPoolSize: 30,
-                maxPoolSize: 300,
-                maxIdleTimeMS: 60000,
-                maxConnecting: 30,
-                serverSelectionTimeoutMS: 60000,
-            };
-            this._counterClient = new MongoClient(this.connectionString, defaultOptions);
+            this._counterClient = await this._getMongoClient(this.connectionString);
             await this._counterClient.connect();
             this._counterDb = this._counterClient.db(this.databaseName);
 
@@ -221,11 +236,7 @@ class MongoProvider {
             const updateOptions = {
                 readConcern: this.READ_CONCERN,
                 readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
+                writeConcern: this.WRITE_CONCERN,
                 comment: "saveFact",
                 upsert: true,
             };
@@ -323,17 +334,14 @@ class MongoProvider {
             let duplicatesIgnored = 0;
             let indexResult;
             let writeErrors = [];
+            let detailedMetrics = [];
 
             if (bulkUpdate) {
                 // Bulk вставка индексных значений с обработкой дубликатов
                 const bulkWriteOptions = {
                     readConcern: this.READ_CONCERN,
                     readPreference: "primary",
-                    writeConcern: {
-                        w: "majority",
-                        j: true,
-                        wtimeout: 5000
-                    },
+                    writeConcern: this.WRITE_CONCERN,
                     comment: "saveFactIndexList - bulk",
                     ordered: false,
                     upsert: true,
@@ -358,36 +366,43 @@ class MongoProvider {
                 const updateOptions = {
                     readConcern: this.READ_CONCERN,
                     readPreference: "primary",
-                    writeConcern: {
-                        w: "majority",
-                        j: true,
-                        wtimeout: 5000
-                    },
+                    writeConcern: this.WRITE_CONCERN,
                     comment: "saveFactIndexList - update",
                     upsert: true,
                 };
                 // Обновление индексных значений параллельно через Promises
                 const updatePromises = factIndexValues.map(async (indexValue) => {
+                    const startTime = Date.now();
                     try {
-                        return await factIndexCollection.updateOne({ _id: indexValue._id }, { $set: indexValue }, updateOptions);
+                        const result = await factIndexCollection.updateOne({ _id: indexValue._id }, { $set: indexValue }, updateOptions);
+                        return {
+                            writeError: result.writeErrors,
+                            upsertedCount: result.upsertedCount || 0,
+                            modifiedCount: result.modifiedCount || 0,
+                            processingTime: Date.now() - startTime,
+                            _id: indexValue._id
+                        };
                     } catch (error) {
                         this.logger.error(`✗ Ошибка при обновлении индексного значения: ${error.message}`);
                         return {
-                            writeErrors: error.message,
+                            writeError: error.message,
                             upsertedCount: 0,
-                            modifiedCount: 0
+                            modifiedCount: 0,
+                            processingTime: Date.now() - startTime,
+                            _id: indexValue._id
                         };
                     }
                 });
 
                 const updateResults = await Promise.all(updatePromises);
-                writeErrors = updateResults.filter(result => result.writeErrors).map(result => result.writeErrors) || [];
-    
+                writeErrors = updateResults.filter(result => result.writeError).map(result => result.writeError) || [];
+
                 // Подсчитываем результаты
                 updateResults.forEach(result => {
                     inserted += result.upsertedCount || 0;
                     updated += result.modifiedCount || 0;
                 });
+                detailedMetrics = updateResults.map(result => { return { _id: result._id, processingTime: result.processingTime } });
                 duplicatesIgnored = factIndexValues.length - inserted - updated;
             }
 
@@ -396,7 +411,7 @@ class MongoProvider {
             this.logger.debug(`  - Обновлено существующих: ${updated}`);
             this.logger.debug(`  - Проигнорировано дубликатов: ${duplicatesIgnored}`);
             if (writeErrors && writeErrors.length > 0) {
-                this.logger.warn(`⚠ Ошибок при обработке: ${writeErrors.length}`);
+                this.logger.warn(`⚠ Ошибок при обработке: ${writeErrors.length}: ${writeErrors.join(', \n')}`);
             }
 
             return {
@@ -408,6 +423,7 @@ class MongoProvider {
                 processingTime: Date.now() - startTime,
                 metrics: {
                     factIndexValuesCount: factIndexValues.length,
+                    detailedMetrics: detailedMetrics,
                 },
                 debug: {
                     bulkUpdate: bulkUpdate,
@@ -859,8 +875,8 @@ class MongoProvider {
     async _getCounters(indexTypeName, factIds, indexCounterList, debugMode = false) {
         if (!factIds || !factIds.length) {
             this.logger.warn(`Для типа индекса ${indexTypeName} не найден список релевантных фактов.`);
-            return { 
-                counters: null, 
+            return {
+                counters: null,
                 error: "No relevant facts found",
                 metrics: {
                     countersQueryTime: 0,
@@ -917,8 +933,8 @@ class MongoProvider {
             };
         } catch (error) {
             this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
-            return { 
-                counters: null, 
+            return {
+                counters: null,
                 error: error.message,
                 metrics: {
                     countersQueryTime: Date.now() - startCountersQueryTime,
@@ -976,7 +992,7 @@ class MongoProvider {
         // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
         Object.keys(indexCountersInfo).forEach((indexTypeName) => {
             const counters = indexCountersInfo[indexTypeName] ? indexCountersInfo[indexTypeName] : {};
-            this.logger.info(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
+            this.logger.debug(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
             const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
             if (!indexInfo) {
                 this.logger.warn(`Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
@@ -1719,11 +1735,7 @@ class MongoProvider {
             const deleteOptions = {
                 readConcern: this.READ_CONCERN,
                 readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
+                writeConcern: this.WRITE_CONCERN,
                 comment: "clearFactCollection",
             };
             const result = await factsCollection.deleteMany({}, deleteOptions);
@@ -1797,11 +1809,7 @@ class MongoProvider {
             const deleteOptions = {
                 readConcern: this.READ_CONCERN,
                 readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
+                writeConcern: this.WRITE_CONCERN,
                 comment: "clearFactIndexCollection",
             };
             const result = await factIndexCollection.deleteMany({}, deleteOptions);
@@ -1850,11 +1858,7 @@ class MongoProvider {
             const deleteOptions = {
                 readConcern: this.READ_CONCERN,
                 readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
+                writeConcern: this.WRITE_CONCERN,
                 comment: "clearLogCollection",
             };
             const result = await logCollection.deleteMany({}, deleteOptions);

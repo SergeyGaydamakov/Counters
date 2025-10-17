@@ -11,9 +11,9 @@ function ExtractFirstKeyOfIndex(tag) {
 
 // Вывод информации о медленных запросах
 // detail - степень детализации вывода
-function SlowRequests(detail = 1, limit = 10){
+function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){
 //  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*60*10)}}, {_id: 1, "t.total": 1}).sort({t:-1}).limit(2).toArray();
-  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*60*10)}}).sort({t:-1}).limit(limit).toArray();
+  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*lastSeconds)}}).sort({t:-1}).limit(limit).toArray();
   print(`| ${StrLeftAlign("Time", 20)} | ${StrLeftAlign("_id", 30)} | ${StrRightAlign("t.total, ms", 15)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.saveIndex, ms", 15)} | ${StrRightAlign("t.saveFact, ms", 15)} |`);
   result.forEach(function (item) {
     if (!item.t) {
