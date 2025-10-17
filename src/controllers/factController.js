@@ -147,8 +147,8 @@ class FactController {
                 saveFact: factResult.processingTime,
                 saveIndex: indexResult.processingTime,
             },
-            metrics: factCountersResult?.metrics,
-            debug: factCountersResult?.debug
+            metrics: { ...indexResult?.metrics, ...factCountersResult?.metrics },
+            debug: { ...factCountersResult?.debug, ...indexResult?.debug },
         };
     }
 }

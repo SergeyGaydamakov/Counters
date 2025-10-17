@@ -286,7 +286,7 @@ class MongoProvider {
      * @param {Array<Object>} factIndexValues - массив индексных значений
      * @returns {Promise<Object>} результат сохранения
      */
-    async saveFactIndexList(factIndexValues) {
+    async saveFactIndexList(factIndexValues, bulkUpdate = false) {
         if (!this._isConnected) {
             throw new Error('Нет подключения к MongoDB');
         }
@@ -305,6 +305,9 @@ class MongoProvider {
                 duplicatesIgnored: 0,
                 errors: [],
                 processingTime: Date.now() - startTime,
+                metrics: {
+                    indexValuesCount: 0,
+                }
             };
 
         }
@@ -315,52 +318,101 @@ class MongoProvider {
             // Создаем локальную ссылку на коллекцию для этого запроса
             const factIndexCollection = this._getFactIndexCollection();
 
-            // Bulk вставка индексных значений с обработкой дубликатов
-            const bulkWriteOptions = {
-                readConcern: this.READ_CONCERN,
-                readPreference: "primary",
-                writeConcern: {
-                    w: "majority",
-                    j: true,
-                    wtimeout: 5000
-                },
-                comment: "saveFactIndexList",
-                ordered: false,
-                upsert: true,
-            };
-            const indexBulk = factIndexCollection.initializeUnorderedBulkOp(bulkWriteOptions);
+            let inserted = 0;
+            let updated = 0;
+            let duplicatesIgnored = 0;
+            let indexResult;
+            let writeErrors = [];
 
-            factIndexValues.forEach(indexValue => {
-                const indexFilter = {
-                    _id: indexValue._id
+            if (bulkUpdate) {
+                // Bulk вставка индексных значений с обработкой дубликатов
+                const bulkWriteOptions = {
+                    readConcern: this.READ_CONCERN,
+                    readPreference: "primary",
+                    writeConcern: {
+                        w: "majority",
+                        j: true,
+                        wtimeout: 5000
+                    },
+                    comment: "saveFactIndexList - bulk",
+                    ordered: false,
+                    upsert: true,
                 };
-                indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
-                this.logger.debug("   indexValue: " + JSON.stringify(indexValue));
-            });
+                const indexBulk = factIndexCollection.initializeUnorderedBulkOp(bulkWriteOptions);
 
-            const indexResult = await indexBulk.execute(bulkWriteOptions);
+                factIndexValues.forEach(indexValue => {
+                    const indexFilter = {
+                        _id: indexValue._id
+                    };
+                    indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
+                    this.logger.debug("   indexValue: " + JSON.stringify(indexValue));
+                });
 
-            const inserted = indexResult.upsertedCount || 0;
-            const updated = indexResult.modifiedCount || 0;
-            const duplicatesIgnored = factIndexValues.length - inserted - updated;
+                indexResult = await indexBulk.execute(bulkWriteOptions);
+                writeErrors = indexResult.writeErrors || [];
+
+                inserted = indexResult.upsertedCount || 0;
+                updated = indexResult.modifiedCount || 0;
+                duplicatesIgnored = factIndexValues.length - inserted - updated;
+            } else {
+                const updateOptions = {
+                    readConcern: this.READ_CONCERN,
+                    readPreference: "primary",
+                    writeConcern: {
+                        w: "majority",
+                        j: true,
+                        wtimeout: 5000
+                    },
+                    comment: "saveFactIndexList - update",
+                    upsert: true,
+                };
+                // Обновление индексных значений параллельно через Promises
+                const updatePromises = factIndexValues.map(async (indexValue) => {
+                    try {
+                        return await factIndexCollection.updateOne({ _id: indexValue._id }, { $set: indexValue }, updateOptions);
+                    } catch (error) {
+                        this.logger.error(`✗ Ошибка при обновлении индексного значения: ${error.message}`);
+                        return {
+                            writeErrors: error.message,
+                            upsertedCount: 0,
+                            modifiedCount: 0
+                        };
+                    }
+                });
+
+                const updateResults = await Promise.all(updatePromises);
+                writeErrors = updateResults.filter(result => result.writeErrors).map(result => result.writeErrors) || [];
+    
+                // Подсчитываем результаты
+                updateResults.forEach(result => {
+                    inserted += result.upsertedCount || 0;
+                    updated += result.modifiedCount || 0;
+                });
+                duplicatesIgnored = factIndexValues.length - inserted - updated;
+            }
 
             this.logger.debug(`✓ Обработано ${factIndexValues.length} индексных значений в коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
             this.logger.debug(`  - Вставлено новых: ${inserted}`);
             this.logger.debug(`  - Обновлено существующих: ${updated}`);
             this.logger.debug(`  - Проигнорировано дубликатов: ${duplicatesIgnored}`);
-
-            if (indexResult.writeErrors && indexResult.writeErrors.length > 0) {
-                this.logger.warn(`⚠ Ошибок при обработке: ${indexResult.writeErrors.length}`);
+            if (writeErrors && writeErrors.length > 0) {
+                this.logger.warn(`⚠ Ошибок при обработке: ${writeErrors.length}`);
             }
 
             return {
                 success: true,
-                totalProcessed: factIndexValues.length,
                 inserted: inserted,
                 updated: updated,
                 duplicatesIgnored: duplicatesIgnored,
-                errors: indexResult.writeErrors || [],
+                errors: writeErrors || [],
                 processingTime: Date.now() - startTime,
+                metrics: {
+                    factIndexValuesCount: factIndexValues.length,
+                },
+                debug: {
+                    bulkUpdate: bulkUpdate,
+                    factIndexValues: factIndexValues.map(item => item._id),
+                }
             };
 
         } catch (error) {
@@ -778,7 +830,6 @@ class MongoProvider {
     }
 
 
-
     async _getRelevantFactsByIndex(indexNameQuery, debugMode = false) {
         const factIndexCollection = this._getFactIndexCollection();
         const startFindFactIndexTime = Date.now();
@@ -939,6 +990,11 @@ class MongoProvider {
                     "$gte": depthFromDate
                 };
             }
+            if (fact) {
+                factIndexFindQuery["_id.f"] = {
+                    "$ne": fact._id
+                };
+            }
             queriesByIndexName[indexTypeName] = {
                 factIndexFindQuery: factIndexFindQuery,
                 factIndexFindOptions: {
@@ -968,11 +1024,11 @@ class MongoProvider {
                     relevantIndexCount: 0,
                     relevantFactsCount: 0,
                     relevantFactsSize: 0,
-                    indexQueryTime: 0,
+                    relevantFactsTime: 0,
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,
-                    indexMetrics: null
+                    detailMetrics: null
                 },
                 debug: {
                     relevantFactsQuerySize: 0,
@@ -1007,33 +1063,33 @@ class MongoProvider {
 
         // Объединяем результаты в один JSON объект
         const mergedCounters = {};
-        const indexMetrics = {};
+        const detailMetrics = {};
+        let relevantFactsQuerySize = 0;
+        let relevantFactsTime = 0;
         let relevantFactsCount = 0;
-        let indexQueryTime = 0;
+        let relevantFactsSize = 0;
+        let countersQuerySize = 0;
         let countersQueryTime = 0;
         let countersQueryCount = 0;
-        let relevantFactsSize = 0;
-        let relevantFactsQuerySize = 0;
-        let countersTotalSize = 0;
-        let countersQuerySize = 0;
+        let countersSize = 0;
         const indexQuery = {};
         const countersQuery = {};
         queryResults.forEach((result) => {
             if (result.counters) {
                 Object.assign(mergedCounters, result.counters);
             }
-            indexMetrics[result.indexTypeName] = {
+            detailMetrics[result.indexTypeName] = {
                 processingTime: result.processingTime,
                 metrics: result.metrics
             };
+            relevantFactsQuerySize += result.metrics.relevantFactsQuerySize ?? 0;
+            relevantFactsTime = Math.max(relevantFactsTime, result.metrics.relevantFactsTime ?? 0);
             relevantFactsCount += result.metrics.relevantFactsCount ?? 0;
-            indexQueryTime = Math.max(indexQueryTime, result.metrics.indexQueryTime ?? 0);
+            relevantFactsSize += result.metrics.relevantFactsSize ?? 0;
+            countersQuerySize += result.metrics.countersQuerySize ?? 0;
             countersQueryTime = Math.max(countersQueryTime, result.metrics.countersQueryTime ?? 0);
             countersQueryCount += result.metrics.countersQueryCount ?? 0;
-            relevantFactsSize += result.metrics.relevantFactsSize ?? 0;
-            relevantFactsQuerySize += result.metrics.relevantFactsQuerySize ?? 0;
-            countersQuerySize += result.metrics.countersQuerySize ?? 0;
-            countersTotalSize += result.metrics.countersSize ?? 0;
+            countersSize += result.metrics.countersSize ?? 0;
             indexQuery[result.indexTypeName] = {
                 query: result.debug.indexQuery,
                 sort: result.debug.indexSort,
@@ -1050,16 +1106,17 @@ class MongoProvider {
          * counterIndexCount - количество индексов с счетчиками, применимых к факту (после фильтрации по условию computationConditions)
          * factCountersCount - общее количество счетчиков по всем индексам, применимых к факту (после фильтрации по условию computationConditions)
          * relevantIndexCount - количество релевантных индексов (индексы, которые имеют факты после поиска по индексам)
-         * relevantFactsCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
-         * indexQueryTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
+         * processingQueriesTime - время выполнения параллельных запросов на вычисление счетчиков
+         * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
+         * relevantFactsTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
+         * relevantFactsCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
+         * relevantFactsSize - размер массива релевантных фактов (факты, которые попали после поиска по индексам)
+         * countersQuerySize - размер запросов вычисления счетчиков по релевантным фактам
          * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
          * countersQueryCount - число одновременных запросов на вычисление счетчиков
-         * relevantFactsSize - размер массива релевантных фактов (факты, которые попали после поиска по индексам)
-         * countersTotalSize - размер полученных всех счетчиков по всем индексам,
-         * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
-         * countersQuerySize - размер запросов вычисления счетчиков по релевантным фактам
-         * indexMetrics - метрики выполнения запросов в разрезе индексов
+         * countersSize - размер полученных всех счетчиков по всем индексам,
+         * detailMetrics - метрики выполнения запросов в разрезе индексов
          * 
          * indexQuery - запрос по индексам для поиска ИД релевантных фактов
          * countersQuery - запрос на вычисление счетчиков по релевантным фактам
@@ -1074,17 +1131,17 @@ class MongoProvider {
                 counterIndexCount: Object.keys(indexCountersInfo).length,
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                 relevantIndexCount: Object.keys(queriesByIndexName).length,
-                relevantFactsCount: relevantFactsCount,
-                indexQueryTime: indexQueryTime,
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
+                relevantFactsQuerySize: relevantFactsQuerySize,
+                relevantFactsTime: relevantFactsTime,
+                relevantFactsCount: relevantFactsCount,
+                relevantFactsSize: relevantFactsSize,
+                countersQuerySize: countersQuerySize,
                 countersQueryTime: countersQueryTime,
                 countersQueryCount: countersQueryCount,
-                relevantFactsSize: relevantFactsSize,
-                countersTotalSize: countersTotalSize,
-                relevantFactsQuerySize: relevantFactsQuerySize,
-                countersQuerySize: countersQuerySize,
-                indexMetrics: indexMetrics,
+                countersSize: countersSize,
+                detailMetrics: detailMetrics,
             },
             debug: {
                 indexQuery: indexQuery,
@@ -1170,7 +1227,7 @@ class MongoProvider {
                     relevantIndexCount: 0,
                     relevantFactsCount: 0,
                     relevantFactsSize: 0,
-                    indexQueryTime: 0,
+                    relevantFactsTime: 0,
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,
@@ -1223,9 +1280,9 @@ class MongoProvider {
 
         this.logger.debug(`Агрегационный запрос на список ИД фактов в разрезе индексов: ${JSON.stringify(aggregateIndexQuery)}\n`);
         const factIndexCollection = this._getFactIndexCollection();
-        const startIndexQueryTime = Date.now();
+        const startrelevantFactsTime = Date.now();
         const factIndexResult = await factIndexCollection.aggregate(aggregateIndexQuery, aggregateIndexOptions).toArray();
-        const stopIndexQueryTime = Date.now();
+        const stoprelevantFactsTime = Date.now();
         const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
         const factIdsByIndexName = factIndexResult[0];
         this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIdsByIndexName)} \n`);
@@ -1277,7 +1334,7 @@ class MongoProvider {
                     relevantIndexCount: Object.keys(factIdsByIndexName).length,
                     relevantFactsCount: relevantFactsCount,
                     relevantFactsSize: relevantFactsSize,
-                    indexQueryTime: stopIndexQueryTime - startIndexQueryTime,
+                    relevantFactsTime: stoprelevantFactsTime - startrelevantFactsTime,
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,
@@ -1346,7 +1403,7 @@ class MongoProvider {
          * relevantIndexCount - количество релевантных индексов (индексы, которые имеют факты после поиска по индексам)
          * relevantFactsCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
          * relevantFactsSize - размер массива релевантных фактов (факты, которые попали после поиска по индексам)
-         * indexQueryTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
+         * relevantFactsTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
          * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
          * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
@@ -1366,7 +1423,7 @@ class MongoProvider {
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                 relevantIndexCount: Object.keys(factIdsByIndexName).length,
                 relevantFactsCount: relevantFactsCount,
-                indexQueryTime: stopIndexQueryTime - startIndexQueryTime,
+                relevantFactsTime: stoprelevantFactsTime - startrelevantFactsTime,
                 prepareCountersQueryTime: startCountersQueryTime - startPrepareCountersQueryTime,
                 countersQueryTime: stopCountersQueryTime - startCountersQueryTime,
                 countersQueryCount: Object.keys(factFacetStage).length,

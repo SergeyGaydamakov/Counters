@@ -373,11 +373,6 @@ if (!factIndexShardingResult.success) {
 }
 
 
-
-
-
-
-
 // 9. Создание схемы для коллекции log
 try {
     print(`\n9. Создание схемы валидации для коллекции ${LOG_COLLECTION}...`);

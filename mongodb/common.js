@@ -9,6 +9,23 @@ function ExtractFirstKeyOfIndex(tag) {
   return res;
 }
 
+// Вывод информации о медленных запросах
+// detail - степень детализации вывода
+function SlowRequests(detail = 1, limit = 10){
+//  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*60*10)}}, {_id: 1, "t.total": 1}).sort({t:-1}).limit(2).toArray();
+  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*60*10)}}).sort({t:-1}).limit(limit).toArray();
+  print(`| ${StrLeftAlign("Time", 20)} | ${StrLeftAlign("_id", 30)} | ${StrRightAlign("t.total, ms", 15)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.saveIndex, ms", 15)} | ${StrRightAlign("t.saveFact, ms", 15)} |`);
+  result.forEach(function (item) {
+    if (!item.t) {
+      return;
+    }
+    print(`| ${StrLeftAlign(DateTimeToString(item.c), 20)} | ${StrLeftAlign(item._id, 30)} | ${StrRightAlign(item.t.total, 15)} | ${StrRightAlign(item.t.counters, 15)} | ${StrRightAlign(item.t.saveIndex, 15)} | ${StrRightAlign(item.t.saveFact, 15)} |`);
+  });
+  if (detail > 1) {
+    print("  " + JSON.stringify(result[0], null, 2));
+  }
+}
+
 function ShardingAnalysis() {
   DATABASE_NAMES.forEach(function (databaseName) {
     print("*************************************************************************");
