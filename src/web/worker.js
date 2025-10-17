@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const rateLimit = require('express-rate-limit');
 const Logger = require('../utils/logger');
 const { MongoProvider, FactController, CounterProducer } = require('../index');
 const config = require('../common/config');
