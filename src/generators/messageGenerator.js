@@ -413,18 +413,167 @@ class MessageGenerator {
     }
 
     /**
+     * Возвращает приоритет типа генератора (меньше = более специфичный/конвертируемый)
+     * @param {string} type - тип генератора
+     * @returns {number} приоритет типа
+     */
+    _getGeneratorTypePriority(type) {
+        const priorities = {
+            'boolean': 1,   // можно преобразовать в string, integer (0/1), float (0.0/1.0)
+            'date': 2,      // можно преобразовать в string, integer (timestamp), boolean, float
+            'integer': 3,   // можно преобразовать в float, string, boolean
+            'float': 4,     // можно преобразовать в string
+            'objectId': 5,  // можно преобразовать в string
+            'enum': 6,      // можно преобразовать в string (если значения строковые)
+            'string': 7     // наиболее общий тип
+        };
+        return priorities[type] || 999; // неизвестный тип имеет максимальный приоритет
+    }
+
+    /**
+     * Выбирает наилучший генератор из массива генераторов для одного src поля
+     * @param {Array} generators - массив генераторов для одного src поля
+     * @returns {Object|null} выбранный генератор или null
+     */
+    _selectBestGenerator(generators) {
+        if (!generators || generators.length === 0) {
+            return null;
+        }
+
+        // Фильтруем null/undefined генераторы
+        const validGenerators = generators.filter(gen => gen && gen.type);
+        
+        if (validGenerators.length === 0) {
+            return null;
+        }
+
+        // Группируем генераторы по типам
+        const generatorsByType = {};
+        validGenerators.forEach(gen => {
+            if (!generatorsByType[gen.type]) {
+                generatorsByType[gen.type] = [];
+            }
+            generatorsByType[gen.type].push(gen);
+        });
+
+        // Выбираем тип с наименьшим приоритетом (наиболее специфичный)
+        let bestType = null;
+        let bestPriority = Infinity;
+        
+        for (const type of Object.keys(generatorsByType)) {
+            const priority = this._getGeneratorTypePriority(type);
+            if (priority < bestPriority) {
+                bestPriority = priority;
+                bestType = type;
+            }
+        }
+
+        if (!bestType) {
+            return validGenerators[0]; // fallback к первому генератору
+        }
+
+        // Объединяем параметры всех генераторов выбранного типа
+        const generatorsOfBestType = generatorsByType[bestType];
+        const mergedGenerator = this._mergeGeneratorsOfSameType(generatorsOfBestType);
+        
+        return mergedGenerator;
+    }
+
+    /**
+     * Объединяет параметры генераторов одного типа
+     * @param {Array} generators - массив генераторов одного типа
+     * @returns {Object} объединенный генератор
+     */
+    _mergeGeneratorsOfSameType(generators) {
+        if (generators.length === 1) {
+            return generators[0];
+        }
+
+        const type = generators[0].type;
+        const merged = { type };
+
+        // Объединяем числовые параметры (min, max)
+        if (type === 'string' || type === 'integer' || type === 'float') {
+            const minValues = generators.map(g => g.min).filter(v => v !== undefined);
+            const maxValues = generators.map(g => g.max).filter(v => v !== undefined);
+            
+            if (minValues.length > 0) {
+                merged.min = Math.min(...minValues);
+            }
+            if (maxValues.length > 0) {
+                merged.max = Math.max(...maxValues);
+            }
+        }
+
+        // Объединяем параметры для date
+        if (type === 'date') {
+            const minDates = generators.map(g => g.min).filter(v => v !== undefined);
+            const maxDates = generators.map(g => g.max).filter(v => v !== undefined);
+            
+            if (minDates.length > 0) {
+                merged.min = minDates.reduce((earliest, current) => 
+                    new Date(current) < new Date(earliest) ? current : earliest
+                );
+            }
+            if (maxDates.length > 0) {
+                merged.max = maxDates.reduce((latest, current) => 
+                    new Date(current) > new Date(latest) ? current : latest
+                );
+            }
+        }
+
+        // Объединяем values для enum
+        if (type === 'enum') {
+            const allValues = new Set();
+            generators.forEach(g => {
+                if (g.values && Array.isArray(g.values)) {
+                    g.values.forEach(v => allValues.add(v));
+                }
+            });
+            if (allValues.size > 0) {
+                merged.values = Array.from(allValues);
+            }
+        }
+
+        // Объединяем default_value (берем из первого генератора)
+        const firstWithDefault = generators.find(g => g.default_value !== undefined);
+        if (firstWithDefault) {
+            merged.default_value = firstWithDefault.default_value;
+        }
+
+        // Объединяем default_random (берем среднее значение)
+        const randomValues = generators.map(g => g.default_random).filter(v => v !== undefined);
+        if (randomValues.length > 0) {
+            merged.default_random = randomValues.reduce((sum, val) => sum + val, 0) / randomValues.length;
+        }
+
+        return merged;
+    }
+
+    /**
      * Строит карту генераторов для каждого поля
-     * Использует первый генератор для каждого поля (первое определение в конфигурации)
+     * Выбирает наиболее специфичный тип генератора для каждого src поля
      * @returns {Object} объект где ключ - имя поля, значение - конфигурация генератора
      */
     _buildFieldGeneratorsMap() {
         const fieldGeneratorsMap = {};
+        
+        // Группируем все генераторы по src полям
+        const generatorsBySrc = {};
         this._fieldConfig.forEach(field => {
-            // Используем первое определение поля (не перезаписываем, если уже есть)
-            if (!(field.src in fieldGeneratorsMap)) {
-                fieldGeneratorsMap[field.src] = field.generator || null;
+            if (!generatorsBySrc[field.src]) {
+                generatorsBySrc[field.src] = [];
+            }
+            if (field.generator) {
+                generatorsBySrc[field.src].push(field.generator);
             }
         });
+
+        // Для каждого src поля выбираем наилучший генератор
+        for (const [srcField, generators] of Object.entries(generatorsBySrc)) {
+            fieldGeneratorsMap[srcField] = this._selectBestGenerator(generators);
+        }
+
         return fieldGeneratorsMap;
     }
 

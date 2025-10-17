@@ -16,7 +16,7 @@ class MongoProvider {
     READ_CONCERN = { level: "local" };
     // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
     WRITE_CONCERN = { w: "majority", j: false, wtimeout: 5000 };
-    
+
     /**
      * Конструктор MongoProvider
      * @param {string} connectionString - Строка подключения к MongoDB
@@ -871,10 +871,8 @@ class MongoProvider {
         };
     }
 
-
     async _getCounters(indexTypeName, factIds, indexCounterList, debugMode = false) {
         if (!factIds || !factIds.length) {
-            this.logger.warn(`Для типа индекса ${indexTypeName} не найден список релевантных фактов.`);
             return {
                 counters: null,
                 error: "No relevant facts found",
@@ -1061,6 +1059,13 @@ class MongoProvider {
             const indexNameQuery = queriesByIndexName[indexTypeName];
             const startQuery = Date.now();
             const indexNameResult = await this._getRelevantFactsByIndex(indexNameQuery, debugMode);
+            const emptyRelevantFacts = !indexNameResult.factIds || !indexNameResult.factIds.length;
+            if (emptyRelevantFacts) {
+                const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
+                const fieldName = indexInfo.index.fieldName;
+                const fieldValue = fact?.d[fieldName] ?? "undefined";
+                this.logger.warn(`Для типа индекса ${indexTypeName} не найден список релевантных фактов для значения индекса: ${indexInfo.hashValue}. (поле "${fieldName}": "${fieldValue}")`);
+            }
             const countersResult = await this._getCounters(indexTypeName, indexNameResult.factIds, indexCountersInfo[indexTypeName], debugMode);
             return {
                 indexTypeName: indexTypeName,

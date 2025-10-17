@@ -342,6 +342,130 @@ const duplicateSrcFieldConfig = [
     }
 ];
 
+// Конфигурация для тестирования выбора типа генератора на основе приоритета
+const typePriorityTestConfig = [
+    {
+        "src": "field1",
+        "dst": "str1",
+        "message_types": [1],
+        "generator": {
+            "type": "string",
+            "min": 5,
+            "max": 15
+        }
+    },
+    {
+        "src": "field1", // Дублирующееся src поле с другим типом
+        "dst": "int1",
+        "message_types": [1],
+        "generator": {
+            "type": "integer",
+            "min": 100,
+            "max": 200
+        }
+    },
+    {
+        "src": "field2",
+        "dst": "str2",
+        "message_types": [1],
+        "generator": {
+            "type": "string",
+            "min": 3,
+            "max": 10
+        }
+    },
+    {
+        "src": "field2", // Дублирующееся src поле с boolean
+        "dst": "bool1",
+        "message_types": [1],
+        "generator": {
+            "type": "boolean",
+            "default_value": true,
+            "default_random": 0.5
+        }
+    },
+    {
+        "src": "field3",
+        "dst": "str3",
+        "message_types": [1],
+        "generator": {
+            "type": "string",
+            "min": 2,
+            "max": 8
+        }
+    },
+    {
+        "src": "field3", // Дублирующееся src поле с integer
+        "dst": "int2",
+        "message_types": [1],
+        "generator": {
+            "type": "integer",
+            "min": 50,
+            "max": 150
+        }
+    },
+    {
+        "src": "field3", // Дублирующееся src поле с boolean
+        "dst": "bool2",
+        "message_types": [1],
+        "generator": {
+            "type": "boolean",
+            "default_value": false,
+            "default_random": 0.3
+        }
+    },
+    {
+        "src": "field4",
+        "dst": "str4",
+        "message_types": [1],
+        "generator": {
+            "type": "string",
+            "min": 4,
+            "max": 12
+        }
+    },
+    {
+        "src": "field4", // Дублирующееся src поле с date
+        "dst": "date1",
+        "message_types": [1],
+        "generator": {
+            "type": "date",
+            "min": "2024-01-01",
+            "max": "2024-12-31"
+        }
+    },
+    {
+        "src": "field4", // Дублирующееся src поле с integer
+        "dst": "int3",
+        "message_types": [1],
+        "generator": {
+            "type": "integer",
+            "min": 1,
+            "max": 1000
+        }
+    },
+    {
+        "src": "field5",
+        "dst": "int4",
+        "message_types": [1],
+        "generator": {
+            "type": "integer",
+            "min": 10,
+            "max": 50
+        }
+    },
+    {
+        "src": "field5", // Дублирующееся src поле с другим integer
+        "dst": "int5",
+        "message_types": [1],
+        "generator": {
+            "type": "integer",
+            "min": 20,
+            "max": 80
+        }
+    }
+];
+
 /**
  * Тест создания генератора с валидной конфигурацией
  */
@@ -1404,6 +1528,247 @@ function testDuplicateSrcFieldAllTypes(testName) {
 }
 
 /**
+ * Тест выбора типа генератора на основе приоритета (string + integer → integer)
+ */
+function testTypePriorityStringInteger(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(typePriorityTestConfig);
+
+        // Проверяем, что для field1 выбран integer генератор (более специфичный)
+        const field1Generator = generator._fieldGeneratorsMap['field1'];
+        
+        if (!field1Generator) {
+            console.log('❌ Генератор для field1 не найден');
+            return false;
+        }
+
+        if (field1Generator.type !== 'integer') {
+            console.log(`❌ Ожидался тип 'integer', получен '${field1Generator.type}'`);
+            return false;
+        }
+
+        console.log('✅ Для field1 (string + integer) выбран integer генератор');
+
+        // Проверяем параметры (должны быть объединены)
+        if (field1Generator.min !== 100 || field1Generator.max !== 200) {
+            console.log(`❌ Неверные параметры: min=${field1Generator.min}, max=${field1Generator.max}`);
+            return false;
+        }
+
+        console.log('✅ Параметры integer генератора корректны');
+
+        // Генерируем сообщение и проверяем, что значение валидно для integer
+        const message = generator.generateMessage(1);
+        const field1Value = message.d.field1;
+
+        if (typeof field1Value !== 'number' || !Number.isInteger(field1Value)) {
+            console.log(`❌ Сгенерированное значение не является integer: ${field1Value} (тип: ${typeof field1Value})`);
+            return false;
+        }
+
+        if (field1Value < 100 || field1Value > 200) {
+            console.log(`❌ Значение ${field1Value} не в диапазоне [100, 200]`);
+            return false;
+        }
+
+        console.log(`✅ Сгенерировано корректное integer значение: ${field1Value}`);
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест выбора типа генератора на основе приоритета (string + boolean → boolean)
+ */
+function testTypePriorityStringBoolean(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(typePriorityTestConfig);
+
+        // Проверяем, что для field2 выбран boolean генератор (более специфичный)
+        const field2Generator = generator._fieldGeneratorsMap['field2'];
+        
+        if (!field2Generator) {
+            console.log('❌ Генератор для field2 не найден');
+            return false;
+        }
+
+        if (field2Generator.type !== 'boolean') {
+            console.log(`❌ Ожидался тип 'boolean', получен '${field2Generator.type}'`);
+            return false;
+        }
+
+        console.log('✅ Для field2 (string + boolean) выбран boolean генератор');
+
+        // Генерируем сообщение и проверяем, что значение валидно для boolean
+        const message = generator.generateMessage(1);
+        const field2Value = message.d.field2;
+
+        if (typeof field2Value !== 'boolean') {
+            console.log(`❌ Сгенерированное значение не является boolean: ${field2Value} (тип: ${typeof field2Value})`);
+            return false;
+        }
+
+        console.log(`✅ Сгенерировано корректное boolean значение: ${field2Value}`);
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест выбора типа генератора на основе приоритета (string + integer + boolean → boolean)
+ */
+function testTypePriorityMultipleTypes(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(typePriorityTestConfig);
+
+        // Проверяем, что для field3 выбран boolean генератор (наиболее специфичный)
+        const field3Generator = generator._fieldGeneratorsMap['field3'];
+        
+        if (!field3Generator) {
+            console.log('❌ Генератор для field3 не найден');
+            return false;
+        }
+
+        if (field3Generator.type !== 'boolean') {
+            console.log(`❌ Ожидался тип 'boolean', получен '${field3Generator.type}'`);
+            return false;
+        }
+
+        console.log('✅ Для field3 (string + integer + boolean) выбран boolean генератор');
+
+        // Генерируем сообщение и проверяем, что значение валидно для boolean
+        const message = generator.generateMessage(1);
+        const field3Value = message.d.field3;
+
+        if (typeof field3Value !== 'boolean') {
+            console.log(`❌ Сгенерированное значение не является boolean: ${field3Value} (тип: ${typeof field3Value})`);
+            return false;
+        }
+
+        console.log(`✅ Сгенерировано корректное boolean значение: ${field3Value}`);
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест выбора типа генератора на основе приоритета (string + date + integer → date)
+ */
+function testTypePriorityDateStringInteger(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(typePriorityTestConfig);
+
+        // Проверяем, что для field4 выбран date генератор (наиболее специфичный)
+        const field4Generator = generator._fieldGeneratorsMap['field4'];
+        
+        if (!field4Generator) {
+            console.log('❌ Генератор для field4 не найден');
+            return false;
+        }
+
+        if (field4Generator.type !== 'date') {
+            console.log(`❌ Ожидался тип 'date', получен '${field4Generator.type}'`);
+            return false;
+        }
+
+        console.log('✅ Для field4 (string + date + integer) выбран date генератор');
+
+        // Генерируем сообщение и проверяем, что значение валидно для date
+        const message = generator.generateMessage(1);
+        const field4Value = message.d.field4;
+
+        if (!(field4Value instanceof Date)) {
+            console.log(`❌ Сгенерированное значение не является Date: ${field4Value} (тип: ${typeof field4Value})`);
+            return false;
+        }
+
+        // Проверяем, что дата в правильном диапазоне
+        const minDate = new Date('2024-01-01');
+        const maxDate = new Date('2024-12-31');
+        
+        if (field4Value < minDate || field4Value > maxDate) {
+            console.log(`❌ Дата ${field4Value.toISOString()} не в диапазоне [2024-01-01, 2024-12-31]`);
+            return false;
+        }
+
+        console.log(`✅ Сгенерирована корректная дата: ${field4Value.toISOString()}`);
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Тест объединения параметров одинаковых типов
+ */
+function testMergeSameTypeParameters(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const generator = new MessageGenerator(typePriorityTestConfig);
+
+        // Проверяем, что для field5 выбран integer генератор с объединенными параметрами
+        const field5Generator = generator._fieldGeneratorsMap['field5'];
+        
+        if (!field5Generator) {
+            console.log('❌ Генератор для field5 не найден');
+            return false;
+        }
+
+        if (field5Generator.type !== 'integer') {
+            console.log(`❌ Ожидался тип 'integer', получен '${field5Generator.type}'`);
+            return false;
+        }
+
+        console.log('✅ Для field5 (integer + integer) выбран integer генератор');
+
+        // Проверяем объединенные параметры (min=10, max=80)
+        if (field5Generator.min !== 10 || field5Generator.max !== 80) {
+            console.log(`❌ Неверные объединенные параметры: min=${field5Generator.min}, max=${field5Generator.max}`);
+            console.log('   Ожидалось: min=10 (min из обоих), max=80 (max из обоих)');
+            return false;
+        }
+
+        console.log('✅ Параметры integer генератора корректно объединены');
+
+        // Генерируем сообщение и проверяем, что значение в правильном диапазоне
+        const message = generator.generateMessage(1);
+        const field5Value = message.d.field5;
+
+        if (typeof field5Value !== 'number' || !Number.isInteger(field5Value)) {
+            console.log(`❌ Сгенерированное значение не является integer: ${field5Value} (тип: ${typeof field5Value})`);
+            return false;
+        }
+
+        if (field5Value < 10 || field5Value > 80) {
+            console.log(`❌ Значение ${field5Value} не в объединенном диапазоне [10, 80]`);
+            return false;
+        }
+
+        console.log(`✅ Сгенерировано корректное integer значение в объединенном диапазоне: ${field5Value}`);
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
  * Запуск всех тестов
  */
 function runAllTests() {
@@ -1435,6 +1800,11 @@ function runAllTests() {
         { func: testArrayDefaultValueInteger, name: '24. Массив default_value для integer' },
         { func: testArrayDefaultValueEnum, name: '25. Массив default_value для enum' },
         { func: testArrayDefaultValueValidation, name: '26. Валидация массива default_value' },
+        { func: testTypePriorityStringInteger, name: '27. Выбор типа генератора: string + integer → integer' },
+        { func: testTypePriorityStringBoolean, name: '28. Выбор типа генератора: string + boolean → boolean' },
+        { func: testTypePriorityMultipleTypes, name: '29. Выбор типа генератора: string + integer + boolean → boolean' },
+        { func: testTypePriorityDateStringInteger, name: '30. Выбор типа генератора: string + date + integer → date' },
+        { func: testMergeSameTypeParameters, name: '31. Объединение параметров одинаковых типов' },
         { func: testPerformance, name: '22. Производительность генерации' }
     ];
 
@@ -1495,5 +1865,10 @@ module.exports = {
     testArrayDefaultValueInteger,
     testArrayDefaultValueEnum,
     testArrayDefaultValueValidation,
+    testTypePriorityStringInteger,
+    testTypePriorityStringBoolean,
+    testTypePriorityMultipleTypes,
+    testTypePriorityDateStringInteger,
+    testMergeSameTypeParameters,
     testPerformance
 };
