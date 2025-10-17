@@ -154,6 +154,42 @@ class MongoProvider {
         return true;
     }
 
+    /**
+     * Получение объекта Collection для коллекции facts
+     * 
+     * @returns {Object} объект Collection для выполнения запросов
+     */
+    _getFactsCollection() {
+        if (!this._factsCollection) {
+            this._factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        }
+        return this._factsCollection;
+    }
+
+    /**
+     * Получение объекта Collection для коллекции factIndex
+     * 
+     * @returns {Object} объект Collection для выполнения запросов
+     */
+    _getFactIndexCollection() {
+        if (!this._factIndexCollection) {
+            this._factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+        }
+        return this._factIndexCollection;
+    }
+
+    /**
+     * Получение объекта Collection для коллекции log
+     * 
+     * @returns {Object} объект Collection для выполнения запросов
+     */
+    _getLogCollection() {
+        if (!this._logCollection) {
+            this._logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+        }
+        return this._logCollection;
+    }
+
 
     // ============================================================================
     // ГРУППА 2: РАБОТА С ДАННЫМИ ДЛЯ ПРИКЛАДНОГО КОДА
@@ -176,7 +212,7 @@ class MongoProvider {
         const startTime = Date.now();
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            const factsCollection = this._getFactsCollection();
 
             const filter = { _id: fact._id };
             const updateOperation = { $set: fact };
@@ -277,7 +313,7 @@ class MongoProvider {
             this.logger.debug(`Начинаем обработку ${factIndexValues.length} индексных значений...`);
 
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            const factIndexCollection = this._getFactIndexCollection();
 
             // Bulk вставка индексных значений с обработкой дубликатов
             const bulkWriteOptions = {
@@ -744,21 +780,21 @@ class MongoProvider {
 
 
     async _getRelevantFactsByIndex(indexNameQuery, debugMode = false) {
-        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+        const factIndexCollection = this._getFactIndexCollection();
         const startFindFactIndexTime = Date.now();
         const factIndexResult = await factIndexCollection.find(indexNameQuery.factIndexFindQuery, indexNameQuery.factIndexFindOptions).sort(indexNameQuery.factIndexFindSort).limit(indexNameQuery.depthLimit).toArray();
         const stopFindFactIndexTime = Date.now();
-        const indexQuerySize = debugMode ? JSON.stringify(indexNameQuery.factIndexFindQuery).length : undefined;
+        const relevantFactsQuerySize = debugMode ? JSON.stringify(indexNameQuery.factIndexFindQuery).length : undefined;
         const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
         const factIds = factIndexResult.map(item => item._id.f);
         this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIds)} \n`);
         return {
             factIds: factIds,
             metrics: {
-                findFactIndexTime: stopFindFactIndexTime - startFindFactIndexTime,
+                relevantFactsQuerySize: relevantFactsQuerySize,
+                relevantFactsTime: stopFindFactIndexTime - startFindFactIndexTime,
                 relevantFactsCount: factIndexResult.length,
                 relevantFactsSize: relevantFactsSize,
-                indexQuerySize: indexQuerySize,
             },
             debug: {
                 indexQuery: indexNameQuery.factIndexFindQuery,
@@ -810,7 +846,7 @@ class MongoProvider {
         };
         // this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
         // this.logger.info(`Агрегационный запрос на счетчики по фактам: ${JSON.stringify(factFacetStage)}`);
-        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        const factsCollection = this._getFactsCollection();
         const startCountersQueryTime = Date.now();
         try {
             this.logger.debug(`Агрегационный запрос для индекса ${indexTypeName}: ${JSON.stringify(factFacetStage)}`);
@@ -819,9 +855,9 @@ class MongoProvider {
             return {
                 counters: countersResult[0],
                 metrics: {
+                    countersQuerySize: countersQuerySize,
                     countersQueryTime: Date.now() - startCountersQueryTime,
                     countersQueryCount: 1,
-                    countersQuerySize: countersQuerySize,
                     countersSize: countersSize,
                 },
                 debug: {
@@ -936,9 +972,10 @@ class MongoProvider {
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,
+                    indexMetrics: null
                 },
                 debug: {
-                    indexQuerySize: 0,
+                    relevantFactsQuerySize: 0,
                     countersQueryTotalSize: 0,
                     indexQuery: null,
                     countersQuery: null,
@@ -970,13 +1007,13 @@ class MongoProvider {
 
         // Объединяем результаты в один JSON объект
         const mergedCounters = {};
-        const mergedStatistics = {};
+        const indexMetrics = {};
         let relevantFactsCount = 0;
         let indexQueryTime = 0;
         let countersQueryTime = 0;
         let countersQueryCount = 0;
         let relevantFactsSize = 0;
-        let indexQuerySize = 0;
+        let relevantFactsQuerySize = 0;
         let countersTotalSize = 0;
         let countersQuerySize = 0;
         const indexQuery = {};
@@ -985,7 +1022,7 @@ class MongoProvider {
             if (result.counters) {
                 Object.assign(mergedCounters, result.counters);
             }
-            mergedStatistics[result.indexTypeName] = {
+            indexMetrics[result.indexTypeName] = {
                 processingTime: result.processingTime,
                 metrics: result.metrics
             };
@@ -994,7 +1031,7 @@ class MongoProvider {
             countersQueryTime = Math.max(countersQueryTime, result.metrics.countersQueryTime ?? 0);
             countersQueryCount += result.metrics.countersQueryCount ?? 0;
             relevantFactsSize += result.metrics.relevantFactsSize ?? 0;
-            indexQuerySize += result.metrics.indexQuerySize ?? 0;
+            relevantFactsQuerySize += result.metrics.relevantFactsQuerySize ?? 0;
             countersQuerySize += result.metrics.countersQuerySize ?? 0;
             countersTotalSize += result.metrics.countersSize ?? 0;
             indexQuery[result.indexTypeName] = {
@@ -1020,8 +1057,9 @@ class MongoProvider {
          * countersQueryCount - число одновременных запросов на вычисление счетчиков
          * relevantFactsSize - размер массива релевантных фактов (факты, которые попали после поиска по индексам)
          * countersTotalSize - размер полученных всех счетчиков по всем индексам,
-         * indexQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
+         * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
          * countersQuerySize - размер запросов вычисления счетчиков по релевантным фактам
+         * indexMetrics - метрики выполнения запросов в разрезе индексов
          * 
          * indexQuery - запрос по индексам для поиска ИД релевантных фактов
          * countersQuery - запрос на вычисление счетчиков по релевантным фактам
@@ -1044,9 +1082,9 @@ class MongoProvider {
                 countersQueryCount: countersQueryCount,
                 relevantFactsSize: relevantFactsSize,
                 countersTotalSize: countersTotalSize,
-                indexQuerySize: indexQuerySize,
+                relevantFactsQuerySize: relevantFactsQuerySize,
                 countersQuerySize: countersQuerySize,
-                statistics: mergedStatistics,
+                indexMetrics: indexMetrics,
             },
             debug: {
                 indexQuery: indexQuery,
@@ -1138,7 +1176,7 @@ class MongoProvider {
                     countersQueryCount: 0,
                 },
                 debug: {
-                    indexQuerySize: 0,
+                    relevantFactsQuerySize: 0,
                     countersQueryTotalSize: 0,
                     indexQuery: null,
                     countersQuery: null,
@@ -1173,7 +1211,7 @@ class MongoProvider {
             { "$project": projectIndexQuery },
             { "$facet": indexFacetStage }
         ];
-        const indexQuerySize = debugMode ? JSON.stringify(aggregateIndexQuery).length : undefined;
+        const relevantFactsQuerySize = debugMode ? JSON.stringify(aggregateIndexQuery).length : undefined;
 
         // Выполняем первый агрегирующий запрос на список идентификаторов фактов в разрезе по индексов
         const aggregateIndexOptions = {
@@ -1184,7 +1222,7 @@ class MongoProvider {
         };
 
         this.logger.debug(`Агрегационный запрос на список ИД фактов в разрезе индексов: ${JSON.stringify(aggregateIndexQuery)}\n`);
-        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+        const factIndexCollection = this._getFactIndexCollection();
         const startIndexQueryTime = Date.now();
         const factIndexResult = await factIndexCollection.aggregate(aggregateIndexQuery, aggregateIndexOptions).toArray();
         const stopIndexQueryTime = Date.now();
@@ -1245,7 +1283,7 @@ class MongoProvider {
                     countersQueryCount: 0,
                 },
                 debug: {
-                    indexQuerySize: indexQuerySize,
+                    relevantFactsQuerySize: relevantFactsQuerySize,
                     countersQueryTotalSize: 0,
                     indexQuery: aggregateIndexQuery,
                     countersQuery: null,
@@ -1265,7 +1303,7 @@ class MongoProvider {
         //
         // Запускаем параллельно запросы в factFacetStage:
         //
-        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        const factsCollection = this._getFactsCollection();
 
         // Создаем массив промисов для параллельного выполнения запросов
         const startPrepareCountersQueryTime = Date.now();
@@ -1311,7 +1349,7 @@ class MongoProvider {
          * indexQueryTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
          * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
-         * indexQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
+         * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
          * countersQueryCount - число одновременных запросов на вычисление счетчиков
          * countersQueryTotalSize - размер всех запросов вычисления счетчиков
          * indexQuery - запрос по индексам для поиска ИД релевантных фактов
@@ -1336,7 +1374,7 @@ class MongoProvider {
             },
             debug: {
                 relevantFactsSize: relevantFactsSize,
-                indexQuerySize: indexQuerySize,
+                relevantFactsQuerySize: relevantFactsQuerySize,
                 indexQuery: aggregateIndexQuery,
                 countersQuery: factFacetStage,
             }
@@ -1398,8 +1436,8 @@ class MongoProvider {
             projection: { "_id": 1, "it": 1 }
         };
         // Создаем локальные ссылки на коллекции для этого запроса
-        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
-        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        const factIndexCollection = this._getFactIndexCollection();
+        const factsCollection = this._getFactsCollection();
 
         const relevantFactIds = await factIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
         // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
@@ -1536,8 +1574,8 @@ class MongoProvider {
             projection: { "_id": 1 }
         };
         // Создаем локальные ссылки на коллекции для этого запроса
-        const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
-        const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+        const factIndexCollection = this._getFactIndexCollection();
+        const factsCollection = this._getFactsCollection();
 
         // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
         const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
@@ -1586,17 +1624,22 @@ class MongoProvider {
      * @param {Object} metrics - JSON объект с метриками обработки (metrics)
      * @param {Object} debugInfo - JSON объект с отладочной информацией (debug info)
      */
-    async saveLog(processId, processingTime, metrics, debugInfo) {
+    async saveLog(processId, message, processingTime, metrics, debugInfo) {
         this.checkConnection();
-        const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
-        await logCollection.insertOne({
-            _id: new ObjectId(),
-            c: new Date(),
-            p: String(processId),
-            t: processingTime,
-            m: metrics,
-            di: debugInfo
-        });
+        const logCollection = this._getLogCollection();
+        try {
+            await logCollection.insertOne({
+                _id: new ObjectId(),
+                c: new Date(),
+                p: String(processId),
+                msg: message,
+                t: processingTime,
+                m: metrics,
+                di: debugInfo
+            });
+        } catch (error) {
+            this.logger.error(`✗ Ошибка при сохранении записи в коллекцию логов ${this.LOG_COLLECTION_NAME}: ${error.message}`);
+        }
     }
 
     // ============================================================================
@@ -1614,7 +1657,7 @@ class MongoProvider {
 
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            const factsCollection = this._getFactsCollection();
 
             const deleteOptions = {
                 readConcern: this.READ_CONCERN,
@@ -1646,7 +1689,7 @@ class MongoProvider {
 
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            const factsCollection = this._getFactsCollection();
 
             const result = await factsCollection.countDocuments();
             return result;
@@ -1664,7 +1707,7 @@ class MongoProvider {
     async findFacts(filter = {}) {
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            const factsCollection = this._getFactsCollection();
 
             const findOptions = {
                 batchSize: 5000,
@@ -1692,7 +1735,7 @@ class MongoProvider {
 
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            const factIndexCollection = this._getFactIndexCollection();
 
             const deleteOptions = {
                 readConcern: this.READ_CONCERN,
@@ -1724,7 +1767,7 @@ class MongoProvider {
 
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            const factIndexCollection = this._getFactIndexCollection();
 
             const result = await factIndexCollection.countDocuments();
             return result;
@@ -1745,7 +1788,7 @@ class MongoProvider {
 
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+            const logCollection = this._getLogCollection();
 
             const deleteOptions = {
                 readConcern: this.READ_CONCERN,
@@ -1777,7 +1820,7 @@ class MongoProvider {
 
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+            const logCollection = this._getLogCollection();
 
             const result = await logCollection.countDocuments();
             return result;
@@ -1978,7 +2021,7 @@ class MongoProvider {
             this.logger.debug(`Создание индексов для коллекции фактов ${this.FACT_COLLECTION_NAME}...`);
 
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            const factsCollection = this._getFactsCollection();
 
             for (const indexSpec of indexesToCreate) {
                 try {
@@ -2172,7 +2215,7 @@ class MongoProvider {
             this.logger.debug(`Создание индексов для коллекции индексных значений ${this.FACT_INDEX_COLLECTION_NAME}...`);
 
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            const factIndexCollection = this._getFactIndexCollection();
 
             for (const indexSpec of indexesToCreate) {
                 try {
@@ -2220,7 +2263,7 @@ class MongoProvider {
 
         try {
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            const factIndexCollection = this._getFactIndexCollection();
 
             const sample = await factIndexCollection.findOne({});
 
@@ -2294,6 +2337,10 @@ class MongoProvider {
                         p: {
                             bsonType: "string",
                             description: "идентификатор процесса обработки (process id)"
+                        },
+                        msg: {
+                            bsonType: "object",
+                            description: "Исходное сообщение"
                         },
                         t: {
                             bsonType: "object",
@@ -2383,7 +2430,7 @@ class MongoProvider {
             this.logger.debug(`Создание индексов для коллекции индексных значений ${this.LOG_COLLECTION_NAME}...`);
 
             // Создаем локальную ссылку на коллекцию для этого запроса
-            const logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+            const logCollection = this._getLogCollection();
 
             for (const indexSpec of indexesToCreate) {
                 try {

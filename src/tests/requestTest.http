@@ -32,10 +32,10 @@ Debug-Mode: true
 ### Обработка IRIS XML сообщения
 POST http://{{host}}/api/v1/message/iris
 Content-Type: text/xml
-Debug-Mode: false
+Debug-Mode: true
 
-<IRIS Version="2" Message="ModelRequest" MessageTypeId="1" MessageId="3323123" custom="test">
-  <id>d6b40af9c2929f8068f0eaeb</id>
+<IRIS Version="2" Message="ModelRequest" MessageTypeId="1" MessageId="33231243" custom="test">
+  <id>d6b40af9c2929f8068f0eae2</id>
   <amount>6513363</amount>
   <dt>2025-09-16 13:55:44</dt>
   <f1>"1234567890"</f1>

@@ -131,7 +131,7 @@ function isMessageTypeAllowed(messageType) {
  * @param {Object} metrics - метрики
  * @param {Object} debugInfo - отладочная информация
  */
-async function saveDebugInfoIfNeeded(factController, processingTime, metrics, debugInfo) {
+async function saveDebugInfoIfNeeded(factController, message, processingTime, metrics, debugInfo) {
     try {
         // Получаем частоту сохранения из конфигурации
         const logSaveFrequency = config.logging.saveFrequency;
@@ -147,6 +147,7 @@ async function saveDebugInfoIfNeeded(factController, processingTime, metrics, de
             stats.maxProcessingTime = processingTime;
             stats.maxMetrics = metrics;
             stats.maxDebugInfo = debugInfo;
+            stats.maxMessage = message;
         }
         
         // Проверяем, достигли ли лимита запросов
@@ -154,7 +155,7 @@ async function saveDebugInfoIfNeeded(factController, processingTime, metrics, de
             if (factController && factController.dbProvider) {
                 const processId = process.pid;
                 // Сохраняем в лог
-                await factController.dbProvider.saveLog(processId, stats.maxProcessingTime, stats.maxMetrics, stats.maxDebugInfo);
+                await factController.dbProvider.saveLog(processId, stats.maxMessage, stats.maxProcessingTime, stats.maxMetrics, stats.maxDebugInfo);
                 
                 logger.debug(`Отладочная информация сохранена в лог для потока ${processId}`);
             }
@@ -164,6 +165,7 @@ async function saveDebugInfoIfNeeded(factController, processingTime, metrics, de
             stats.maxProcessingTime = null;
             stats.maxMetrics = null;
             stats.maxDebugInfo = null;
+            stats.maxMessage = null;
         }
     } catch (error) {
         logger.error('Ошибка при сохранении отладочной информации в лог:', {
@@ -272,7 +274,7 @@ function createRoutes(factController) {
             const result = await factController.processMessageWithCounters(message, debugMode);
 
             // Асинхронно сохраняем отладочную информацию (не блокируем ответ)
-            saveDebugInfoIfNeeded(factController, result.processingTime, result.metrics, result.debug)
+            saveDebugInfoIfNeeded(factController, message, result.processingTime, result.metrics, result.debug)
                 .catch(error => {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });
@@ -462,7 +464,7 @@ function createRoutes(factController) {
             const result = await factController.processMessageWithCounters(message, debugMode);
 
             // Асинхронно сохраняем отладочную информацию (не блокируем ответ)
-            saveDebugInfoIfNeeded(factController, result.processingTime, result.metrics, result.debug)
+            saveDebugInfoIfNeeded(factController, message, result.processingTime, result.metrics, result.debug)
                 .catch(error => {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });

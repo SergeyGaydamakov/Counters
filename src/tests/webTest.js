@@ -619,8 +619,9 @@ class ApiTester {
             let maxProcessingTime = null;
             let maxMetrics = null;
             let maxDebugInfo = null;
+            let maxMessage = null;
 
-            const saveDebugInfoIfNeeded = async (factController, processingTime, metrics, debugInfo) => {
+            const saveDebugInfoIfNeeded = async (factController, message, processingTime, metrics, debugInfo) => {
                 try {
                     const logSaveFrequency = parseInt(process.env.LOG_SAVE_FREQUENCY || '100');
 
@@ -630,12 +631,13 @@ class ApiTester {
                         maxProcessingTime = processingTime;
                         maxMetrics = metrics;
                         maxDebugInfo = debugInfo;
+                        maxMessage = message;
                     }
 
                     if (requestCounter >= logSaveFrequency) {
                         if (maxDebugInfo && mongoProvider) {
                             const processId = process.pid;
-                            await mongoProvider.saveLog(processId, maxProcessingTime, maxMetrics, maxDebugInfo);
+                            await mongoProvider.saveLog(processId, maxMessage, maxProcessingTime, maxMetrics, maxDebugInfo);
 
                             this.logger.info(`Отладочная информация сохранена в лог`);
                         }
@@ -644,6 +646,7 @@ class ApiTester {
                         maxProcessingTime = null;
                         maxMetrics = null;
                         maxDebugInfo = null;
+                        maxMessage = null;
                     }
                 } catch (error) {
                     this.logger.error('Ошибка при сохранении отладочной информации в лог:', {
@@ -655,18 +658,18 @@ class ApiTester {
 
             // Тестовые данные - максимальное время должно быть в первых 3 запросах
             const testMessages = [
-                { messageType: 1, processingTime: { total: 100 }, metrics: { test: 'data1' }, debugInfo: { test: 'data1' } },
-                { messageType: 2, processingTime: { total: 300 }, metrics: { test: 'data2' }, debugInfo: { test: 'data2' } }, // Максимальное время
-                { messageType: 3, processingTime: { total: 150 }, metrics: { test: 'data3' }, debugInfo: { test: 'data3' } },
-                { messageType: 4, processingTime: { total: 200 }, metrics: { test: 'data4' }, debugInfo: { test: 'data4' } },
-                { messageType: 5, processingTime: { total: 50 }, metrics: { test: 'data5' }, debugInfo: { test: 'data5' } }
+                { messageType: 1, message: { t: 1, d: { id: 'test-message-id1', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 100 }, metrics: { test: 'data1' }, debugInfo: { test: 'data1' } },
+                { messageType: 2, message: { t: 2, d: { id: 'test-message-id2', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 300 }, metrics: { test: 'data2' }, debugInfo: { test: 'data2' } }, // Максимальное время
+                { messageType: 3, message: { t: 3, d: { id: 'test-message-id3', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 150 }, metrics: { test: 'data3' }, debugInfo: { test: 'data3' } },
+                { messageType: 4, message: { t: 4, d: { id: 'test-message-id4', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 200 }, metrics: { test: 'data4' }, debugInfo: { test: 'data4' } },
+                { messageType: 5, message: { t: 5, d: { id: 'test-message-id5', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 50 }, metrics: { test: 'data5' }, debugInfo: { test: 'data5' } }
             ];
 
             // Симулируем обработку запросов
             for (let i = 0; i < testMessages.length; i++) {
                 const msg = testMessages[i];
 
-                await saveDebugInfoIfNeeded(mongoProvider, msg.processingTime, msg.metrics, msg.debugInfo);
+                await saveDebugInfoIfNeeded(mongoProvider, msg.message, msg.processingTime, msg.metrics, msg.debugInfo);
             }
 
             // Проверяем, что в логе есть записи

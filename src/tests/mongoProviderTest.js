@@ -2268,6 +2268,16 @@ class MongoProviderTest {
         try {
             // Подготавливаем тестовые данные
             const processId = 'test-process-' + Date.now();
+            const message = {
+                t: 1,
+                d: {
+                    id: 'test-message-id',
+                    amount: 100,
+                    dt: '2025-01-01',
+                    f1: 'test-field-1',
+                    f2: 'test-field-2'
+                }
+            };
             const metrics = {
                 totalFacts: 10,
                 processedFacts: 8,
@@ -2289,7 +2299,7 @@ class MongoProviderTest {
             };
 
             // Вызываем метод saveLog
-            await this.provider.saveLog(processId, processingTime, metrics, debugInfo);
+            await this.provider.saveLog(processId, message, processingTime, metrics, debugInfo);
 
             // Проверяем, что запись была сохранена, выполняя поиск в коллекции log
             const logCollection = this.provider._counterDb.collection(this.provider.LOG_COLLECTION_NAME);
@@ -2314,12 +2324,30 @@ class MongoProviderTest {
                 throw new Error(`Некорректное значение поля p (processId): ожидалось ${processId}, получено ${savedLog.p}`);
             }
 
+            if (!savedLog.msg || typeof savedLog.msg !== 'object') {
+                throw new Error('Отсутствует или некорректно поле msg (message) в сохраненной записи лога');
+            }
+
+            if (!savedLog.t || typeof savedLog.t !== 'object') {
+                throw new Error('Отсутствует или некорректно поле t (processingTime) в сохраненной записи лога');
+            }
+
             if (!savedLog.m || typeof savedLog.m !== 'object') {
                 throw new Error('Отсутствует или некорректно поле m (metrics) в сохраненной записи лога');
             }
 
             if (!savedLog.di || typeof savedLog.di !== 'object') {
                 throw new Error('Отсутствует или некорректно поле di (debugInfo) в сохраненной записи лога');
+            }
+
+            // Проверяем содержимое сообщения
+            if (savedLog.msg.t !== message.t) {
+                throw new Error(`Некорректное значение t: ожидалось ${message.t}, получено ${savedLog.msg.t}`);
+            }
+
+            // Проверяем содержимое времени выполнения запроса
+            if (savedLog.t.total !== processingTime.total) {
+                throw new Error(`Некорректное значение total: ожидалось ${processingTime.total}, получено ${savedLog.t.total}`);
             }
 
             // Проверяем содержимое метрик
@@ -2365,6 +2393,16 @@ class MongoProviderTest {
         try {
             // Сначала добавляем тестовые данные в коллекцию логов
             const testProcessId = 'test-clear-process-' + Date.now();
+            const testMessage = {
+                t: 1,
+                d: {
+                    id: 'test-message-id',
+                    amount: 100,
+                    dt: '2025-01-01',
+                    f1: 'test-field-1',
+                    f2: 'test-field-2'
+                }
+            };
             const testMetrics = {
                 totalFacts: 5,
                 processedFacts: 5,
@@ -2383,7 +2421,7 @@ class MongoProviderTest {
             };
 
             // Сохраняем тестовую запись в лог
-            await this.provider.saveLog(testProcessId, testProcessingTime, testMetrics, testDebugInfo);
+            await this.provider.saveLog(testProcessId, testMessage, testProcessingTime, testMetrics, testDebugInfo);
 
             // Проверяем, что запись была добавлена
             const countBefore = await this.provider.countLogCollection();
