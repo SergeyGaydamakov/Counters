@@ -475,6 +475,18 @@ class MongoProvider {
                 indexFacetStages[counter.indexTypeName][counter.name].push(matchStage);
             }
             indexFacetStages[counter.indexTypeName][counter.name].push(groupStage);
+            // Дополнительно обрабатываем счетчики на получение уникальных значений, признаком является $addToSet
+            const addFieldsStage = {};
+            Object.keys(counter.attributes).forEach(counterName => {
+                const counterEvaluation = counter.attributes[counterName];
+                if (counterEvaluation && counterEvaluation["$addToSet"]) {
+                    // Есть выражение для получения уникальных значений
+                    addFieldsStage[counterName] = { "$size": "$"+counterName};
+                }
+            });
+            if (Object.keys(addFieldsStage).length) {
+                indexFacetStages[counter.indexTypeName][counter.name].push({ "$addFields": addFieldsStage });
+            }
         });
 
         // Если в выражении счетчиков есть параметры, то заменить их на значения атрибутов из факта

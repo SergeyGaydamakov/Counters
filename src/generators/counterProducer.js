@@ -1023,13 +1023,13 @@ class CounterProducer {
             this._counterConfigByType = {};
         }
         if (!this._counterConfigByType[type]) {
-            // Находим счетчики, у которых в computationConditions есть MessageTypeId и его значение равно type
+            // Находим счетчики, у которых в computationConditions есть d.MessageTypeId или t (для тестов) и его значение равно type
             this._counterConfigByType[type] = [];
             this._counterConfig.forEach(counter => {
                 // Проверяем только одно условие на MessageTypeId
                 const messageTypeIdValue = counter.computationConditions["d.MessageTypeId"] || counter.computationConditions["t"];
                 const condition = { "d.MessageTypeId": messageTypeIdValue };
-                // Создаем факт с указанным типом для проверки условия
+                // Создаем временный факт с указанным типом для проверки условия
                 const fact = {
                     "d": {
                         "MessageTypeId": type,
