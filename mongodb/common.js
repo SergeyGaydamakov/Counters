@@ -12,17 +12,28 @@ function ExtractFirstKeyOfIndex(tag) {
 // Вывод информации о медленных запросах
 // detail - степень детализации вывода
 function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){
-//  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*60*10)}}, {_id: 1, "t.total": 1}).sort({t:-1}).limit(2).toArray();
-  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*lastSeconds)}}).sort({t:-1}).limit(limit).toArray();
+//  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*60*10)}}, {_id: 1, "t.total": 1}).sort({c:-1}).limit(2).toArray();
+  print(`***   SlowRequests by total time: lastSeconds: ${lastSeconds}`);
+  const resultTotal = db.log.find({c: {$gte: new Date( Date.now() - 1000*lastSeconds)}}).sort({"t.total":-1}).limit(limit).toArray();
   print(`| ${StrLeftAlign("Time", 20)} | ${StrLeftAlign("_id", 30)} | ${StrRightAlign("t.total, ms", 15)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.saveIndex, ms", 15)} | ${StrRightAlign("t.saveFact, ms", 15)} |`);
-  result.forEach(function (item) {
+  resultTotal.forEach(function (item) {
+    if (!item.t) {
+      return;
+    }
+    print(`| ${StrLeftAlign(DateTimeToString(item.c), 20)} | ${StrLeftAlign(item._id, 30)} | ${StrRightAlign(item.t.total, 15)} | ${StrRightAlign(item.t.counters, 15)} | ${StrRightAlign(item.t.saveIndex, 15)} | ${StrRightAlign(item.t.saveFact, 15)} |`);
+  });
+  print("");
+  print(`***   SlowRequests by counters time: lastSeconds: ${lastSeconds}`);
+  const resultCounters = db.log.find({c: {$gte: new Date( Date.now() - 1000*lastSeconds)}}).sort({"t.counters":-1}).limit(limit).toArray();
+  print(`| ${StrLeftAlign("Time", 20)} | ${StrLeftAlign("_id", 30)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.saveIndex, ms", 15)} | ${StrRightAlign("t.saveFact, ms", 15)} |`);
+  resultCounters.forEach(function (item) {
     if (!item.t) {
       return;
     }
     print(`| ${StrLeftAlign(DateTimeToString(item.c), 20)} | ${StrLeftAlign(item._id, 30)} | ${StrRightAlign(item.t.total, 15)} | ${StrRightAlign(item.t.counters, 15)} | ${StrRightAlign(item.t.saveIndex, 15)} | ${StrRightAlign(item.t.saveFact, 15)} |`);
   });
   if (detail > 1) {
-    print("  " + JSON.stringify(result[0], null, 2));
+    print("  " + JSON.stringify(resultTotal[0], null, 2));
   }
 }
 

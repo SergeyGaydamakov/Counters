@@ -15,6 +15,9 @@ class MongoProvider {
     // Читаем всегда локальную копию данных
     READ_CONCERN = { level: "local" };
     // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
+    // https://www.mongodb.com/docs/manual/core/journaling/#std-label-journal-process
+    // Параметр на сервере: storage.journal.commitIntervalMs
+    // https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs
     WRITE_CONCERN = { w: "majority", j: false, wtimeout: 5000 };
 
     /**
