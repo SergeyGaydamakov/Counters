@@ -128,7 +128,7 @@ async function main(){
         let factCount = 0;
         const mongoCounters = new CounterProducer(counterConfigPath);
         // Создаем провайдер данных
-        mongoProvider = new MongoProvider(connectionString, databaseName, mongoCounters);
+        mongoProvider = new MongoProvider(connectionString, databaseName, mongoCounters, includeFactDataToIndex);
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider

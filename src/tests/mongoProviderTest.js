@@ -70,7 +70,8 @@ class MongoProviderTest {
         this.provider = new MongoProvider(
             config.database.connectionString,
             'mongoProviderTestDB',
-            this.mongoCounters
+            this.mongoCounters,
+            config.facts.includeFactDataToIndex
         );
 
         // Минимальная конфигурация полей для тестов (6 первых полей)
@@ -178,7 +179,7 @@ class MongoProviderTest {
             }
         ];
 
-        this.indexer = new FactIndexer(this.indexConfig);
+        this.indexer = new FactIndexer(this.indexConfig, config.facts.includeFactDataToIndex);
         this.mapper = new FactMapper(this.fieldConfig);
         this.testResults = {
             passed: 0,
@@ -2475,13 +2476,14 @@ class MongoProviderTest {
             const testProvider = new MongoProvider(
                 config.database.connectionString,
                 'mongoProviderTestDB',
-                testMongoCounters
+                testMongoCounters,
+                config.facts.includeFactDataToIndex
             );
             await testProvider.connect();
 
             // this.generator = new MessageGenerator(this.fieldConfig);
 
-            const testIndexer = new FactIndexer(config.facts.indexConfigPath);
+            const testIndexer = new FactIndexer(config.facts.indexConfigPath, config.facts.includeFactDataToIndex);
             const testMapper = new FactMapper(config.facts.fieldConfigPath);
 
             await testProvider.clearFactsCollection();

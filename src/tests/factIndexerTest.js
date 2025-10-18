@@ -1,5 +1,6 @@
 const { FactIndexer, MessageGenerator, FactMapper } = require('../index');
 const Logger = require('../utils/logger');
+const config = require('../common/config');
 
 /**
  * Тесты для класса FactIndexer (создание индексных значений)
@@ -61,7 +62,7 @@ class FactIndexerTest {
             }
         ];
 
-        this.indexer = new FactIndexer(this.testIndexConfig, true); // includeFactData = true для тестов
+        this.indexer = new FactIndexer(this.testIndexConfig, config.facts.includeFactDataToIndex);
 
         // Тестовая конфигурация полей
         this.testFieldConfig = [
@@ -547,7 +548,7 @@ class FactIndexerTest {
                 }
             ];
 
-            const indexer = new FactIndexer(indexConfig);
+            const indexer = new FactIndexer(indexConfig, config.facts.includeFactDataToIndex);
 
             // Тестовый факт с разными полями дат
             const fact = {
@@ -729,7 +730,7 @@ class FactIndexerTest {
         let errorCount = 0;
         testCases.forEach((testCase, index) => {
             try {
-                new FactIndexer(testCase.config);
+                new FactIndexer(testCase.config, config.facts.includeFactDataToIndex);
                 if (testCase.shouldThrow) {
                     errorCount++;
                     this.logger.error(`   ✗ Тест ${index + 1} (${testCase.description}): должен был выбросить ошибку`);

@@ -157,7 +157,8 @@ async function initialize() {
         mongoProvider = new MongoProvider(
             config.database.connectionString, 
             config.database.databaseName,
-            mongoCounters
+            mongoCounters,
+            config.facts.includeFactDataToIndex
         );
         
         // Добавляем таймаут для подключения к MongoDB

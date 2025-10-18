@@ -603,7 +603,8 @@ class ApiTester {
             mongoProvider = new MongoProvider(
                 config.database.connectionString,
                 'debugLoggingTestDB',
-                this.mongoCounters
+                this.mongoCounters,
+                config.facts.includeFactDataToIndex
             );
             await mongoProvider.connect();
 

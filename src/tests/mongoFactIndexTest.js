@@ -12,7 +12,9 @@ class MongoFactIndexTest {
         this.logger.info(`Starting MongoFactIndex tests... ${config.database.connectionString} ${DATABASE_NAME}`);
         this.provider = new MongoProvider(
             config.database.connectionString,
-            DATABASE_NAME
+            DATABASE_NAME,
+            null,
+            config.facts.includeFactDataToIndex
         );
 
         this.testIndexConfig = [
@@ -66,7 +68,7 @@ class MongoFactIndexTest {
                 indexValue: 1
             }
         ];
-        this.indexer = new FactIndexer(this.testIndexConfig);
+        this.indexer = new FactIndexer(this.testIndexConfig, config.facts.includeFactDataToIndex);
 
         // Тестовая конфигурация полей
         const testFieldConfig = [

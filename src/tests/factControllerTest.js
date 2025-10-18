@@ -97,7 +97,9 @@ class FactControllerTest {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
         this.provider = new MongoProvider(
             config.database.connectionString,
-            'factControllerTestDB'
+            'factControllerTestDB',
+            null,
+            config.facts.includeFactDataToIndex
         );
 
 
