@@ -61,7 +61,7 @@ class FactIndexerTest {
             }
         ];
 
-        this.indexer = new FactIndexer(this.testIndexConfig);
+        this.indexer = new FactIndexer(this.testIndexConfig, true); // includeFactData = true для тестов
 
         // Тестовая конфигурация полей
         this.testFieldConfig = [
@@ -465,8 +465,8 @@ class FactIndexerTest {
                 if (typeof indexValue.t !== 'number') {
                     throw new Error(`Поле t должно быть числом в индексном значении ${i}`);
                 }
-                if (!(indexValue.d instanceof Date)) {
-                    throw new Error(`Поле d должно быть датой в индексном значении ${i}`);
+                if (typeof indexValue.d !== 'object' || indexValue.d === null) {
+                    throw new Error(`Поле d должно быть объектом в индексном значении ${i}`);
                 }
                 if (!(indexValue.c instanceof Date)) {
                     throw new Error(`Поле c должно быть датой в индексном значении ${i}`);
@@ -505,7 +505,7 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильную структуру
             indexValues.forEach(indexValue => {
-                const requiredFields = ['_id', 'd', 'c'];
+                const requiredFields = ['_id', 'dt', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -574,7 +574,7 @@ class FactIndexerTest {
             if (!index1) {
                 throw new Error('Не найдено индексное значение для f1');
             }
-            if (index1.d.getTime() !== fact.d.customDate.getTime()) {
+            if (index1.dt.getTime() !== fact.d.customDate.getTime()) {
                 throw new Error('Дата в первом индексном значении не соответствует customDate');
             }
 
@@ -583,7 +583,7 @@ class FactIndexerTest {
             if (!index2) {
                 throw new Error('Не найдено индексное значение для f2');
             }
-            if (index2.d.getTime() !== fact.d.dt.getTime()) {
+            if (index2.dt.getTime() !== fact.d.dt.getTime()) {
                 throw new Error('Дата во втором индексном значении не соответствует dt');
             }
 

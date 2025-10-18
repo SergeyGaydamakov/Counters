@@ -396,7 +396,7 @@ function CounterStatistics(limit = 1000, hashIndex = 10, lastDays = 14, database
     comment: "getRelevantFactCounters - find",
     projection: { "_id": 1 }
   };
-  const cursorfactIndex = dbStat.factIndex.find(findQuery, findOptionsForStatistics).sort({ d: -1 }).limit(limit).batchSize(2000);
+  const cursorfactIndex = dbStat.factIndex.find(findQuery, findOptionsForStatistics).sort({ dt: -1 }).limit(limit).batchSize(2000);
   const findEndTime = new Date();
   const findArrayResult = cursorfactIndex.toArray();
   const findArrayEndTime = new Date();

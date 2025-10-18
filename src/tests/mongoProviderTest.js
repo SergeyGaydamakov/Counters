@@ -579,7 +579,15 @@ class MongoProviderTest {
                 throw new Error('Схема индексных значений пуста или не получена');
             }
 
-            const requiredFields = ['_id', 'd', 'c'];
+            // Базовые обязательные поля
+            const requiredFields = ['_id', 'c', 'dt'];
+            
+            // Поле 'd' включается только если INCLUDE_FACT_DATA_TO_INDEX=true
+            const includeFactData = config.facts.includeFactDataToIndex;
+            if (includeFactData) {
+                requiredFields.push('d');
+            }
+            
             const schemaFields = schema.fields.map(f => f.name);
 
             for (const field of requiredFields) {

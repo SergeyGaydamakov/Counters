@@ -12,7 +12,7 @@ class FactController {
     MAX_DEPTH_LIMIT = 1000;
     MAX_DEPTH_FROM_DATE = new Date(Date.now() - 300 * 24 * 60 * 60 * 1000);
 
-    constructor(dbProvider, fieldConfigPathOrObject, indexConfigPathOrObject, targetSize) {
+    constructor(dbProvider, fieldConfigPathOrObject, indexConfigPathOrObject, targetSize, includeFactDataToIndex) {
         if (!dbProvider) {
             throw new Error('dbProvider обязателен для инициализации FactController');
         }
@@ -30,7 +30,7 @@ class FactController {
 
         this.dbProvider = dbProvider;
         this.messageGenerator = new MessageGenerator(fieldConfigPathOrObject, targetSize);
-        this.factIndexer = new FactIndexer(indexConfigPathOrObject);
+        this.factIndexer = new FactIndexer(indexConfigPathOrObject, includeFactDataToIndex);
         this.factMapper = new FactMapper(fieldConfigPathOrObject);
 
         // Значения хеша

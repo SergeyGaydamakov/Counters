@@ -235,7 +235,7 @@ try {
             bsonType: "object",
             title: "Схема для коллекции индексных значений фактов",
             description: "Схема для коллекции индексных значений фактов",
-            required: ["_id", "d", "c"],
+            required: ["_id", "dt", "c"],
             properties: {
                 _id: {
                     bsonType: "object",
@@ -250,9 +250,13 @@ try {
                         },
                     }
                 },
-                d: {
+                dt: {
                     bsonType: "date",
                     description: "Дата факта"
+                },
+                d: {
+                    bsonType: "object",
+                    description: "JSON объект с данными факта"
                 },
                 c: {
                     bsonType: "date",
@@ -330,9 +334,9 @@ try {
     });
     const indexesToCreate = [
         {
-            key: { "_id.h": 1, "d": -1 },
+            key: { "_id.h": 1, "dt": -1 },
             options: {
-                name: 'idx_id_h_d',
+                name: 'idx_id_h_dt',
                 background: true
             }
         }

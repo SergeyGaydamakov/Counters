@@ -21,7 +21,8 @@ const Logger = require('../utils/logger');
  * @property {string} v - Значение индексируемого поля
  * @property {string} _id - Идентификатор факта
  * @property {number} t - Тип факта
- * @property {Date} d - Дата факта
+ * @property {Date} dt - Дата факта
+ * @property {Object} d - JSON объект с данными факта (необязательное поле, зависит от настроек)
  * @property {Date} c - Дата создания факта в базе данных
  * 
  */
@@ -30,8 +31,10 @@ class FactIndexer {
     INDEX_VALUE_VALUE = 2;      // Значение индекса является само значением поля индекса
     HASH_ALGORITHM = 'sha1';    // Алгоритм хеширования
 
-    constructor(configPathOrMapArray = null) {
+    constructor(configPathOrMapArray = null, includeFactData = false) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
+        this.includeFactData = includeFactData; // Включать данные факта в индексное значение
+        
         try {
             if (Array.isArray(configPathOrMapArray)) {
                 this._validateConfig(configPathOrMapArray);
@@ -284,18 +287,22 @@ class FactIndexer {
                     return;
                 }
 
-                indexValues.push({
-                    _id: {
-                        h: indexValue,          // вычисленное значение индекса
-                        f: fact._id             // идентификатор факта
+                const indexData = {
+                    "_id": {
+                        "h": indexValue,              // вычисленное значение индекса
+                        "f": fact._id                 // идентификатор факта
                     },               
-                    d: indexDate,               // дата из поля dateName или значение по умолчанию
-                    c: fact.c,                  // дата создания факта
+                    "dt": indexDate,                  // дата из поля dateName или значение по умолчанию
+                    "c": new Date(),                  // дата создания факта
                     // @deprecated нужно удалить после отладки
-                    it: configItem.indexType,   // числовой тип индекса из конфигурации
-                    v: String(fact.d[fieldName]),       // значение поля из факта
-                    t: fact.t                   // тип факта
-                });
+                    "it": configItem.indexType,       // числовой тип индекса из конфигурации
+                    "v": String(fact.d[fieldName]),   // значение поля из факта
+                    "t": fact.t,                      // тип факта
+                };
+                if (this.includeFactData) {
+                    indexData["d"] = fact.d;       // JSON объект с данными факта
+                }
+                indexValues.push(indexData);
             }
         });
 

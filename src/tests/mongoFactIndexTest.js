@@ -18,49 +18,49 @@ class MongoFactIndexTest {
         this.testIndexConfig = [
             {
                 fieldName: "f1",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_1",
                 indexType: 1,
                 indexValue: 1
             },
             {
                 fieldName: "f2",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_2",
                 indexType: 2,
                 indexValue: 2
             },
             {
                 fieldName: "f3",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_3",
                 indexType: 3,
                 indexValue: 1
             },
             {
                 fieldName: "f5",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_5",
                 indexType: 5,
                 indexValue: 2
             },
             {
                 fieldName: "f4",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_4",
                 indexType: 4,
                 indexValue: 1
             },
             {
                 fieldName: "f6",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_6",
                 indexType: 6,
                 indexValue: 2
             },
             {
                 fieldName: "f7",
-                dateName: "d",
+                dateName: "dt",
                 indexTypeName: "test_type_7",
                 indexType: 7,
                 indexValue: 1
@@ -71,8 +71,8 @@ class MongoFactIndexTest {
         // Тестовая конфигурация полей
         const testFieldConfig = [
             {
-                "src": "d",
-                "dst": "d",
+                "src": "dt",
+                "dst": "dt",
                 "message_types": [1, 2, 3], // user_action, system_message, payment
                 "generator": {
                     "type": "date",
@@ -261,7 +261,7 @@ class MongoFactIndexTest {
                 throw new Error('Схема пуста или не получена');
             }
 
-            const requiredFields = ['_id', 'd', 'c', 'v', 'it', 't'];
+            const requiredFields = ['_id', 'dt', 'c', 'v', 'it', 't']; // d необязательное поле
             const schemaFields = schema.fields.map(f => f.name);
             
             for (const field of requiredFields) {

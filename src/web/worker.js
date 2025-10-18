@@ -120,6 +120,8 @@ async function initialize() {
         logger.info(`   - Счетчики: ${config.facts.counterConfigPath || 'не указан'}`);
         logger.info(`   - Поля: ${config.facts.fieldConfigPath || 'не указан'}`);
         logger.info(`   - Индексы: ${config.facts.indexConfigPath || 'не указан'}`);
+        logger.info(`📊 Настройки индексирования:`);
+        logger.info(`   - Включать данные факта в индекс: ${config.facts.includeFactDataToIndex}`);
         
         // Выводим информацию о разрешенных типах сообщений
         logger.info(`📨 Обрабатываемые типы сообщений:`);
@@ -173,7 +175,8 @@ async function initialize() {
             mongoProvider, 
             config.facts.fieldConfigPath, 
             config.facts.indexConfigPath, 
-            config.facts.targetSize
+            config.facts.targetSize,
+            config.facts.includeFactDataToIndex
         );
         logger.info(`✅ FactController инициализирован в воркере ${process.pid}`);
 

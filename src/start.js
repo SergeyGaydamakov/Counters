@@ -1,6 +1,7 @@
 // Импортируем систему логирования
 const Logger = require('./utils/logger');
 const { MongoProvider, FactController, CounterProducer } = require('./index');
+const config = require('./common/config');
 
 // Загружаем переменные окружения из .env файла
 const dotenv = require('dotenv');
@@ -9,15 +10,16 @@ dotenv.config();
 // Создаем глобальный логгер с уровнем из переменной окружения
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
-// Параметры подключения к MongoDB из .env
-const connectionString = process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017';
-const databaseName = process.env.MONGODB_DATABASE_NAME || 'counters';
+// Параметры подключения к MongoDB из config
+const connectionString = config.database.connectionString;
+const databaseName = config.database.databaseName;
 
-// Параметры генерации фактов из .env
-const fieldConfigPath = process.env.MESSAGE_CONFIG_PATH || null;
-const indexConfigPath = process.env.INDEX_CONFIG_PATH || null;
-const counterConfigPath = process.env.COUNTER_CONFIG_PATH || null;
-const targetSize = parseInt(process.env.FACT_TARGET_SIZE) || 500;
+// Параметры генерации фактов из config
+const fieldConfigPath = config.facts.fieldConfigPath;
+const indexConfigPath = config.facts.indexConfigPath;
+const counterConfigPath = config.facts.counterConfigPath;
+const targetSize = config.facts.targetSize;
+const includeFactDataToIndex = config.facts.includeFactDataToIndex;
 
 // Логируем загруженные параметры
 logger.info('=== Загруженные параметры из .env ===');
@@ -26,6 +28,7 @@ logger.info('MongoDB Database Name:', databaseName);
 logger.info('Field Config Path:', fieldConfigPath);
 logger.info('Index Config Path:', indexConfigPath);
 logger.info('Target Size:', targetSize);
+logger.info('Include Fact Data To Index:', includeFactDataToIndex);
 logger.info('=====================================\n');
 
 // Глобальная переменная для хранения провайдера
@@ -129,7 +132,7 @@ async function main(){
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider
-        const factController = new FactController(mongoProvider, fieldConfigPath, indexConfigPath, targetSize);
+        const factController = new FactController(mongoProvider, fieldConfigPath, indexConfigPath, targetSize, includeFactDataToIndex);
         const CYCLE_OUTPUT = 100;
         let startCycleTime = Date.now();
         let processingTime = initProcessingTime();

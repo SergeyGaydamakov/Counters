@@ -1003,7 +1003,7 @@ class MongoProvider {
                 "_id.h": indexInfo.hashValue
             };
             if (depthFromDate) {
-                factIndexFindQuery["d"] = {
+                factIndexFindQuery["dt"] = {
                     "$gte": depthFromDate
                 };
             }
@@ -1023,7 +1023,7 @@ class MongoProvider {
                 },
                 factIndexFindSort: {
                     "_id.h": 1,
-                    "d": -1
+                    "dt": -1
                 },
                 depthLimit: Math.min(indexInfo.index.limit ?? 100, depthLimit),
             };
@@ -1272,14 +1272,14 @@ class MongoProvider {
             },
         };
         if (depthFromDate) {
-            matchIndexQuery["d"] = {
+            matchIndexQuery["dt"] = {
                 "$gte": depthFromDate
             };
         }
 
         const sortIndexQuery = {
             "_id.h": 1,
-            "d": -1
+            "dt": -1
         };
 
         const projectIndexQuery = {
@@ -1505,7 +1505,7 @@ class MongoProvider {
             };
         }
         if (depthFromDate) {
-            findFactMatchQuery.d = {
+            findFactMatchQuery.dt = {
                 "$gte": depthFromDate
             };
         }
@@ -1520,7 +1520,7 @@ class MongoProvider {
         const factIndexCollection = this._getFactIndexCollection();
         const factsCollection = this._getFactsCollection();
 
-        const relevantFactIds = await factIndexCollection.find(findFactMatchQuery, findOptions).sort({ d: -1 }).limit(depthLimit).toArray();
+        const relevantFactIds = await factIndexCollection.find(findFactMatchQuery, findOptions).sort({ dt: -1 }).limit(depthLimit).toArray();
         // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
 
         // Если нет релевантных индексных значений, возвращаем пустую статистику
@@ -1643,7 +1643,7 @@ class MongoProvider {
             };
         }
         if (depthFromDate) {
-            matchQuery.d = {
+            matchQuery.dt = {
                 "$gte": depthFromDate
             };
         }
@@ -1659,7 +1659,7 @@ class MongoProvider {
         const factsCollection = this._getFactsCollection();
 
         // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
-        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ d: -1 }).batchSize(5000).limit(depthLimit).toArray();
+        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ dt: -1 }).batchSize(5000).limit(depthLimit).toArray();
         // Сформировать агрегирующий запрос к коллекции facts,
         const aggregateQuery = [
             {
@@ -2170,7 +2170,7 @@ class MongoProvider {
                     bsonType: "object",
                     title: "Схема для коллекции индексных значений фактов",
                     description: "Схема для коллекции индексных значений фактов",
-                    required: ["_id", "d", "c"],
+                    required: ["_id", "dt", "c"],
                     properties: {
                         _id: {
                             bsonType: "object",
@@ -2185,9 +2185,13 @@ class MongoProvider {
                                 },
                             }
                         },
-                        d: {
+                        dt: {
                             bsonType: "date",
                             description: "Дата факта"
+                        },
+                        d: {
+                            bsonType: "object",
+                            description: "JSON объект с данными факта"
                         },
                         c: {
                             bsonType: "date",
@@ -2233,7 +2237,7 @@ class MongoProvider {
                     validator: schema,
                     /* Замедляет работу
                     clusteredIndex: {
-                        key: { "_id": 1, "d": 1 },
+                        key: { "_id": 1, "dt": 1 },
                         unique: true
                     },
                     */
@@ -2270,9 +2274,9 @@ class MongoProvider {
 
             const indexesToCreate = [
                 {
-                    key: { "_id.h": 1, "d": -1 },
+                    key: { "_id.h": 1, "dt": -1 },
                     options: {
-                        name: 'idx_id_h_d',
+                        name: 'idx_id_h_dt',
                         background: true
                     }
                 }
@@ -2448,7 +2452,7 @@ class MongoProvider {
                     validator: schema,
                     /* Замедляет работу
                     clusteredIndex: {
-                        key: { "_id": 1, "d": 1 },
+                        key: { "_id": 1 },
                         unique: true
                     },
                     */
