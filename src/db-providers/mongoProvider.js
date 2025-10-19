@@ -5,6 +5,7 @@
 const { MongoClient, ObjectId } = require('mongodb');
 const Logger = require('../utils/logger');
 
+// Общий объект для подключения к MongoDB
 let _mongoClient = null;
 
 /**
@@ -12,14 +13,25 @@ let _mongoClient = null;
  * Содержит методы для управления подключением, схемами, вставкой данных, запросами и статистикой
  */
 class MongoProvider {
-    // Читаем всегда локальную копию данных
-    READ_CONCERN = { level: "local" };
-    // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
-    // https://www.mongodb.com/docs/manual/core/journaling/#std-label-journal-process
-    // Параметр на сервере: storage.journal.commitIntervalMs
-    // https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs
-    // WRITE_CONCERN = { w: "majority", j: false, wtimeout: 5000 };
-    WRITE_CONCERN = { w: 1, j: false, wtimeout: 5000 };
+    // Настройки по умолчанию
+    DEFAULT_OPTIONS = {
+        // Признак индивидуального клиента для подключения к базе данных 
+        individualProcessClient: false,
+        // Читаем всегда локальную копию данных
+        readConcern: { level: "local" },
+        // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
+        // https://www.mongodb.com/docs/manual/core/journaling/#std-label-journal-process
+        // Параметр на сервере: storage.journal.commitIntervalMs
+        // https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs
+        // WRITE_CONCERN = { w: "majority", j: false, wtimeout: 5000 };
+        writeConcern: { w: 1, j: false, wtimeout: 5000 },
+        minPoolSize: 100,
+        maxPoolSize: 800,
+        maxIdleTimeMS: 60000,
+        maxConnecting: 10,
+        serverSelectionTimeoutMS: 60000,
+    };
+
 
     /**
      * Конструктор MongoProvider
@@ -35,13 +47,14 @@ class MongoProvider {
      * - Метод make должен принимать объект факта и возвращать объект
      * - Возвращаемый объект должен содержать только массивы в качестве значений (для $facet)
      */
-    constructor(connectionString, databaseName, counterProducer, includeFactDataToIndex) {
+    constructor(connectionString, databaseName, databaseOptions, counterProducer, includeFactDataToIndex) {
         // Создаем логгер для этого провайдера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
-        this.connectionString = connectionString;
-        this.databaseName = databaseName;
-        this.includeFactDataToIndex = includeFactDataToIndex; // Включать данные факта в индексное значение
+        this._connectionString = connectionString;
+        this._databaseName = databaseName;
+        this._databaseOptions = this._mergeDatabaseOptions(databaseOptions);
+        this._includeFactDataToIndex = includeFactDataToIndex; // Включать данные факта в индексное значение
 
         // Проверяем интерфейс mongoCounters перед присваиванием
         this._counterProducer = this._validateMongoCountersInterface(counterProducer);
@@ -52,6 +65,39 @@ class MongoProvider {
         this._counterClient = null;
         this._counterDb = null;
         this._isConnected = false;
+    }
+
+    /**
+     * Глубокое слияние настроек базы данных с настройками по умолчанию
+     * @param {Object} userOptions - пользовательские настройки
+     * @returns {Object} - объединенные настройки
+     */
+    _mergeDatabaseOptions(userOptions) {
+        if (!userOptions || typeof userOptions !== 'object') {
+            return { ...this.DEFAULT_OPTIONS };
+        }
+
+        const merged = { ...this.DEFAULT_OPTIONS };
+
+        // Глубокое слияние для вложенных объектов
+        for (const key in userOptions) {
+            if (userOptions.hasOwnProperty(key)) {
+                if (userOptions[key] !== null && 
+                    typeof userOptions[key] === 'object' && 
+                    !Array.isArray(userOptions[key]) &&
+                    merged[key] !== null && 
+                    typeof merged[key] === 'object' && 
+                    !Array.isArray(merged[key])) {
+                    // Рекурсивное слияние для объектов
+                    merged[key] = { ...merged[key], ...userOptions[key] };
+                } else {
+                    // Простое присваивание для примитивов, массивов и null
+                    merged[key] = userOptions[key];
+                }
+            }
+        }
+
+        return merged;
     }
 
     /**
@@ -82,25 +128,26 @@ class MongoProvider {
     // ГРУППА 1: УПРАВЛЕНИЕ ПОДКЛЮЧЕНИЕМ
     // ============================================================================
 
-    _getMongoClient(connectionString) {
-        if (_mongoClient) {
+    _getMongoClient(connectionString, databaseOptions) {
+        if (_mongoClient && !databaseOptions.individualProcessClient) {
+            // Если не требуется индивидуальное создание клиента и он уже создан
             return _mongoClient;
         }
         // Опции для подключения по умолчанию
-        const defaultOptions = {
-            readConcern: this.READ_CONCERN,
+        const options = {
+            readConcern: databaseOptions.readConcern,
             readPreference: "primary",
-            writeConcern: this.WRITE_CONCERN,
+            writeConcern: databaseOptions.writeConcern,
             appName: "CounterTest",
             // monitorCommands: true,
-            minPoolSize: 100,
-            maxPoolSize: 800,
+            minPoolSize: databaseOptions.minPoolSize,
+            maxPoolSize: databaseOptions.maxPoolSize,
             maxIdleTimeMS: 60000,
-            maxConnecting: 10,
+            maxConnecting: databaseOptions.maxConnecting,
             serverSelectionTimeoutMS: 60000,
         };
         try {
-            _mongoClient = new MongoClient(connectionString, defaultOptions);
+            _mongoClient = new MongoClient(connectionString, options);
             return _mongoClient;
         } catch (error) {
             _mongoClient = null;
@@ -115,15 +162,15 @@ class MongoProvider {
      */
     async connect() {
         try {
-            this.logger.debug(`Подключение к MongoDB: ${this.connectionString}`);
+            this.logger.debug(`Подключение к MongoDB: ${this._connectionString}`);
 
-            this._counterClient = await this._getMongoClient(this.connectionString);
+            this._counterClient = await this._getMongoClient(this._connectionString, this._databaseOptions);
             await this._counterClient.connect();
-            this._counterDb = this._counterClient.db(this.databaseName);
+            this._counterDb = this._counterClient.db(this._databaseName);
 
             this._isConnected = true;
 
-            this.logger.debug(`✓ Успешное подключение к базе данных: ${this.databaseName}`);
+            this.logger.debug(`✓ Успешное подключение к базе данных: ${this._databaseName}`);
             this.logger.debug(`✓ Коллекция фактов: ${this.FACT_COLLECTION_NAME}`);
             this.logger.debug(`✓ Коллекция индексных значений: ${this.FACT_INDEX_COLLECTION_NAME}`);
         } catch (error) {
@@ -986,7 +1033,7 @@ class MongoProvider {
      * @returns {Promise<Array>} счетчики по фактам
      */
     async getRelevantFactCounters(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
-        if (this.includeFactDataToIndex) {
+        if (this._includeFactDataToIndex) {
             return this.getRelevantFactCountersFromIndex(factIndexInfos, fact, depthLimit, depthFromDate, debugMode);
         } else {
             return this.getRelevantFactCountersFromFact(factIndexInfos, fact, depthLimit, depthFromDate, debugMode);
@@ -2169,7 +2216,7 @@ class MongoProvider {
         try {
             var result = await adminDb.command({ listShards: 1 });
             if (result.ok == 1) {
-                this.logger.debug(`✓ База данных ${this.databaseName} работает в режиме шардирования. Шарды: ${result.shards.map(shard => shard._id).join(', ')}`);
+                this.logger.debug(`✓ База данных ${this._databaseName} работает в режиме шардирования. Шарды: ${result.shards.map(shard => shard._id).join(', ')}`);
                 return result.shards.length > 0;
             } else {
                 throw new Error(result.message);
@@ -2214,7 +2261,7 @@ class MongoProvider {
         try {
 
             const shardCollectionCommand = {
-                shardCollection: `${this.databaseName}.${collectionName}`,
+                shardCollection: `${this._databaseName}.${collectionName}`,
                 key: shardKey
             };
 
@@ -2829,7 +2876,7 @@ class MongoProvider {
 
         let adminClient = null;
         try {
-            adminClient = new MongoClient(this.connectionString);
+            adminClient = new MongoClient(this._connectionString);
             await adminClient.connect();
             const adminDb = adminClient.db('admin');
 
@@ -2843,19 +2890,19 @@ class MongoProvider {
                 errors: []
             };
 
-            if (await this._isDatabaseCreated(adminDb, this.databaseName)) {
-                this.logger.debug(`База данных ${this.databaseName} уже создана`);
+            if (await this._isDatabaseCreated(adminDb, this._databaseName)) {
+                this.logger.debug(`База данных ${this._databaseName} уже создана`);
                 return results;
             }
 
             this.logger.debug('\n=== Создание базы данных ===');
-            this.logger.debug(`База данных: ${this.databaseName}`);
+            this.logger.debug(`База данных: ${this._databaseName}`);
             this.logger.debug(`Коллекция facts: ${this.FACT_COLLECTION_NAME}`);
             this.logger.debug(`Коллекция factIndex: ${this.FACT_INDEX_COLLECTION_NAME}`);
 
             // 0. Подготовка к созданию базы данных
             this.logger.debug('\n0. Подготовка к созданию базы данных...');
-            this._enableSharding(adminDb, this.databaseName);
+            this._enableSharding(adminDb, this._databaseName);
 
             // 1. Создание схемы для коллекции facts
             this.logger.debug('\n1. Создание схемы для коллекции facts...');

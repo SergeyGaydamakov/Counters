@@ -2,6 +2,28 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 /**
+ * Безопасный парсинг JSON из переменной окружения
+ * @param {string} envVar - значение переменной окружения
+ * @param {*} defaultValue - значение по умолчанию
+ * @param {string} varName - имя переменной для логирования ошибок
+ * @returns {*} - распарсенное значение или значение по умолчанию
+ */
+function safeJsonParse(envVar, defaultValue, varName) {
+    if (!envVar) {
+        return defaultValue;
+    }
+    
+    try {
+        return JSON.parse(envVar);
+    } catch (error) {
+        console.error(`Ошибка парсинга JSON для переменной ${varName}:`, error.message);
+        console.error(`Некорректное значение: ${envVar}`);
+        console.error(`Используется значение по умолчанию:`, defaultValue);
+        return defaultValue;
+    }
+}
+
+/**
  * Конфигурация Web сервиса
  */
 const config = {
@@ -52,7 +74,15 @@ const config = {
     // Строка подключения к MongoDB
     database: {
         connectionString: process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017',
-        databaseName: process.env.MONGODB_DATABASE_NAME || 'counters'
+        databaseName: process.env.MONGODB_DATABASE_NAME || 'counters',
+        options: {
+            individualProcessClient: process.env.INDIVIDUAL_PROCESS_CLIENT === 'true' || false,
+            writeConcern: safeJsonParse(process.env.MONGODB_WRITE_CONCERN, { w: 1, j: false, wtimeout: 5000 }, 'MONGODB_WRITE_CONCERN'),
+            readConcern: safeJsonParse(process.env.MONGODB_READ_CONCERN, { level: "local" }, 'MONGODB_READ_CONCERN'),
+            minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE) || 100,
+            maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE) || 400,
+            maxConnecting: parseInt(process.env.MONGODB_MAX_CONNECTING) || 10,
+        }
     },
     
     // Фильтрация типов сообщений

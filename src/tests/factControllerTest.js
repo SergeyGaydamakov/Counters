@@ -98,6 +98,7 @@ class FactControllerTest {
         this.provider = new MongoProvider(
             config.database.connectionString,
             'factControllerTestDB',
+            config.database.options,
             null,
             config.facts.includeFactDataToIndex
         );

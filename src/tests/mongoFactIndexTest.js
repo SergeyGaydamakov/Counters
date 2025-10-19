@@ -13,6 +13,7 @@ class MongoFactIndexTest {
         this.provider = new MongoProvider(
             config.database.connectionString,
             DATABASE_NAME,
+            config.database.options,
             null,
             config.facts.includeFactDataToIndex
         );

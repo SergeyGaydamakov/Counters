@@ -157,6 +157,7 @@ async function initialize() {
         mongoProvider = new MongoProvider(
             config.database.connectionString, 
             config.database.databaseName,
+            config.database.options,
             mongoCounters,
             config.facts.includeFactDataToIndex
         );

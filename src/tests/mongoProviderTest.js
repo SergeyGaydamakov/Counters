@@ -70,6 +70,7 @@ class MongoProviderTest {
         this.provider = new MongoProvider(
             config.database.connectionString,
             'mongoProviderTestDB',
+            config.database.options,
             this.mongoCounters,
             config.facts.includeFactDataToIndex
         );
@@ -2476,6 +2477,7 @@ class MongoProviderTest {
             const testProvider = new MongoProvider(
                 config.database.connectionString,
                 'mongoProviderTestDB',
+                config.database.options,
                 testMongoCounters,
                 config.facts.includeFactDataToIndex
             );

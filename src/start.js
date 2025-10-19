@@ -13,6 +13,7 @@ const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 // Параметры подключения к MongoDB из config
 const connectionString = config.database.connectionString;
 const databaseName = config.database.databaseName;
+const databaseOptions = config.database.options;
 
 // Параметры генерации фактов из config
 const fieldConfigPath = config.facts.fieldConfigPath;
@@ -128,7 +129,7 @@ async function main(){
         let factCount = 0;
         const mongoCounters = new CounterProducer(counterConfigPath);
         // Создаем провайдер данных
-        mongoProvider = new MongoProvider(connectionString, databaseName, mongoCounters, includeFactDataToIndex);
+        mongoProvider = new MongoProvider(connectionString, databaseName, databaseOptions, mongoCounters, includeFactDataToIndex);
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider
