@@ -18,7 +18,8 @@ class MongoProvider {
     // https://www.mongodb.com/docs/manual/core/journaling/#std-label-journal-process
     // Параметр на сервере: storage.journal.commitIntervalMs
     // https://www.mongodb.com/docs/manual/reference/configuration-options/#mongodb-setting-storage.journal.commitIntervalMs
-    WRITE_CONCERN = { w: "majority", j: false, wtimeout: 5000 };
+    // WRITE_CONCERN = { w: "majority", j: false, wtimeout: 5000 };
+    WRITE_CONCERN = { w: 1, j: false, wtimeout: 5000 };
 
     /**
      * Конструктор MongoProvider

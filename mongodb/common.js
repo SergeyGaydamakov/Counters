@@ -206,7 +206,7 @@ function CounterStatistics(limit = 1000, hashIndex = 10, lastDays = 14, database
         "9fa0d762de9b5ce05ee918d180c36b7de38c98f4"
       ]
     },
-    "d": {
+    "dt": {
       "$gte": new Date(Date.now() - 1000 * 3600 * 24 * lastDays)
     }
   };
