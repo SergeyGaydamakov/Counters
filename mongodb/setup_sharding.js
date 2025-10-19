@@ -386,7 +386,7 @@ try {
             bsonType: "object",
             title: "Схема для коллекции фактов",
             description: "Схема для коллекции фактов",
-            required: ["_id", "t", "c", "d"],
+            required: ["_id", "c"],
             properties: {
                 _id: {
                     bsonType: "object",
@@ -403,6 +403,10 @@ try {
                 msg: {
                     bsonType: "object",
                     description: "Исходное сообщение"
+                },
+                f: {
+                    bsonType: "object",
+                    description: "JSON объект с фактом"
                 },
                 t: {
                     bsonType: "object",

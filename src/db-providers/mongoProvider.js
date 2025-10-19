@@ -16,8 +16,11 @@ class MongoProvider {
     // Настройки по умолчанию
     DEFAULT_OPTIONS = {
         // Признак индивидуального клиента для подключения к базе данных 
-        individualProcessClient: false,
+        // Достаточно создавать одного клиента на каждый процесс
+        // https://www.mongodb.com/docs/drivers/go/current/connect/connection-options/connection-pools/
+        individualProcessClient: true,
         // Читаем всегда локальную копию данных
+        // https://www.mongodb.com/docs/manual/reference/read-concern/
         readConcern: { level: "local" },
         // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
         // https://www.mongodb.com/docs/manual/core/journaling/#std-label-journal-process
@@ -2010,7 +2013,7 @@ class MongoProvider {
      * @param {Object} metrics - JSON объект с метриками обработки (metrics)
      * @param {Object} debugInfo - JSON объект с отладочной информацией (debug info)
      */
-    async saveLog(processId, message, processingTime, metrics, debugInfo) {
+    async saveLog(processId, message, fact, processingTime, metrics, debugInfo) {
         this.checkConnection();
         const logCollection = this._getLogCollection();
         try {
@@ -2019,6 +2022,7 @@ class MongoProvider {
                 c: new Date(),
                 p: String(processId),
                 msg: message,
+                f: fact,
                 t: processingTime,
                 m: metrics,
                 di: debugInfo
@@ -2696,7 +2700,7 @@ class MongoProvider {
         this.checkConnection();
 
         try {
-            // Определяем схему валидации JSON для коллекции factIndex
+            // Определяем схему валидации JSON для коллекции log
             const schema = {
                 $jsonSchema: {
                     bsonType: "object",
@@ -2719,6 +2723,10 @@ class MongoProvider {
                         msg: {
                             bsonType: "object",
                             description: "Исходное сообщение"
+                        },
+                        f: {
+                            bsonType: "object",
+                            description: "JSON объект с фактом"
                         },
                         t: {
                             bsonType: "object",

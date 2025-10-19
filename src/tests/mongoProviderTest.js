@@ -2308,8 +2308,18 @@ class MongoProviderTest {
                 saveIndex: 500
             };
 
+            const fact = {
+                _id: 'test-fact-id',
+                t: 1,
+                c: new Date(),
+                d: {
+                    amount: 100,
+                    dt: '2025-01-01',
+                }
+            };
+
             // Вызываем метод saveLog
-            await this.provider.saveLog(processId, message, processingTime, metrics, debugInfo);
+            await this.provider.saveLog(processId, message, fact, processingTime, metrics, debugInfo);
 
             // Проверяем, что запись была сохранена, выполняя поиск в коллекции log
             const logCollection = this.provider._counterDb.collection(this.provider.LOG_COLLECTION_NAME);
@@ -2429,9 +2439,18 @@ class MongoProviderTest {
                 saveFact: 800,
                 saveIndex: 800
             };
+            const testFact = {
+                _id: 'test-fact-id',
+                t: 1,
+                c: new Date(),
+                d: {
+                    amount: 100,
+                    dt: '2025-01-01',
+                }
+            };
 
             // Сохраняем тестовую запись в лог
-            await this.provider.saveLog(testProcessId, testMessage, testProcessingTime, testMetrics, testDebugInfo);
+            await this.provider.saveLog(testProcessId, testMessage, testFact, testProcessingTime, testMetrics, testDebugInfo);
 
             // Проверяем, что запись была добавлена
             const countBefore = await this.provider.countLogCollection();

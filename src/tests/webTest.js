@@ -623,7 +623,7 @@ class ApiTester {
             let maxDebugInfo = null;
             let maxMessage = null;
 
-            const saveDebugInfoIfNeeded = async (factController, message, processingTime, metrics, debugInfo) => {
+            const saveDebugInfoIfNeeded = async (factController, message, fact, processingTime, metrics, debugInfo) => {
                 try {
                     const logSaveFrequency = parseInt(process.env.LOG_SAVE_FREQUENCY || '100');
 
@@ -634,12 +634,13 @@ class ApiTester {
                         maxMetrics = metrics;
                         maxDebugInfo = debugInfo;
                         maxMessage = message;
+                        maxFact = fact;
                     }
 
                     if (requestCounter >= logSaveFrequency) {
                         if (maxDebugInfo && mongoProvider) {
                             const processId = process.pid;
-                            await mongoProvider.saveLog(processId, maxMessage, maxProcessingTime, maxMetrics, maxDebugInfo);
+                            await mongoProvider.saveLog(processId, maxMessage, maxFact, maxProcessingTime, maxMetrics, maxDebugInfo);
 
                             this.logger.info(`Отладочная информация сохранена в лог`);
                         }
@@ -649,6 +650,7 @@ class ApiTester {
                         maxMetrics = null;
                         maxDebugInfo = null;
                         maxMessage = null;
+                        maxFact = null;
                     }
                 } catch (error) {
                     this.logger.error('Ошибка при сохранении отладочной информации в лог:', {
@@ -660,18 +662,18 @@ class ApiTester {
 
             // Тестовые данные - максимальное время должно быть в первых 3 запросах
             const testMessages = [
-                { messageType: 1, message: { t: 1, d: { id: 'test-message-id1', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 100 }, metrics: { test: 'data1' }, debugInfo: { test: 'data1' } },
-                { messageType: 2, message: { t: 2, d: { id: 'test-message-id2', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 300 }, metrics: { test: 'data2' }, debugInfo: { test: 'data2' } }, // Максимальное время
-                { messageType: 3, message: { t: 3, d: { id: 'test-message-id3', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 150 }, metrics: { test: 'data3' }, debugInfo: { test: 'data3' } },
-                { messageType: 4, message: { t: 4, d: { id: 'test-message-id4', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 200 }, metrics: { test: 'data4' }, debugInfo: { test: 'data4' } },
-                { messageType: 5, message: { t: 5, d: { id: 'test-message-id5', dt: '2025-01-01', f1: 'test-field-1' } }, processingTime: { total: 50 }, metrics: { test: 'data5' }, debugInfo: { test: 'data5' } }
+                { messageType: 1, message: { t: 1, d: { id: 'test-message-id1', dt: '2025-01-01', f1: 'test-field-1' } }, fact: { _id: 'test-fact-id1', t: 1, c: new Date(), d: { amount: 100, dt: '2025-01-01' } }, processingTime: { total: 100 }, metrics: { test: 'data1' }, debugInfo: { test: 'data1' } },
+                { messageType: 2, message: { t: 2, d: { id: 'test-message-id2', dt: '2025-01-01', f1: 'test-field-1' } }, fact: { _id: 'test-fact-id2', t: 2, c: new Date(), d: { amount: 200, dt: '2025-01-01' } }, processingTime: { total: 300 }, metrics: { test: 'data2' }, debugInfo: { test: 'data2' } }, // Максимальное время
+                { messageType: 3, message: { t: 3, d: { id: 'test-message-id3', dt: '2025-01-01', f1: 'test-field-1' } }, fact: { _id: 'test-fact-id3', t: 3, c: new Date(), d: { amount: 300, dt: '2025-01-01' } }, processingTime: { total: 150 }, metrics: { test: 'data3' }, debugInfo: { test: 'data3' } },
+                { messageType: 4, message: { t: 4, d: { id: 'test-message-id4', dt: '2025-01-01', f1: 'test-field-1' } }, fact: { _id: 'test-fact-id4', t: 4, c: new Date(), d: { amount: 400, dt: '2025-01-01' } }, processingTime: { total: 200 }, metrics: { test: 'data4' }, debugInfo: { test: 'data4' } },
+                { messageType: 5, message: { t: 5, d: { id: 'test-message-id5', dt: '2025-01-01', f1: 'test-field-1' } }, fact: { _id: 'test-fact-id5', t: 5, c: new Date(), d: { amount: 500, dt: '2025-01-01' } }, processingTime: { total: 50 }, metrics: { test: 'data5' }, debugInfo: { test: 'data5' } }
             ];
 
             // Симулируем обработку запросов
             for (let i = 0; i < testMessages.length; i++) {
                 const msg = testMessages[i];
 
-                await saveDebugInfoIfNeeded(mongoProvider, msg.message, msg.processingTime, msg.metrics, msg.debugInfo);
+                await saveDebugInfoIfNeeded(mongoProvider, msg.message, msg.fact, msg.processingTime, msg.metrics, msg.debugInfo);
             }
 
             // Проверяем, что в логе есть записи
