@@ -6,6 +6,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const Logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
+const config = require('../common/config');
 
 // Общий объект для подключения к MongoDB
 let _mongoClient = null;
@@ -138,6 +139,9 @@ class MongoProvider {
      * @param {string} message - Сообщение для записи
      */
     _writeToLogFile(message) {
+        if (!config.logging.writeErrorsToFile) {
+            return;
+        }
         try {
             const logFilePath = path.join(process.cwd(), 'log_error.txt');
             const timestamp = new Date().toISOString();
