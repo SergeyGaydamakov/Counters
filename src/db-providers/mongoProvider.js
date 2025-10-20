@@ -4,6 +4,8 @@
  */
 const { MongoClient, ObjectId } = require('mongodb');
 const Logger = require('../utils/logger');
+const fs = require('fs');
+const path = require('path');
 
 // Общий объект для подключения к MongoDB
 let _mongoClient = null;
@@ -125,6 +127,24 @@ class MongoProvider {
         }
 
         return mongoCounters;
+    }
+
+    /**
+     * Записать сообщение в файл log.txt
+     * @param {string} message - Сообщение для записи
+     */
+    _writeToLogFile(message) {
+        try {
+            const logFilePath = path.join(process.cwd(), 'log_error.txt');
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            
+            fs.appendFileSync(logFilePath, logEntry, 'utf8');
+            this.logger.info(`Сообщение об ошибке записано в файл ${logFilePath}: ${logEntry}`);
+        } catch (error) {
+            // Если не удается записать в файл, выводим ошибку в консоль
+            this.logger.error('Ошибка при записи в log_error.txt:', error.message);
+        }
     }
 
     // ============================================================================
@@ -847,6 +867,18 @@ class MongoProvider {
     }
 
     /**
+     * Функция возвращает значение поля по пути с точками
+     * 
+     * @param {Object} obj - объект для обработки
+     * @param {string} path - путь к полю c точками
+     * @returns {any} значение поля
+     */
+    _getValueByPath(obj, path) {
+        const fields = path.split('.');
+        return fields.reduce((acc, field) => acc[field], obj);
+    }
+
+    /**
      * Заменяет переменные в выражении счетчиков на значения из факта
      * 
      * Пример использования:
@@ -893,7 +925,10 @@ class MongoProvider {
 
                     if (typeof value === 'string' && value.startsWith('$$')) {
                         // Если значение начинается с $$, это переменная
-                        const variableName = value.substring(2); // убираем $$
+                        let variableName = value.substring(2); // убираем $$
+                        if (variableName.includes('d.')) {
+                            variableName = variableName.substring(2); // убираем d.
+                        }
                         if (variableName.toUpperCase() === 'NOW') {
                             obj[key] = nowDate;
                             this.logger.debug(`Заменена переменная ${value} на значение: ${nowDate}`);
@@ -982,7 +1017,7 @@ class MongoProvider {
         const factsCollection = this._getFactsCollection();
         const startCountersQueryTime = Date.now();
         try {
-            this.logger.debug(`Агрегационный запрос для индекса ${indexTypeName}: ${JSON.stringify(factFacetStage)}`);
+            // this.logger.debug(`Агрегационный запрос для индекса ${indexTypeName}: ${JSON.stringify(factFacetStage)}`);
             const countersResult = await factsCollection.aggregate(factFacetStage, aggregateFactOptions).toArray();
             const countersSize = debugMode ? JSON.stringify(countersResult[0]).length : undefined;
             return {
@@ -999,6 +1034,9 @@ class MongoProvider {
             };
         } catch (error) {
             this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
+            this._writeToLogFile(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
+            this._writeToLogFile(JSON.stringify(factFacetStage, null, 2));
+
             return {
                 counters: null,
                 error: error.message,
@@ -1383,6 +1421,8 @@ class MongoProvider {
                 };
             } catch (error) {
                 this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
+                this._writeToLogFile(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
+                this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
                 return {
                     indexTypeName: indexTypeName,
                     counters: null,

@@ -21,6 +21,7 @@ const indexConfigPath = config.facts.indexConfigPath;
 const counterConfigPath = config.facts.counterConfigPath;
 const targetSize = config.facts.targetSize;
 const includeFactDataToIndex = config.facts.includeFactDataToIndex;
+const maxDepthLimit = config.facts.maxDepthLimit;
 
 // Логируем загруженные параметры
 logger.info('=== Загруженные параметры из .env ===');
@@ -133,7 +134,7 @@ async function main(){
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider
-        const factController = new FactController(mongoProvider, fieldConfigPath, indexConfigPath, targetSize, includeFactDataToIndex);
+        const factController = new FactController(mongoProvider, fieldConfigPath, indexConfigPath, targetSize, includeFactDataToIndex, maxDepthLimit);
         const CYCLE_OUTPUT = 100;
         let startCycleTime = Date.now();
         let processingTime = initProcessingTime();

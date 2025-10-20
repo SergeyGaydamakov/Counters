@@ -210,7 +210,7 @@ function createRoutes(factController) {
         try {
             const { messageType } = req.params;
             const messageData = req.body;
-            const debugMode = req.headers['debug-mode'] === 'true';
+            const debugMode = req.headers['debug-mode'] === 'true' || config.logging.debugMode;
             if (debugMode) {
                 logger.info(`ВКЛЮЧЕН РЕЖИМ ОТЛАДКИ`);
             }
@@ -253,6 +253,8 @@ function createRoutes(factController) {
                 });
                 return res.status(200).json({status: `Тип сообщения ${messageTypeNumber} не разрешен для обработки. Обрабатываются только типы сообщений: ${config.messageTypes.allowedTypes.join(', ')}`});
             }
+            // Добавляем MessageTypeID
+            messageData.MessageTypeID = messageTypeNumber;
 
             // Добавляем тип события в данные
             const message = {
@@ -424,7 +426,7 @@ function createRoutes(factController) {
                 headers: req.headers
             });
 
-            const debugMode = req.headers['debug-mode'] === 'true';
+            const debugMode = req.headers['debug-mode'] === 'true' || config.logging.debugMode;
             if (debugMode) {
                 logger.info(`ВКЛЮЧЕН РЕЖИМ ОТЛАДКИ`);
             }
@@ -443,6 +445,10 @@ function createRoutes(factController) {
             delete messageData.Version;
             delete messageData.Message;
             delete messageData.MessageTypeId;
+
+            // Именно с большими буквами ID
+            messageData.MessageTypeID = messageType;
+            messageData.MessageId = messageId;
 
             // Создаем сообщение в формате для FactController
             const message = {

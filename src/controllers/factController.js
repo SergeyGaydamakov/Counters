@@ -12,10 +12,11 @@ class FactController {
     MAX_DEPTH_LIMIT = 1000;
     MAX_DEPTH_FROM_DATE = new Date(Date.now() - 300 * 24 * 60 * 60 * 1000);
 
-    constructor(dbProvider, fieldConfigPathOrObject, indexConfigPathOrObject, targetSize, includeFactDataToIndex) {
+    constructor(dbProvider, fieldConfigPathOrObject, indexConfigPathOrObject, targetSize, includeFactDataToIndex, maxDepthLimit) {
         if (!dbProvider) {
             throw new Error('dbProvider обязателен для инициализации FactController');
         }
+        this.MAX_DEPTH_LIMIT = maxDepthLimit;
 
         // Создаем логгер для этого контроллера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');

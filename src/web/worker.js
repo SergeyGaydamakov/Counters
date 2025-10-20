@@ -178,7 +178,8 @@ async function initialize() {
             config.facts.fieldConfigPath, 
             config.facts.indexConfigPath, 
             config.facts.targetSize,
-            config.facts.includeFactDataToIndex
+            config.facts.includeFactDataToIndex,
+            config.facts.maxDepthLimit
         );
         logger.info(`✅ FactController инициализирован в воркере ${process.pid}`);
 

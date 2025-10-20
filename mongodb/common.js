@@ -46,7 +46,7 @@ function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){
   const searchFromDate = new Date( Date.now() - 1000*lastSeconds*10);
   const resultMaxCountersCount = db.log.find({c: {$gte: searchFromDate}, "m.factCountersCount": {$gt: 2}}).sort({"m.factCountersCount":-1}).limit(1).toArray();
   if (resultMaxCountersCount.length > 0) {
-    print(`***   Максимальное количество счетчиков: ${resultMaxCountersCount[0].m.factCountersCount} в факте: ${resultMaxCountersCount[0].f._id}, запись в журнале: ${resultMaxCountersCount[0]._id}`);
+    print(`***   Максимальное количество счетчиков: ${resultMaxCountersCount[0].m?.factCountersCount} в факте: ${resultMaxCountersCount[0].f._id}, запись в журнале: ${resultMaxCountersCount[0]._id}`);
   } else {
     print("***   Количество счетчиков > 2: не найдено");
   }

@@ -39,7 +39,8 @@ const config = {
         indexConfigPath: process.env.INDEX_CONFIG_PATH || null,
         counterConfigPath: process.env.COUNTER_CONFIG_PATH || null,
         targetSize: parseInt(process.env.FACT_TARGET_SIZE) || 500,
-        includeFactDataToIndex: process.env.INCLUDE_FACT_DATA_TO_INDEX === 'true'
+        includeFactDataToIndex: process.env.INCLUDE_FACT_DATA_TO_INDEX === 'true',
+        maxDepthLimit: parseInt(process.env.MAX_DEPTH_LIMIT) || 500
     },
     
     // CORS настройки
@@ -68,7 +69,8 @@ const config = {
     // Логирование
     logging: {
         enableRequestLogging: process.env.ENABLE_REQUEST_LOGGING !== 'false',
-        saveFrequency: parseInt(process.env.LOG_SAVE_FREQUENCY) || 100
+        saveFrequency: parseInt(process.env.LOG_SAVE_FREQUENCY) || 100,
+        debugMode: process.env.DEBUG_MODE === 'true'
     },
     
     // Строка подключения к MongoDB
