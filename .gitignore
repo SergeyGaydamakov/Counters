@@ -2,7 +2,7 @@
 *.xlsx
 messages/
 docs/
-prod/
+prod/**
 
 # MongoDB
 mongodb/db/

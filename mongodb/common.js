@@ -13,8 +13,13 @@ function ExtractFirstKeyOfIndex(tag) {
 // detail - степень детализации вывода
 function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){
 //  const result = db.log.find({c: {$gte: new Date( Date.now() - 1000*60*10)}}, {_id: 1, "t.total": 1}).sort({c:-1}).limit(2).toArray();
-  print(`***   SlowRequests by total time: lastSeconds: ${lastSeconds}`);
-  const resultTotal = db.log.find({c: {$gte: new Date( Date.now() - 1000*lastSeconds)}}).sort({"t.total":-1}).limit(limit).toArray();
+  const startDate = new Date( Date.now() - 1000*lastSeconds);
+  const endDate = new Date( Date.now());
+  const factsCount = db.facts.find({ c: { $gte: startDate, $lte: endDate } }).count();
+  const query = {c: {$gte: startDate, $lte: endDate }};
+  const logCountTotal = db.log.find(query).sort({"t.total":-1}).count();
+  print(`***   SlowRequests by total time for last ${lastSeconds} seconds`);
+  const resultTotal = db.log.find(query).sort({"t.total":-1}).limit(limit).toArray();
   print(`| ${StrLeftAlign("Time", 20)} | ${StrLeftAlign("_id", 30)} | ${StrRightAlign("t.total, ms", 15)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.saveIndex, ms", 15)} | ${StrRightAlign("t.saveFact, ms", 15)} |`);
   resultTotal.forEach(function (item) {
     if (!item.t) {
@@ -23,8 +28,8 @@ function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){
     print(`| ${StrLeftAlign(DateTimeToString(item.c), 20)} | ${StrLeftAlign(item._id, 30)} | ${StrRightAlign(item.t.total, 15)} | ${StrRightAlign(item.t.counters, 15)} | ${StrRightAlign(item.t.saveIndex, 15)} | ${StrRightAlign(item.t.saveFact, 15)} |`);
   });
   print("");
-  print(`***   SlowRequests by counters time: lastSeconds: ${lastSeconds}`);
-  const resultCounters = db.log.find({c: {$gte: new Date( Date.now() - 1000*lastSeconds)}}).sort({"t.counters":-1}).limit(limit).toArray();
+  print(`***   SlowRequests by counters time for last ${lastSeconds} seconds`);
+  const resultCounters = db.log.find(query).sort({"t.counters":-1}).limit(limit).toArray();
   print(`| ${StrLeftAlign("Time", 20)} | ${StrLeftAlign("_id", 30)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.counters, ms", 15)} | ${StrRightAlign("t.saveIndex, ms", 15)} | ${StrRightAlign("t.saveFact, ms", 15)} |`);
   resultCounters.forEach(function (item) {
     if (!item.t) {
@@ -34,6 +39,16 @@ function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){
   });
   if (detail > 1) {
     print("  " + JSON.stringify(resultTotal[0], null, 2));
+  }
+  print(`***   В журнал записано ${logCountTotal} записей за последние ${lastSeconds} секунд`);
+  print(`***   Поступило ${factsCount} сообщений за последние ${lastSeconds} секунд`);
+  print("***   Скорость обработки сообщений: " + Math.round(factsCount / (endDate.getTime() - startDate.getTime()) * 1000) + " сообщений в секунду");
+  const searchFromDate = new Date( Date.now() - 1000*lastSeconds*10);
+  const resultMaxCountersCount = db.log.find({c: {$gte: searchFromDate}, "m.factCountersCount": {$gt: 2}}).sort({"m.factCountersCount":-1}).limit(1).toArray();
+  if (resultMaxCountersCount.length > 0) {
+    print(`***   Максимальное количество счетчиков: ${resultMaxCountersCount[0].m.factCountersCount} в факте: ${resultMaxCountersCount[0].f._id}, запись в журнале: ${resultMaxCountersCount[0]._id}`);
+  } else {
+    print("***   Количество счетчиков > 2: не найдено");
   }
 }
 
