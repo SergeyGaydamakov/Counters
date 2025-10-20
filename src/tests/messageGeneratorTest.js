@@ -1,4 +1,5 @@
 const MessageGenerator = require('../generators/messageGenerator');
+// const Logger = require('../utils/logger');
 
 /**
  * Тесты для MessageGenerator
@@ -1206,6 +1207,67 @@ function testArrayDefaultValueInteger(testName) {
 }
 
 /**
+ * Тест генерации integer с массивом default_value и default_random == 1
+ * (всегда выбирается одно из значений массива)
+ */
+function testArrayDefaultValueIntegerAlwaysDefault(testName) {
+    console.log(`\n=== Тест: ${testName} ===`);
+
+    try {
+        const resolutionDefaults = [
+            2,1,3,4,6,11,41,42,44,2,6,11,30,1,3,4,41,42,44,15,0
+        ];
+
+        const config = [
+            {
+                "src": "Resolution",
+                "dst": "Resolution",
+                "message_types": [50],
+                "generator": {
+                    "type": "integer",
+                    "min": 0,
+                    "max": 10000000,
+                    "default_value": resolutionDefaults,
+                    "default_random": 1.0
+                }
+            }
+        ];
+
+        const generator = new MessageGenerator(config);
+        const iterations = 200;
+        const results = [];
+
+        for (let i = 0; i < iterations; i++) {
+            const message = generator.generateMessage(50);
+            results.push(message.d.Resolution);
+        }
+
+        // Все значения должны быть из массива и целыми
+        const uniqueResults = [...new Set(results)];
+        const hasUnexpected = uniqueResults.some(v => !resolutionDefaults.includes(v));
+        if (hasUnexpected) {
+            throw new Error(`Найдены значения вне default_value: ${uniqueResults.filter(v => !resolutionDefaults.includes(v)).join(', ')}`);
+        }
+
+        const allIntegers = results.every(v => typeof v === 'number' && Number.isInteger(v));
+        if (!allIntegers) {
+            throw new Error('Среди результатов есть нецелочисленные значения');
+        }
+
+        // Проверим, что из массива встречаются как минимум несколько разных значений
+        if (uniqueResults.length < 3) {
+            console.log('⚠️ Мало уникальных значений; возможно, недостаточно итераций для равномерного выбора');
+        }
+
+        console.log('✅ При default_random == 1 используются только значения из массива default_value (integer)');
+        return true;
+    } catch (error) {
+        console.log(`❌ Ошибка: ${error.message}`);
+        return false;
+    }
+}
+
+/**
  * Тест генерации значений с массивом default_value для enum
  */
 function testArrayDefaultValueEnum(testName) {
@@ -1537,7 +1599,7 @@ function testTypePriorityStringInteger(testName) {
         const generator = new MessageGenerator(typePriorityTestConfig);
 
         // Проверяем, что для field1 выбран integer генератор (более специфичный)
-        const field1Generator = generator._fieldGeneratorsMap['field1'];
+        const field1Generator = (generator._fieldGeneratorsMap[1] || {})['field1'];
         
         if (!field1Generator) {
             console.log('❌ Генератор для field1 не найден');
@@ -1591,7 +1653,7 @@ function testTypePriorityStringBoolean(testName) {
         const generator = new MessageGenerator(typePriorityTestConfig);
 
         // Проверяем, что для field2 выбран boolean генератор (более специфичный)
-        const field2Generator = generator._fieldGeneratorsMap['field2'];
+        const field2Generator = (generator._fieldGeneratorsMap[1] || {})['field2'];
         
         if (!field2Generator) {
             console.log('❌ Генератор для field2 не найден');
@@ -1632,7 +1694,7 @@ function testTypePriorityMultipleTypes(testName) {
         const generator = new MessageGenerator(typePriorityTestConfig);
 
         // Проверяем, что для field3 выбран boolean генератор (наиболее специфичный)
-        const field3Generator = generator._fieldGeneratorsMap['field3'];
+        const field3Generator = (generator._fieldGeneratorsMap[1] || {})['field3'];
         
         if (!field3Generator) {
             console.log('❌ Генератор для field3 не найден');
@@ -1673,7 +1735,7 @@ function testTypePriorityDateStringInteger(testName) {
         const generator = new MessageGenerator(typePriorityTestConfig);
 
         // Проверяем, что для field4 выбран date генератор (наиболее специфичный)
-        const field4Generator = generator._fieldGeneratorsMap['field4'];
+        const field4Generator = (generator._fieldGeneratorsMap[1] || {})['field4'];
         
         if (!field4Generator) {
             console.log('❌ Генератор для field4 не найден');
@@ -1723,7 +1785,7 @@ function testMergeSameTypeParameters(testName) {
         const generator = new MessageGenerator(typePriorityTestConfig);
 
         // Проверяем, что для field5 выбран integer генератор с объединенными параметрами
-        const field5Generator = generator._fieldGeneratorsMap['field5'];
+        const field5Generator = (generator._fieldGeneratorsMap[1] || {})['field5'];
         
         if (!field5Generator) {
             console.log('❌ Генератор для field5 не найден');
@@ -1800,6 +1862,7 @@ function runAllTests() {
         { func: testArrayDefaultValueInteger, name: '24. Массив default_value для integer' },
         { func: testArrayDefaultValueEnum, name: '25. Массив default_value для enum' },
         { func: testArrayDefaultValueValidation, name: '26. Валидация массива default_value' },
+        { func: testArrayDefaultValueIntegerAlwaysDefault, name: '26.1. Integer default_value[] при default_random == 1' },
         { func: testTypePriorityStringInteger, name: '27. Выбор типа генератора: string + integer → integer' },
         { func: testTypePriorityStringBoolean, name: '28. Выбор типа генератора: string + boolean → boolean' },
         { func: testTypePriorityMultipleTypes, name: '29. Выбор типа генератора: string + integer + boolean → boolean' },

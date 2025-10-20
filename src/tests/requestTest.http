@@ -2,13 +2,13 @@
 # Запуск запроса на выполнение Ctrl+Shift+O
 # Ctrl+Alt+H
 #
-# @host = localhost:3000
-@host = 192.168.88.254:3000
+@host = localhost:3000
+# @host = 192.168.88.254:3000
 @login = 1
 @password = 1
 
 # Тип сообщения
-@messageType = 70
+@messageType = 50
 
 
 ### Health check

@@ -2,6 +2,7 @@ const { ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
 const {ERROR_WRONG_MESSAGE_TYPE} = require('../common/errors')
+const Logger = require('../utils/logger');
 
 /**
  * Класс для генерации случайных тестовых данных
@@ -22,6 +23,8 @@ const {ERROR_WRONG_MESSAGE_TYPE} = require('../common/errors')
  */
 class MessageGenerator {
     constructor(fieldConfigPathOrArray = null, targetSize = null) {
+        this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
+
         // Загружаем конфигурацию полей
         this._fieldConfig = this._loadFieldConfig(fieldConfigPathOrArray);
         
@@ -551,30 +554,39 @@ class MessageGenerator {
     }
 
     /**
-     * Строит карту генераторов для каждого поля
-     * Выбирает наиболее специфичный тип генератора для каждого src поля
-     * @returns {Object} объект где ключ - имя поля, значение - конфигурация генератора
+     * Строит карту генераторов в разрезе типов сообщений и полей
+     * Для каждого типа сообщения выбирается наиболее специфичный генератор для каждого src поля
+     * @returns {Object} объект вида { [type: number]: { [src: string]: generatorConfig } }
      */
     _buildFieldGeneratorsMap() {
-        const fieldGeneratorsMap = {};
-        
-        // Группируем все генераторы по src полям
-        const generatorsBySrc = {};
-        this._fieldConfig.forEach(field => {
-            if (!generatorsBySrc[field.src]) {
-                generatorsBySrc[field.src] = [];
+        const fieldGeneratorsByType = {};
+
+        // Для каждого доступного типа сообщения собираем генераторы только релевантных полей
+        this._availableTypes.forEach(type => {
+            const generatorsBySrcForType = {};
+
+            // Берем только те записи конфигурации, у которых message_types содержит текущий type
+            this._fieldConfig
+                .filter(field => Array.isArray(field.message_types) && field.message_types.includes(type))
+                .forEach(field => {
+                    if (!generatorsBySrcForType[field.src]) {
+                        generatorsBySrcForType[field.src] = [];
+                    }
+                    if (field.generator) {
+                        generatorsBySrcForType[field.src].push(field.generator);
+                    }
+                });
+
+            // Для каждого src поля внутри типа выбираем наилучший генератор
+            const selectedForType = {};
+            for (const [srcField, generators] of Object.entries(generatorsBySrcForType)) {
+                selectedForType[srcField] = this._selectBestGenerator(generators);
             }
-            if (field.generator) {
-                generatorsBySrc[field.src].push(field.generator);
-            }
+
+            fieldGeneratorsByType[type] = selectedForType;
         });
 
-        // Для каждого src поля выбираем наилучший генератор
-        for (const [srcField, generators] of Object.entries(generatorsBySrc)) {
-            fieldGeneratorsMap[srcField] = this._selectBestGenerator(generators);
-        }
-
-        return fieldGeneratorsMap;
+        return fieldGeneratorsByType;
     }
 
     /**
@@ -835,14 +847,16 @@ class MessageGenerator {
         
         // Добавляем поля для данного типа на основе конфигурации
         const fieldsForType = this._typeFieldsMap[type];
-        
+      
+        const perTypeGenerators = this._fieldGeneratorsMap[type] || {};
+
         fieldsForType.forEach(fieldName => {
             if (dataFields[fieldName]){
                 // Поле уже есть, поэтому пропускаем его копию
                 return;
             }
             // Получаем конфигурацию генератора для поля
-            const generatorConfig = this._fieldGeneratorsMap[fieldName];
+            const generatorConfig = perTypeGenerators[fieldName];
             
             // Генерируем значение на основе конфигурации
             dataFields[fieldName] = this._generateFieldValue(generatorConfig);

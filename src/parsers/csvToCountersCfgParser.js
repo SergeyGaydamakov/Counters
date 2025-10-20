@@ -148,7 +148,7 @@ class CountersCsvParser {
 
         // Создаем объект счетчика
         const counter = {
-            name: counterData.Name,
+            name: counterData.Name.replace(/\./g, '_'), // Заменяем точки на подчеркивания
             comment: counterData.Comment || `${counterData.Name} - счетчик`,
             indexTypeName: counterData.Index || 'idx_default',
             computationConditions: computationConditions,
@@ -653,6 +653,12 @@ class CountersCsvParser {
                 return value;
             }
             
+            // Проверяем, является ли значение числом с разделителями разрядов
+            const parsedNumber = this.parseNumberWithSeparators(value);
+            if (parsedNumber !== value && !isNaN(parsedNumber)) {
+                return parsedNumber;
+            }
+            
             // Попытка конвертировать в число для числовых полей
             if (this.isNumericField(fieldName)) {
                 const numValue = parseFloat(value.replace(',', '.'));
@@ -663,6 +669,35 @@ class CountersCsvParser {
             
             return value;
         });
+    }
+
+    /**
+     * Преобразует число с разделителями разрядов в числовой тип
+     */
+    parseNumberWithSeparators(value) {
+        // Исключаем IP адреса
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(value)) {
+            return value; // Возвращаем как строку
+        }
+        
+        // Простые числа с запятой как десятичным разделителем: 100000,00 (2 знака после запятой)
+        if (/^\d+,\d{2}$/.test(value)) {
+            return parseFloat(value.replace(',', '.'));
+        }
+        
+        // Числа с точкой как разделителем миллионов и запятой как разделителем тысяч: 6.000,000 (3 знака после запятой)
+        if (/^\d{1,3}(\.\d{3})*,\d{3}$/.test(value)) {
+            // Убираем точки (разделители миллионов) и запятые (разделители тысяч)
+            return parseFloat(value.replace(/[.,]/g, ''));
+        }
+        
+        // Числа с запятой как разделителем тысяч и точкой как десятичным разделителем: 1,000.50
+        if (/^\d{1,3}(,\d{3})*\.\d+$/.test(value)) {
+            // Убираем запятые (разделители тысяч)
+            return parseFloat(value.replace(/,/g, ''));
+        }
+        
+        return value; // Если не распознано как число, возвращаем как есть
     }
 
     /**
