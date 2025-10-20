@@ -40,6 +40,7 @@ const config = {
         counterConfigPath: process.env.COUNTER_CONFIG_PATH || null,
         targetSize: parseInt(process.env.FACT_TARGET_SIZE) || 500,
         includeFactDataToIndex: process.env.INCLUDE_FACT_DATA_TO_INDEX === 'true',
+        lookupFacts: process.env.LOOKUP_FACTS === 'true',
         maxDepthLimit: parseInt(process.env.MAX_DEPTH_LIMIT) || 500
     },
     

@@ -15,7 +15,8 @@ class MongoFactIndexTest {
             DATABASE_NAME,
             config.database.options,
             null,
-            config.facts.includeFactDataToIndex
+            config.facts.includeFactDataToIndex,
+            config.facts.lookupFacts
         );
 
         this.testIndexConfig = [

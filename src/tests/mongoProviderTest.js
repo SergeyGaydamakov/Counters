@@ -72,7 +72,8 @@ class MongoProviderTest {
             'mongoProviderTestDB',
             config.database.options,
             this.mongoCounters,
-            config.facts.includeFactDataToIndex
+            config.facts.includeFactDataToIndex,
+            config.facts.lookupFacts
         );
 
         // Минимальная конфигурация полей для тестов (6 первых полей)
@@ -2498,7 +2499,8 @@ class MongoProviderTest {
                 'mongoProviderTestDB',
                 config.database.options,
                 testMongoCounters,
-                config.facts.includeFactDataToIndex
+                config.facts.includeFactDataToIndex,
+                config.facts.lookupFacts
             );
             await testProvider.connect();
 

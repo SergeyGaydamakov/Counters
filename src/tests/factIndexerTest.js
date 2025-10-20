@@ -160,7 +160,10 @@ class FactIndexerTest {
             }
 
             // Проверяем структуру индексного значения
-            const requiredFields = ['_id', 'd', 'c', 'it', 'v', 't'];
+            const requiredFields = ['_id', 'c', 'it', 'v', 't'];
+            if (config.facts.includeFactDataToIndex) {
+                requiredFields.push('d');
+            }
             for (const field of requiredFields) {
                 if (!(field in indexValues[0])) {
                     throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -245,7 +248,10 @@ class FactIndexerTest {
                 }
 
                 // Проверяем структуру
-                const requiredFields = ['_id', 'd', 'c', 'it', 'v', 't'];
+                const requiredFields = ['_id', 'c', 'it', 'v', 't'];
+                if (config.facts.includeFactDataToIndex) {
+                    requiredFields.push('d');
+                }
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении`);
@@ -441,7 +447,10 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильную структуру
             indexValues.forEach((indexValue, i) => {
-                const requiredFields = ['_id', 'd', 'c', 'it', 'v', 't'];
+                const requiredFields = ['_id', 'c', 'it', 'v', 't'];
+                if (config.facts.includeFactDataToIndex) {
+                    requiredFields.push('d');
+                }
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении ${i}`);
@@ -466,8 +475,10 @@ class FactIndexerTest {
                 if (typeof indexValue.t !== 'number') {
                     throw new Error(`Поле t должно быть числом в индексном значении ${i}`);
                 }
-                if (typeof indexValue.d !== 'object' || indexValue.d === null) {
-                    throw new Error(`Поле d должно быть объектом в индексном значении ${i}`);
+                if (config.facts.includeFactDataToIndex) {
+                    if (typeof indexValue.d !== 'object' || indexValue.d === null) {
+                        throw new Error(`Поле d должно быть объектом в индексном значении ${i}`);
+                    }
                 }
                 if (!(indexValue.c instanceof Date)) {
                     throw new Error(`Поле c должно быть датой в индексном значении ${i}`);

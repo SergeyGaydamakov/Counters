@@ -605,7 +605,8 @@ class ApiTester {
                 'debugLoggingTestDB',
                 config.database.options,
                 this.mongoCounters,
-                config.facts.includeFactDataToIndex
+                config.facts.includeFactDataToIndex,
+                config.facts.lookupFacts
             );
             await mongoProvider.connect();
 
@@ -622,6 +623,7 @@ class ApiTester {
             let maxMetrics = null;
             let maxDebugInfo = null;
             let maxMessage = null;
+            let maxFact = null;
 
             const saveDebugInfoIfNeeded = async (factController, message, fact, processingTime, metrics, debugInfo) => {
                 try {

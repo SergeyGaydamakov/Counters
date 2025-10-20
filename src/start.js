@@ -21,6 +21,7 @@ const indexConfigPath = config.facts.indexConfigPath;
 const counterConfigPath = config.facts.counterConfigPath;
 const targetSize = config.facts.targetSize;
 const includeFactDataToIndex = config.facts.includeFactDataToIndex;
+const lookupFacts = config.facts.lookupFacts;
 const maxDepthLimit = config.facts.maxDepthLimit;
 
 // Логируем загруженные параметры
@@ -130,7 +131,7 @@ async function main(){
         let factCount = 0;
         const mongoCounters = new CounterProducer(counterConfigPath);
         // Создаем провайдер данных
-        mongoProvider = new MongoProvider(connectionString, databaseName, databaseOptions, mongoCounters, includeFactDataToIndex);
+        mongoProvider = new MongoProvider(connectionString, databaseName, databaseOptions, mongoCounters, includeFactDataToIndex, lookupFacts);
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider

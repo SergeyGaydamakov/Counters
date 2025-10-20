@@ -52,7 +52,7 @@ class MongoProvider {
      * - Метод make должен принимать объект факта и возвращать объект
      * - Возвращаемый объект должен содержать только массивы в качестве значений (для $facet)
      */
-    constructor(connectionString, databaseName, databaseOptions, counterProducer, includeFactDataToIndex) {
+    constructor(connectionString, databaseName, databaseOptions, counterProducer, includeFactDataToIndex, lookupFacts) {
         // Создаем логгер для этого провайдера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
@@ -60,6 +60,10 @@ class MongoProvider {
         this._databaseName = databaseName;
         this._databaseOptions = this._mergeDatabaseOptions(databaseOptions);
         this._includeFactDataToIndex = includeFactDataToIndex; // Включать данные факта в индексное значение
+        this._lookupFacts = lookupFacts; // Получение данных через факты (true) или через индексы (false)
+        if (this._includeFactDataToIndex && this._lookupFacts) {
+            this.logger.warn('includeFactDataToIndex и lookupFacts равны true одновременно. Будет использоваться алгоритм lookupFacts.');
+        }
 
         // Проверяем интерфейс mongoCounters перед присваиванием
         this._counterProducer = this._validateMongoCountersInterface(counterProducer);
@@ -87,11 +91,11 @@ class MongoProvider {
         // Глубокое слияние для вложенных объектов
         for (const key in userOptions) {
             if (userOptions.hasOwnProperty(key)) {
-                if (userOptions[key] !== null && 
-                    typeof userOptions[key] === 'object' && 
+                if (userOptions[key] !== null &&
+                    typeof userOptions[key] === 'object' &&
                     !Array.isArray(userOptions[key]) &&
-                    merged[key] !== null && 
-                    typeof merged[key] === 'object' && 
+                    merged[key] !== null &&
+                    typeof merged[key] === 'object' &&
                     !Array.isArray(merged[key])) {
                     // Рекурсивное слияние для объектов
                     merged[key] = { ...merged[key], ...userOptions[key] };
@@ -138,7 +142,7 @@ class MongoProvider {
             const logFilePath = path.join(process.cwd(), 'log_error.txt');
             const timestamp = new Date().toISOString();
             const logEntry = `[${timestamp}] ${message}\n`;
-            
+
             fs.appendFileSync(logFilePath, logEntry, 'utf8');
             this.logger.info(`Сообщение об ошибке записано в файл ${logFilePath}: ${logEntry}`);
         } catch (error) {
@@ -552,7 +556,7 @@ class MongoProvider {
                 const counterEvaluation = counter.attributes[counterName];
                 if (counterEvaluation && counterEvaluation["$addToSet"]) {
                     // Есть выражение для получения уникальных значений
-                    addFieldsStage[counterName] = { "$size": "$"+counterName};
+                    addFieldsStage[counterName] = { "$size": "$" + counterName };
                 }
             });
             if (Object.keys(addFieldsStage).length) {
@@ -1074,14 +1078,13 @@ class MongoProvider {
      * @returns {Promise<Array>} счетчики по фактам
      */
     async getRelevantFactCounters(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
-        if (this._includeFactDataToIndex) {
-            return this.getRelevantFactCountersFromIndex(factIndexInfos, fact, depthLimit, depthFromDate, debugMode);
+        if (this._includeFactDataToIndex || this._lookupFacts) {
+            return this.getRelevantFactCountersFromIndex(factIndexInfos, fact, depthLimit, depthFromDate, this._lookupFacts, debugMode);
         } else {
             return this.getRelevantFactCountersFromFact(factIndexInfos, fact, depthLimit, depthFromDate, debugMode);
         }
     }
 
-    
     async getRelevantFactCountersFromFact(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
         this.checkConnection();
         const startTime = Date.now();
@@ -1288,11 +1291,13 @@ class MongoProvider {
         };
     }
 
-    async getRelevantFactCountersFromIndex(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
+    // lookupFacts - получение данных через факты (true) или через индексы (false)
+    async getRelevantFactCountersFromIndex(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, lookupFacts, debugMode = false) {
         this.checkConnection();
         const startTime = Date.now();
 
         this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+        this.logger.debug(`includeFactDataToIndex: true, lookupFacts: ${lookupFacts}`);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         const indexCountersInfo = this.getFactIndexCountersInfo(fact);
@@ -1341,13 +1346,41 @@ class MongoProvider {
                 { "$limit": limit }
             ];
 
+            if (lookupFacts) {
+                aggregateIndexQuery.push({
+                    "$lookup": {
+                        from: "facts",
+                        localField: "_id.f",
+                        foreignField: "_id",
+                        let: { "factId": "$_id.f" },
+                        pipeline: [
+                            {
+                                "$match": {
+                                    "$expr": { "$eq": ["$_id", "$$factId"] }
+                                }
+                            }
+                        ],
+                        as: "facts"
+                    }
+                });
+                aggregateIndexQuery.push({ $unwind: '$facts' });
+                aggregateIndexQuery.push({
+                    "$project": {
+                        _id: "$facts._id",
+                        c: "$facts.c",
+                        t: "$facts.t",
+                        d: "$facts.d",
+                        dt: 1
+                    }
+                });
+            }
             const indexCounterList = indexCountersInfo[indexTypeName];
 
             const projectState = {};
             Object.keys(indexCounterList).forEach(counterName => {
                 projectState[counterName] = { "$arrayElemAt": ["$" + counterName, 0] };
             });
-            aggregateIndexQuery.push(... [
+            aggregateIndexQuery.push(...[
                 { "$facet": indexCounterList },
                 { "$project": projectState }
             ]);

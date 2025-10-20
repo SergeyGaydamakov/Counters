@@ -100,7 +100,8 @@ class FactControllerTest {
             'factControllerTestDB',
             config.database.options,
             null,
-            config.facts.includeFactDataToIndex
+            config.facts.includeFactDataToIndex,
+            config.facts.lookupFacts
         );
 
 
