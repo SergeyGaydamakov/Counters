@@ -400,29 +400,31 @@ class ApiTester {
                 hasId: !!correctMessage.id
             });
 
-            // Тестируем сообщение без обязательного поля id
-            const messageWithoutId = { ...correctMessage };
-            delete messageWithoutId.id;
+            // Тестируем сообщение без ВСЕХ ключевых полей (id и id2)
+            const messageWithoutKeys = { ...correctMessage };
+            delete messageWithoutKeys.id;
+            delete messageWithoutKeys.id2;
 
-            const responseWithoutId = await this.makeRequest('POST', `/api/v1/message/${messageType}/json`, messageWithoutId);
+            const responseWithoutKeys = await this.makeRequest('POST', `/api/v1/message/${messageType}/json`, messageWithoutKeys);
 
-            if (responseWithoutId.statusCode === 500) {
-                const hasCorrectError = responseWithoutId.data &&
-                    responseWithoutId.data.message &&
-                    responseWithoutId.data.message.includes('не найдено ключевое поле: id');
+            if (responseWithoutKeys.statusCode === 500) {
+                const hasCorrectError = responseWithoutKeys.data &&
+                    responseWithoutKeys.data.message &&
+                    (responseWithoutKeys.data.message.includes('не найдено ни одного ключевого поля') ||
+                     responseWithoutKeys.data.message.includes('не найдено ключевое поле'));
 
                 if (hasCorrectError) {
-                    this.logger.info('✅ Корректно обработано отсутствие обязательного поля id', {
-                        error: responseWithoutId.data.error,
-                        message: responseWithoutId.data.message
+                    this.logger.info('✅ Корректно обработано отсутствие всех ключевых полей', {
+                        error: responseWithoutKeys.data.error,
+                        message: responseWithoutKeys.data.message
                     });
                     return true;
                 } else {
-                    this.logger.error('❌ Неожиданная ошибка при отсутствии поля id', responseWithoutId.data);
+                    this.logger.error('❌ Неожиданная ошибка при отсутствии ключевых полей', responseWithoutKeys.data);
                     return false;
                 }
             } else {
-                this.logger.error('❌ Неожиданный статус код при отсутствии поля id', responseWithoutId);
+                this.logger.error('❌ Неожиданный статус код при отсутствии ключевых полей', responseWithoutKeys);
                 return false;
             }
 

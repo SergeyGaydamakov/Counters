@@ -26,7 +26,7 @@ class MessageGenerator {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
 
         // Загружаем конфигурацию полей
-        this._fieldConfig = this._loadFieldConfig(fieldConfigPathOrArray);
+        this._messageConfig = this._loadFieldConfig(fieldConfigPathOrArray);
         
         // Извлекаем информацию из конфигурации
         this._availableFields = this._extractUniqueFields();
@@ -381,7 +381,7 @@ class MessageGenerator {
      */
     _extractUniqueFields() {
         const fields = new Set();
-        this._fieldConfig.forEach(field => {
+        this._messageConfig.forEach(field => {
             fields.add(field.src);
         });
         return Array.from(fields);
@@ -393,9 +393,11 @@ class MessageGenerator {
      */
     _extractAvailableTypes() {
         const types = new Set();
-        this._fieldConfig.forEach(field => {
+        this._messageConfig.forEach(field => {
             field.message_types.forEach(type => types.add(type));
         });
+        this.logger.info(`*****************  Доступные типы сообщений: ${Array.from(types).join(', ')}`);
+        this.logger.info(`*****************  Конфигурация сообщений: ${JSON.stringify(this._messageConfig, null, 2)}`);
         return Array.from(types);
     }
 
@@ -407,7 +409,7 @@ class MessageGenerator {
         const typeFieldsMap = {};
         this._availableTypes.forEach(type => {
             const fields = new Set();
-            this._fieldConfig
+            this._messageConfig
                 .filter(field => field.message_types.includes(type))
                 .forEach(field => fields.add(field.src));
             typeFieldsMap[type] = Array.from(fields);
@@ -566,7 +568,7 @@ class MessageGenerator {
             const generatorsBySrcForType = {};
 
             // Берем только те записи конфигурации, у которых message_types содержит текущий type
-            this._fieldConfig
+            this._messageConfig
                 .filter(field => Array.isArray(field.message_types) && field.message_types.includes(type))
                 .forEach(field => {
                     if (!generatorsBySrcForType[field.src]) {

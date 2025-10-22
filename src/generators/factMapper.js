@@ -12,7 +12,7 @@ const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSI
  * @property {Object} generator - Конфигурация генератора значений для атрибута события
  * @property {string} generator.type - Тип генератора значений
  * @property {Object} generator.params - Параметры генератора значений
- * @property {number} key_type - Если 1 или 2, то атрибут является уникальным ключом и будет использоваться как _id в факте
+ * @property {number} key_order - Если указан, то атрибут является частью составного ключа для генерации _id факта. Порядок определяется значением (1, 2, 3...)
  */
 
 /**
@@ -29,9 +29,6 @@ const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSI
  * 
  */
 class FactMapper {
-    KEY_TYPE_NONE = 0;  // Поле не является ключом (значение по умолчанию, если отсутствует)
-    KEY_TYPE_HASH = 1;  // Тип ключа факта является хешом от типа и значения поля
-    KEY_TYPE_VALUE = 2; // Тип ключа факта является конкатенацией типа и значения поля
     HASH_ALGORITHM = 'sha1';    // Алгоритм хеширования
 
     constructor(configPathOrMapArray = null) {
@@ -294,13 +291,13 @@ class FactMapper {
      * @param {string} factValue - значение факта
      * @returns {string} SHA-256 хеш в hex формате
      */
-    _hashHex(factType, keyValue) {
-        const input = `${factType}:${keyValue}`;
+    _hashHex(factType, keyValues) {
+        const input = `${factType}:${keyValues.map(value => String(value).trim()).join(':')}`;
         return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('hex');
     }
 
-    _hashBase64(factType, keyValue) {
-        const input = `${factType}:${keyValue}`;
+    _hashBase64(factType, keyValues) {
+        const input = `${factType}:${keyValues.map(value => String(value).trim()).filter(value => !!value).join(':')}`;
         return crypto.createHash(this.HASH_ALGORITHM).update(input).digest('base64');
     }
 
@@ -331,31 +328,24 @@ class FactMapper {
      * 
      */
     getFactId(message) {
-        // Нужно проверить, что все поля, которые используются в маппинге, присутствуют в сообщении
-        const keyRules = this._mappingConfig.filter(rule => rule.message_types.includes(message.t) && [this.KEY_TYPE_HASH, this.KEY_TYPE_VALUE].includes(rule.key_type));
+        // Нужно найти все поля идентификатора факта в конфигурации для данного типа сообщения и отсортировать 
+        const keyRules = this._mappingConfig.filter(rule => rule.message_types.includes(message.t) && rule.key_order).sort((a, b) => a.key_order - b.key_order);
         if (!keyRules.length) {
-            const error = new Error(`В конфигурации полей сообщения для типа ${message.t} не найден идентификатор (описание поля с атрибутом key_type: 1 или key_type: 2). Маппинг не будет выполняться. Возможно указан неверный файл конфигурации.`);
+            const error = new Error(`В конфигурации полей сообщения для типа ${message.t} не найдены поля для создания идентификатора факта (описание поля с атрибутом key_order). Маппинг не будет выполняться. Возможно указан неверный файл конфигурации.`);
             this.logger.error(error.message);
             this.logger.error("Возможноые поля сообщения:"+keyRules.map(rule => rule.src).join(', '));
             error.code = ERROR_MISSING_KEY_IN_CONFIG;
             throw error;
         }
-        // Нужно найти ключевое поле в сообщении
-        const keyRule = keyRules.find(rule => message.d[rule.src]);
-        if (!keyRule) {
-            const error = new Error(`В сообщении типа ${message.t} не найдено ключевое поле: ${keyRules.map(rule => rule.src).join(', ')}.`);
+        // Нужно найти в сообщении все ключевые поля, должно быть хотя бы одно поле, необязательно наличие всех полей.
+        const keyFieldValues = keyRules.map(rule => message.d[rule.src]).filter(field => field !== undefined && field !== null);
+        if (!keyFieldValues.length) {
+            const error = new Error(`В сообщении типа ${message.t} не найдено ни одного ключевого поля: ${keyRules.map(rule => rule.src).join(', ')}.`);
             error.code = ERROR_MISSING_KEY_IN_MESSAGE;
             throw error;
         }
         // Получаем идентификатор факта
-        if (keyRule.key_type === this.KEY_TYPE_HASH) {
-            return this._hashBase64(message.t, message.d[keyRule.src]);
-        } else if (keyRule.key_type === this.KEY_TYPE_VALUE) {
-            return `${message.t}:${String(message.d[keyRule.src])}`;
-        }
-        const error = new Error(`Неподдерживаемый тип ключа: ${keyRule.key_type}. Маппинг не будет выполняться.`);
-        error.code = ERROR_WRONG_KEY_TYPE;
-        throw error;
+        return this._hashBase64(message.t, keyFieldValues);
     }
 
     /**

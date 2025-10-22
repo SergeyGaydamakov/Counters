@@ -80,7 +80,7 @@ class FactIndexerTest {
                 "src": "f1",
                 "dst": "f1",
                 "message_types": [1, 2, 3], // user_action, system_message, payment
-                "key_type": 1
+                "key_order": 1
             },
             {
                 "src": "f2",

@@ -2,7 +2,7 @@ const FactMapper = require('../generators/factMapper');
 const fs = require('fs');
 const path = require('path');
 const Logger = require('../utils/logger');
-const { ERROR_MISSING_KEY_IN_MESSAGE } = require('../common/errors');
+const { ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG } = require('../common/errors');
 
 /**
  * Тесты для модуля FactMapper
@@ -48,6 +48,9 @@ class FactMapperTest {
         this.testObjectIdTypeConversion('23. Тест конвертации в objectId...');
         this.testBooleanTypeConversion('24. Тест конвертации в boolean...');
         this.testDefaultTypeConversion('25. Тест конвертации с типом по умолчанию...');
+        this.testMultipleKeyFields('26. Тест нескольких ключевых полей в конфигурации...');
+        this.testMultipleKeyFieldsOrder('27. Тест порядка ключевых полей...');
+        this.testMultipleKeyFieldsMissing('28. Тест отсутствующих ключевых полей...');
         
         this.printResults();
     }
@@ -431,7 +434,7 @@ class FactMapperTest {
                     src: 'id',
                     dst: 'fact_id',
                     message_types: [1001],
-                    key_type: 1 // HASH key type
+                    key_order: 1 // HASH key type
                 },
                 {
                     src: 'name',
@@ -1327,6 +1330,254 @@ class FactMapperTest {
             
         } catch (error) {
             this.assert(false, 'Конвертация с типом по умолчанию', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест нескольких ключевых полей в конфигурации
+     */
+    testMultipleKeyFields(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'id',
+                    dst: 'fact_id',
+                    message_types: [6001],
+                    key_order: 1
+                },
+                {
+                    src: 'type',
+                    dst: 'fact_type',
+                    message_types: [6001],
+                    key_order: 2
+                },
+                {
+                    src: 'name',
+                    dst: 'fact_name',
+                    message_types: [6001]
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            const inputMessage = {
+                t: 6001,
+                d: {
+                    id: 'test123',
+                    type: 'user',
+                    name: 'Test User'
+                }
+            };
+
+            const result = mapper.mapMessageToFact(inputMessage);
+            
+            this.assert(result && typeof result === 'object', 'mapMessageToFact возвращает объект');
+            this.assert(result._id !== null, 'ID факта сгенерирован');
+            this.assert(typeof result._id === 'string', 'ID факта является строкой');
+            this.assert(result.t === 6001, 'Тип сообщения сохранен');
+            this.assert(result.d.fact_id === 'test123', 'Первое ключевое поле корректно маппится');
+            this.assert(result.d.fact_type === 'user', 'Второе ключевое поле корректно маппится');
+            this.assert(result.d.fact_name === 'Test User', 'Обычное поле корректно маппится');
+
+            // Проверяем, что ID генерируется одинаково для одинаковых ключевых полей
+            const result2 = mapper.mapMessageToFact(inputMessage);
+            this.assert(result._id === result2._id, 'ID факта одинаков для одинаковых ключевых полей');
+
+            // Проверяем, что ID отличается при изменении ключевых полей
+            const inputMessage2 = {
+                t: 6001,
+                d: {
+                    id: 'test456', // изменили первое ключевое поле
+                    type: 'user',
+                    name: 'Test User'
+                }
+            };
+            const result3 = mapper.mapMessageToFact(inputMessage2);
+            this.assert(result._id !== result3._id, 'ID факта отличается при изменении ключевых полей');
+
+        } catch (error) {
+            this.assert(false, 'Тест нескольких ключевых полей', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест порядка ключевых полей
+     */
+    testMultipleKeyFieldsOrder(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'id',
+                    dst: 'fact_id',
+                    message_types: [6002],
+                    key_order: 2 // второй порядок
+                },
+                {
+                    src: 'type',
+                    dst: 'fact_type',
+                    message_types: [6002],
+                    key_order: 1 // первый порядок
+                },
+                {
+                    src: 'name',
+                    dst: 'fact_name',
+                    message_types: [6002]
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+            const inputMessage = {
+                t: 6002,
+                d: {
+                    id: 'test123',
+                    type: 'user',
+                    name: 'Test User'
+                }
+            };
+
+            const result = mapper.mapMessageToFact(inputMessage);
+            
+            this.assert(result && typeof result === 'object', 'mapMessageToFact возвращает объект');
+            this.assert(result._id !== null, 'ID факта сгенерирован');
+            this.assert(result.t === 6002, 'Тип сообщения сохранен');
+            this.assert(result.d.fact_id === 'test123', 'Поле id корректно маппится');
+            this.assert(result.d.fact_type === 'user', 'Поле type корректно маппится');
+            this.assert(result.d.fact_name === 'Test User', 'Поле name корректно маппится');
+
+            // Проверяем, что порядок ключевых полей влияет на генерацию ID
+            // Создаем конфигурацию с обратным порядком
+            const testConfigReverse = [
+                {
+                    src: 'id',
+                    dst: 'fact_id',
+                    message_types: [6003],
+                    key_order: 1 // первый порядок
+                },
+                {
+                    src: 'type',
+                    dst: 'fact_type',
+                    message_types: [6003],
+                    key_order: 2 // второй порядок
+                }
+            ];
+
+            const mapperReverse = new FactMapper(testConfigReverse);
+            const inputMessageReverse = {
+                t: 6003,
+                d: {
+                    id: 'test123',
+                    type: 'user'
+                }
+            };
+
+            const resultReverse = mapperReverse.mapMessageToFact(inputMessageReverse);
+            
+            // ID должны отличаться из-за разного порядка ключевых полей
+            this.assert(result._id !== resultReverse._id, 'ID факта отличается при разном порядке ключевых полей');
+
+        } catch (error) {
+            this.assert(false, 'Тест порядка ключевых полей', `Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест отсутствующих ключевых полей
+     */
+    testMultipleKeyFieldsMissing(title) {
+        this.logger.info(title);
+        try {
+            const testConfig = [
+                {
+                    src: 'id',
+                    dst: 'fact_id',
+                    message_types: [6004],
+                    key_order: 1
+                },
+                {
+                    src: 'type',
+                    dst: 'fact_type',
+                    message_types: [6004],
+                    key_order: 2
+                },
+                {
+                    src: 'name',
+                    dst: 'fact_name',
+                    message_types: [6004]
+                }
+            ];
+
+            const mapper = new FactMapper(testConfig);
+
+            // Тест 1: отсутствует одно из ключевых полей
+            try {
+                const inputMessageMissingOne = {
+                    t: 6004,
+                    d: {
+                        id: 'test123',
+                        name: 'Test User'
+                        // отсутствует поле 'type'
+                    }
+                };
+                mapper.mapMessageToFact(inputMessageMissingOne);
+                this.assert(true, 'Отсутствие одного ключевого поля', 'Не должна быть ошибка');
+            } catch (error) {
+                this.assert(error.code === ERROR_MISSING_KEY_IN_MESSAGE, 
+                    'Отсутствие одного из двух ключевых полей', 'Некорректная ошибка для одного отсутствующего ключевого поля');
+            }
+
+            // Тест 2: отсутствуют все ключевые поля
+            try {
+                const inputMessageMissingAll = {
+                    t: 6004,
+                    d: {
+                        name: 'Test User'
+                        // отсутствуют поля 'id' и 'type'
+                    }
+                };
+                mapper.mapMessageToFact(inputMessageMissingAll);
+                this.assert(false, 'Отсутствие всех ключевых полей', 'Должна была быть выброшена ошибка');
+            } catch (error) {
+                this.assert(error.code === ERROR_MISSING_KEY_IN_MESSAGE, 
+                    'Отсутствие всех ключевых полей', 'Корректная ошибка для отсутствующих ключевых полей');
+            }
+
+            // Тест 3: отсутствует конфигурация ключевых полей для типа сообщения
+            try {
+                const inputMessageNoConfig = {
+                    t: 9999, // тип, для которого нет конфигурации
+                    d: {
+                        id: 'test123',
+                        type: 'user',
+                        name: 'Test User'
+                    }
+                };
+                mapper.mapMessageToFact(inputMessageNoConfig);
+                this.assert(false, 'Отсутствие конфигурации ключевых полей', 'Должна была быть выброшена ошибка');
+            } catch (error) {
+                this.assert(error.code === ERROR_MISSING_KEY_IN_CONFIG, 
+                    'Отсутствие конфигурации ключевых полей', 'Корректная ошибка для отсутствующей конфигурации');
+            }
+
+            // Тест 4: валидное сообщение с частично заполненными ключевыми полями
+            try {
+                const inputMessagePartial = {
+                    t: 6004,
+                    d: {
+                        id: 'test123',
+                        type: 'user',
+                        name: 'Test User'
+                    }
+                };
+                const result = mapper.mapMessageToFact(inputMessagePartial);
+                this.assert(result && typeof result === 'object', 'Валидное сообщение с ключевыми полями', 'Сообщение должно быть обработано корректно');
+                this.assert(result._id !== null, 'ID факта сгенерирован для валидного сообщения', 'ID должен быть сгенерирован');
+            } catch (error) {
+                this.assert(false, 'Валидное сообщение с ключевыми полями', `Ошибка при обработке валидного сообщения: ${error.message}`);
+            }
+
+        } catch (error) {
+            this.assert(false, 'Тест отсутствующих ключевых полей', `Ошибка: ${error.message}`);
         }
     }
 

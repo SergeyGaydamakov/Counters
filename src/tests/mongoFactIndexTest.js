@@ -89,7 +89,7 @@ class MongoFactIndexTest {
                 "src": "f1",
                 "dst": "f1",
                 "message_types": [1, 2, 3],
-                "key_type": 1
+                "key_order": 1
             },
             {
                 "src": "f2",
