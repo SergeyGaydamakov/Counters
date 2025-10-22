@@ -334,7 +334,9 @@ class FactMapper {
         // Нужно проверить, что все поля, которые используются в маппинге, присутствуют в сообщении
         const keyRules = this._mappingConfig.filter(rule => rule.message_types.includes(message.t) && [this.KEY_TYPE_HASH, this.KEY_TYPE_VALUE].includes(rule.key_type));
         if (!keyRules.length) {
-            const error = new Error(`В конфигурации полей сообщения для типа ${message.t} не найден ключ (поле с атрибутом key_type: 1 или key_type: 2). Маппинг не будет выполняться.`);
+            const error = new Error(`В конфигурации полей сообщения для типа ${message.t} не найден идентификатор (описание поля с атрибутом key_type: 1 или key_type: 2). Маппинг не будет выполняться. Возможно указан неверный файл конфигурации.`);
+            this.logger.error(error.message);
+            this.logger.error("Возможноые поля сообщения:"+keyRules.map(rule => rule.src).join(', '));
             error.code = ERROR_MISSING_KEY_IN_CONFIG;
             throw error;
         }

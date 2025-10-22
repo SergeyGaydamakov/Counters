@@ -606,7 +606,8 @@ class ApiTester {
                 config.database.options,
                 this.mongoCounters,
                 config.facts.includeFactDataToIndex,
-                config.facts.lookupFacts
+                config.facts.lookupFacts,
+                config.facts.indexBulkUpdate
             );
             await mongoProvider.connect();
 

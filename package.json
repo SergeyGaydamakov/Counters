@@ -16,7 +16,7 @@
     "test:api": "set LOG_LEVEL=INFO && node src/tests/webTest.js",
     "start": "set LOG_LEVEL=INFO && node src/start.js",
     "start:service": "set LOG_LEVEL=INFO && node src/web/cluster.js",
-    "start:worker": "set LOG_LEVEL=INFO && node src/web/worker.js",
+    "start:worker": "node src/web/worker.js",
     "start:test": "set LOG_LEVEL=INFO && node src/serviceTest.js",
     "diagnose": "set LOG_LEVEL=INFO && node src/utils/runDiagnostics.js"
   },

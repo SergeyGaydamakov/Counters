@@ -10,28 +10,22 @@ dotenv.config();
 // Создаем глобальный логгер с уровнем из переменной окружения
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
-// Параметры подключения к MongoDB из config
-const connectionString = config.database.connectionString;
-const databaseName = config.database.databaseName;
-const databaseOptions = config.database.options;
-
-// Параметры генерации фактов из config
-const fieldConfigPath = config.facts.fieldConfigPath;
-const indexConfigPath = config.facts.indexConfigPath;
-const counterConfigPath = config.facts.counterConfigPath;
-const targetSize = config.facts.targetSize;
-const includeFactDataToIndex = config.facts.includeFactDataToIndex;
-const lookupFacts = config.facts.lookupFacts;
-const maxDepthLimit = config.facts.maxDepthLimit;
-
 // Логируем загруженные параметры
 logger.info('=== Загруженные параметры из .env ===');
-logger.info('MongoDB Connection String:', connectionString);
-logger.info('MongoDB Database Name:', databaseName);
-logger.info('Field Config Path:', fieldConfigPath);
-logger.info('Index Config Path:', indexConfigPath);
-logger.info('Target Size:', targetSize);
-logger.info('Include Fact Data To Index:', includeFactDataToIndex);
+logger.info('MongoDB Connection String:', config.database.connectionString);
+logger.info('MongoDB Database Name:', config.database.databaseName);
+logger.info('Field Config Path:', config.facts.fieldConfigPath);
+logger.info('Index Config Path:', config.facts.indexConfigPath);
+logger.info('Target Size:', config.facts.targetSize);
+logger.info('Counter Config Path:', config.facts.counterConfigPath);
+logger.info('Include Fact Data To Index:', config.facts.includeFactDataToIndex);
+logger.info('Lookup Facts:', config.facts.lookupFacts);
+logger.info('Index Bulk Update:', config.facts.indexBulkUpdate);
+logger.info('Max Depth Limit:', config.facts.maxDepthLimit);
+logger.info('Max Counters Processing:', config.facts.maxCountersProcessing);
+logger.info('Max Counters Per Request:', config.facts.maxCountersPerRequest);
+logger.info('Allowed Counters Names:', config.facts.allowedCountersNames);
+
 logger.info('=====================================\n');
 
 // Глобальная переменная для хранения провайдера
@@ -129,13 +123,13 @@ async function main(){
     }
     try {
         let factCount = 0;
-        const mongoCounters = new CounterProducer(counterConfigPath);
+        const mongoCounters = new CounterProducer(config.facts.counterConfigPath);
         // Создаем провайдер данных
-        mongoProvider = new MongoProvider(connectionString, databaseName, databaseOptions, mongoCounters, includeFactDataToIndex, lookupFacts);
+        mongoProvider = new MongoProvider(config.database.connectionString, config.database.databaseName, config.database.options, mongoCounters, config.facts.includeFactDataToIndex, config.facts.lookupFacts, config.facts.indexBulkUpdate);
         await mongoProvider.connect();
             
         // Создаем экземпляр контроллера с dbProvider
-        const factController = new FactController(mongoProvider, fieldConfigPath, indexConfigPath, targetSize, includeFactDataToIndex, maxDepthLimit);
+        const factController = new FactController(mongoProvider, config.facts.fieldConfigPath, config.facts.indexConfigPath, config.facts.targetSize, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
         const CYCLE_OUTPUT = 100;
         let startCycleTime = Date.now();
         let processingTime = initProcessingTime();

@@ -8,7 +8,7 @@
 @password = 1
 
 # Тип сообщения
-@messageType = 70
+@messageType = 50
 
 
 ### Health check

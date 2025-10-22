@@ -14,11 +14,18 @@ function safeJsonParse(envVar, defaultValue, varName) {
     }
     
     try {
-        return JSON.parse(envVar);
+        return JSON.parse(envVar.trim());
     } catch (error) {
         console.error(`Ошибка парсинга JSON для переменной ${varName}:`, error.message);
         console.error(`Некорректное значение: ${envVar}`);
         console.error(`Используется значение по умолчанию:`, defaultValue);
+        
+        // Дополнительная диагностика для типичных ошибок JSON
+        if (error.message.includes('Expected property name')) {
+            console.error(`💡 Подсказка: В JSON все ключи должны быть в кавычках.`);
+            console.error(`   Пример: {"key": "value"} вместо {key: "value"}`);
+        }
+        
         return defaultValue;
     }
 }
@@ -41,6 +48,7 @@ const config = {
         targetSize: parseInt(process.env.FACT_TARGET_SIZE) || 500,
         includeFactDataToIndex: process.env.INCLUDE_FACT_DATA_TO_INDEX === 'true',
         lookupFacts: process.env.LOOKUP_FACTS === 'true',
+        indexBulkUpdate: process.env.INDEX_BULK_UPDATE === 'true',
         maxDepthLimit: parseInt(process.env.MAX_DEPTH_LIMIT) || 500,
         maxCountersProcessing: parseInt(process.env.MAX_COUNTERS_PROCESSING) || 0,
         maxCountersPerRequest: parseInt(process.env.MAX_COUNTERS_PER_REQUEST) || 0,

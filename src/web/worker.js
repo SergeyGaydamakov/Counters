@@ -160,7 +160,8 @@ async function initialize() {
             config.database.options,
             mongoCounters,
             config.facts.includeFactDataToIndex,
-            config.facts.lookupFacts
+            config.facts.lookupFacts,
+            config.facts.indexBulkUpdate
         );
         
         // Добавляем таймаут для подключения к MongoDB
