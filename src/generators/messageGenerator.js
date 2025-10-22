@@ -396,8 +396,6 @@ class MessageGenerator {
         this._messageConfig.forEach(field => {
             field.message_types.forEach(type => types.add(type));
         });
-        this.logger.info(`*****************  Доступные типы сообщений: ${Array.from(types).join(', ')}`);
-        this.logger.info(`*****************  Конфигурация сообщений: ${JSON.stringify(this._messageConfig, null, 2)}`);
         return Array.from(types);
     }
 

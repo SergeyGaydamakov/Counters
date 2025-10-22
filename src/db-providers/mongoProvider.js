@@ -59,6 +59,7 @@ class MongoProvider {
         // Создаем логгер для этого провайдера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
+        this._debugMode= config.logging.debugMode;
         this._connectionString = connectionString;
         this._databaseName = databaseName;
         this._databaseOptions = this._mergeDatabaseOptions(databaseOptions);
@@ -440,7 +441,9 @@ class MongoProvider {
                         _id: indexValue._id
                     };
                     indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
-                    this.logger.debug("   indexValue: " + JSON.stringify(indexValue));
+                    if (this._debugMode) {
+                        this.logger.debug("   indexValue: " + JSON.stringify(indexValue));
+                    }
                 });
 
                 indexResult = await indexBulk.execute(bulkWriteOptions);
@@ -998,7 +1001,9 @@ class MongoProvider {
         const relevantFactsQuerySize = debugMode ? JSON.stringify(indexNameQuery.factIndexFindQuery).length : undefined;
         const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
         const factIds = factIndexResult.map(item => item._id.f);
-        this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIds)} \n`);
+        if (this._debugMode) {
+            this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIds)} \n`);
+        }
         return {
             factIds: factIds,
             metrics: {
@@ -1072,7 +1077,9 @@ class MongoProvider {
         } catch (error) {
             this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeNameWithGroupNumber}: ${error.message}`);
             this._writeToLogFile(`Ошибка при выполнении запроса для ключа ${indexTypeNameWithGroupNumber}: ${error.message}`);
-            this._writeToLogFile(JSON.stringify(factFacetStage, null, 2));
+            if (this._debugMode) {
+                this.logger.debug(JSON.stringify(factFacetStage, null, 2));
+            }
 
             return {
                 counters: null,
@@ -1305,7 +1312,9 @@ class MongoProvider {
             countersSize += Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersSize ?? 0), 0);
         });
 
-        this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
+        if (this._debugMode) {
+            this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
+        }
 
         /**
          * Структура отладочной информации debug:
@@ -1573,7 +1582,9 @@ class MongoProvider {
             countersQuery[result.indexTypeName] = result.debug.countersQuery;
         });
 
-        this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
+        if (this._debugMode) {
+            this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
+        }
 
         /**
          * Структура отладочной информации debug:
@@ -1758,14 +1769,14 @@ class MongoProvider {
             comment: "getRelevantFactCounters - index aggregate",
         };
 
-        this.logger.debug(`Агрегационный запрос на список ИД фактов в разрезе индексов: ${JSON.stringify(aggregateIndexQuery)}\n`);
+        // this.logger.debug(`Агрегационный запрос на список ИД фактов в разрезе индексов: ${JSON.stringify(aggregateIndexQuery)}\n`);
         const factIndexCollection = this._getFactIndexCollection();
         const startrelevantFactsTime = Date.now();
         const factIndexResult = await factIndexCollection.aggregate(aggregateIndexQuery, aggregateIndexOptions).toArray();
         const stoprelevantFactsTime = Date.now();
         const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
         const factIdsByIndexName = factIndexResult[0];
-        this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIdsByIndexName)} \n`);
+        // this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIdsByIndexName)} \n`);
 
         /**
          * 
@@ -1846,7 +1857,7 @@ class MongoProvider {
         const startPrepareCountersQueryTime = Date.now();
         const queryPromises = Object.keys(factFacetStage).map(async (indexName) => {
             try {
-                this.logger.debug(`Агрегационный запрос для индекса ${indexName}: ${JSON.stringify(factFacetStage[indexName])}`);
+                // this.logger.debug(`Агрегационный запрос для индекса ${indexName}: ${JSON.stringify(factFacetStage[indexName])}`);
                 const countersResult = await factsCollection.aggregate(factFacetStage[indexName], aggregateFactOptions).toArray();
                 return { indexName: indexName, counters: countersResult[0] };
             } catch (error) {
@@ -1873,7 +1884,7 @@ class MongoProvider {
         });
 
         // Преобразуем в формат, ожидаемый тестами - массив из одного объекта
-        this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
+        // this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
 
         /**
          * Структура отладочной информации debug:
@@ -2015,7 +2026,7 @@ class MongoProvider {
         // this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
         // this.logger.info(`Агрегационный запрос: ${JSON.stringify(aggregateQuery)}`);
         const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).toArray();
-        this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
+        // this.logger.debug(`✓ Получена статистика по фактам: ${JSON.stringify(result)} `);
 
         // Если результат пустой, возвращаем пустую статистику
         if (result.length === 0) {
@@ -2250,7 +2261,7 @@ class MongoProvider {
                 comment: "findFacts"
             };
             const facts = await factsCollection.find(filter, findOptions).toArray();
-            this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
+            // this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
             return facts;
         } catch (error) {
             this.logger.error('✗ Ошибка при поиске фактов:', error.message);

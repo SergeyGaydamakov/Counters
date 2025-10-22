@@ -1,5 +1,6 @@
 const fs = require('fs');
 const Logger = require('../utils/logger');
+const config = require('../common/config');
 
 /**
  * Класс для создания счетчиков на основе конфигурации и фактов
@@ -43,6 +44,7 @@ const Logger = require('../utils/logger');
 class CounterProducer {
     constructor(configPathOrConfigArray = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
+        this._debugMode= config.logging.debugMode;
         this._counterConfig = [];
         
         if (!configPathOrConfigArray) {
@@ -1071,7 +1073,9 @@ class CounterProducer {
                 factCounters.push(counter);
                 this.logger.debug(`Счетчик '${counter.name}' подходит для факта ${fact._id}`);
             } else {
-                this.logger.debug(`Счетчик '${counter.name}' не подходит для факта ${fact._id} по условиям ${JSON.stringify(counter.computationConditions)}`);
+                if (this._debugMode) {
+                    this.logger.debug(`Счетчик '${counter.name}' не подходит для факта ${fact._id} по условиям ${JSON.stringify(counter.computationConditions)}`);
+                }
             }
         }
 
