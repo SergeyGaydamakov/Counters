@@ -41,7 +41,10 @@ const config = {
         targetSize: parseInt(process.env.FACT_TARGET_SIZE) || 500,
         includeFactDataToIndex: process.env.INCLUDE_FACT_DATA_TO_INDEX === 'true',
         lookupFacts: process.env.LOOKUP_FACTS === 'true',
-        maxDepthLimit: parseInt(process.env.MAX_DEPTH_LIMIT) || 500
+        maxDepthLimit: parseInt(process.env.MAX_DEPTH_LIMIT) || 500,
+        maxCountersProcessing: parseInt(process.env.MAX_COUNTERS_PROCESSING) || 0,
+        maxCountersPerRequest: parseInt(process.env.MAX_COUNTERS_PER_REQUEST) || 0,
+        allowedCountersNames: process.env.ALLOWED_COUNTERS_NAMES ? process.env.ALLOWED_COUNTERS_NAMES.split(',').map(t => t.trim()).filter(t => t !== '') : null,
     },
     
     // CORS настройки
@@ -86,7 +89,8 @@ const config = {
             minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE) || 100,
             maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE) || 400,
             maxConnecting: parseInt(process.env.MONGODB_MAX_CONNECTING) || 10,
-        }
+        },
+        batchSize: parseInt(process.env.MONGODB_BATCH_SIZE) || 5000,
     },
     
     // Фильтрация типов сообщений

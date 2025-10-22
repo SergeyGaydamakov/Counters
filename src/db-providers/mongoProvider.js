@@ -522,7 +522,8 @@ class MongoProvider {
     }
 
     /**
-     * Выдает счетчики применительно к факту, с разбивкой по типам индексов
+     * Выдает счетчики применительно к факту, с разбивкой по типам индексов с разбивкой на группы счетчиков для ограничения количества счетчиков в запросе.
+     * Формат названия индекса: indexTypeName#groupNumber
      * @param {Object} fact - факт
      * @returns {Promise<Array>} выражение для вычисления группы счетчиков для факта и типа индексов
      */
@@ -532,28 +533,57 @@ class MongoProvider {
             return this.getDefaultFactIndexCountersInfo();
         }
         // Получение счетчиков, которые подходят для факта по условию computationConditions
-        const factCounters = this._counterProducer.getFactCounters(fact);
+        const factCounters = this._counterProducer.getFactCounters(fact, config.facts.allowedCountersNames);
         if (!factCounters) {
             this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
             return null;
         }
         // this.logger.debug(`factCounters: ${JSON.stringify(factCounters)}`);
-        // Список условий по каждому типу индекса
+        // Список условий по каждому типу индекса.
+        // К имени индекса добавляется постфикс #N, где N - номер группы счетчиков для ограничения количества счетчиков в запросе.
         const indexFacetStages = {};
+        // Счетчик количества counters в каждой группе {countersCount, groupNumber}
+        const countersGroupCount = {};
+        // Общее число счетчиков
+        let totalCountersCount = 0;
         // Подставляем параметры для каждого счетчика
         factCounters.forEach(counter => {
+            totalCountersCount++;
+            if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
+                return;
+            }
             const matchStage = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : null;
             const groupStage = { "$group": counter.attributes };
+            //
             // Всегда добавлять идентификатор, по которому выполняется группировка - _id = null
+            //
             groupStage["$group"]["_id"] = null;
-            if (!indexFacetStages[counter.indexTypeName]) {
-                indexFacetStages[counter.indexTypeName] = {};
+            //
+            // Вычисление номера группы счетчиков в запросе и названия индекса с номером группы
+            //
+            if (!countersGroupCount[counter.indexTypeName]) {
+                countersGroupCount[counter.indexTypeName] = {
+                    countersCount: 0, // Общее количество счетчиков в текущей группе
+                    groupNumber: 1, // Номер группы счетчиков в запросе
+                };
             }
-            indexFacetStages[counter.indexTypeName][counter.name] = [];
+            countersGroupCount[counter.indexTypeName].countersCount++;
+            if (config.facts.maxCountersPerRequest > 0 &&countersGroupCount[counter.indexTypeName].countersCount > config.facts.maxCountersPerRequest) {
+                countersGroupCount[counter.indexTypeName].groupNumber++;
+                countersGroupCount[counter.indexTypeName].countersCount = 1;
+            }
+            const indexTypeNameWithGroupNumber = counter.indexTypeName + "#" + countersGroupCount[counter.indexTypeName].groupNumber;
+            //
+            // Добавление счетчика в список счетчиков для текущего индекса
+            //
+            if (!indexFacetStages[indexTypeNameWithGroupNumber]) {
+                indexFacetStages[indexTypeNameWithGroupNumber] = {};
+            }
+            indexFacetStages[indexTypeNameWithGroupNumber][counter.name] = [];
             if (matchStage) {
-                indexFacetStages[counter.indexTypeName][counter.name].push(matchStage);
+                indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push(matchStage);
             }
-            indexFacetStages[counter.indexTypeName][counter.name].push(groupStage);
+            indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push(groupStage);
             // Дополнительно обрабатываем счетчики на получение уникальных значений, признаком является $addToSet
             const addFieldsStage = {};
             Object.keys(counter.attributes).forEach(counterName => {
@@ -564,9 +594,12 @@ class MongoProvider {
                 }
             });
             if (Object.keys(addFieldsStage).length) {
-                indexFacetStages[counter.indexTypeName][counter.name].push({ "$addFields": addFieldsStage });
+                indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push({ "$addFields": addFieldsStage });
             }
         });
+        if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
+            this.logger.warn(`Превышено максимальное количество счетчиков для обработки: ${config.facts.maxCountersProcessing}. Всего счетчиков: ${totalCountersCount}.`);
+        }
 
         // Если в выражении счетчиков есть параметры, то заменить их на значения атрибутов из факта
         // Например, если в выражении счетчиков есть параметр "$$f2", то он будет заменен на значение атрибута "f2" из факта
@@ -982,7 +1015,7 @@ class MongoProvider {
         };
     }
 
-    async _getCounters(indexTypeName, factIds, indexCounterList, debugMode = false) {
+    async _getCounters(indexTypeNameWithGroupNumber, factIds, indexCounterList, debugMode = false) {
         if (!factIds || !factIds.length) {
             return {
                 counters: null,
@@ -1015,7 +1048,7 @@ class MongoProvider {
         const countersQuerySize = debugMode ? JSON.stringify(factFacetStage).length : undefined;
         // Выполнить агрегирующий запрос
         const aggregateFactOptions = {
-            batchSize: 5000,
+            batchSize: config.database.batchSize,
             readConcern: this.READ_CONCERN,
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - aggregate",
@@ -1025,7 +1058,7 @@ class MongoProvider {
         const factsCollection = this._getFactsCollection();
         const startCountersQueryTime = Date.now();
         try {
-            // this.logger.debug(`Агрегационный запрос для индекса ${indexTypeName}: ${JSON.stringify(factFacetStage)}`);
+            // this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(factFacetStage)}`);
             const countersResult = await factsCollection.aggregate(factFacetStage, aggregateFactOptions).toArray();
             const countersSize = debugMode ? JSON.stringify(countersResult[0]).length : undefined;
             return {
@@ -1041,8 +1074,8 @@ class MongoProvider {
                 }
             };
         } catch (error) {
-            this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
-            this._writeToLogFile(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
+            this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeNameWithGroupNumber}: ${error.message}`);
+            this._writeToLogFile(`Ошибка при выполнении запроса для ключа ${indexTypeNameWithGroupNumber}: ${error.message}`);
             this._writeToLogFile(JSON.stringify(factFacetStage, null, 2));
 
             return {
@@ -1082,6 +1115,9 @@ class MongoProvider {
      * @returns {Promise<Array>} счетчики по фактам
      */
     async getRelevantFactCounters(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
+        if (this._includeFactDataToIndex && this._lookupFacts) {
+            this.logger.warn(`getRelevantFactCounters: Параметры includeFactDataToIndex и lookupFacts не могут быть true одновременно.`);
+        }
         if (this._includeFactDataToIndex || this._lookupFacts) {
             return this.getRelevantFactCountersFromIndex(factIndexInfos, fact, depthLimit, depthFromDate, this._lookupFacts, debugMode);
         } else {
@@ -1110,12 +1146,14 @@ class MongoProvider {
         const queriesByIndexName = {};
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
         // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
-        Object.keys(indexCountersInfo).forEach((indexTypeName) => {
-            const counters = indexCountersInfo[indexTypeName] ? indexCountersInfo[indexTypeName] : {};
-            this.logger.debug(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
+        Object.keys(indexCountersInfo).forEach((indexTypeNameWithGroupNumber) => {
+            const indexTypeName = indexTypeNameWithGroupNumber.split('#')[0];
+            // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
+            const counters = indexCountersInfo[indexTypeNameindexTypeNameWithGroupNumber] ? indexCountersInfo[indexTypeNameWithGroupNumber] : {};
+            this.logger.debug(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeNameWithGroupNumber} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
             const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
             if (!indexInfo) {
-                this.logger.warn(`Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
+                this.logger.warn(`getRelevantFactCountersFromFact: Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
                 return;
             }
             const factIndexFindQuery = {
@@ -1131,10 +1169,10 @@ class MongoProvider {
                     "$ne": fact._id
                 };
             }
-            queriesByIndexName[indexTypeName] = {
+            queriesByIndexName[indexTypeNameWithGroupNumber] = {
                 factIndexFindQuery: factIndexFindQuery,
                 factIndexFindOptions: {
-                    batchSize: 5000,
+                    batchSize: config.database.batchSize,
                     readConcern: this.READ_CONCERN,
                     readPreference: { mode: "secondaryPreferred" },
                     comment: "getRelevantFactsByIndex - find",
@@ -1156,8 +1194,10 @@ class MongoProvider {
                 metrics: {
                     includeFactDataToIndex: false,
                     totalIndexCount: factIndexInfos?.length,
-                    counterIndexCount: Object.keys(indexCountersInfo).length,
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
+                    maxCountersPerRequest: config.facts.maxCountersPerRequest,
+                    maxCountersProcessing: config.facts.maxCountersProcessing,
+                    counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
                     relevantIndexCount: 0,
                     relevantFactsCount: 0,
                     relevantFactsSize: 0,
@@ -1178,8 +1218,10 @@ class MongoProvider {
 
         // Создаем массив промисов для параллельного выполнения запросов
         const startPrepareQueriesTime = Date.now();
-        const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeName) => {
-            const indexNameQuery = queriesByIndexName[indexTypeName];
+        const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeNameWithGroupNumber) => {
+            // const indexTypeName = indexTypeNameWithGroupNumber.split('#')[0];
+            // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
+            const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber];
             const startQuery = Date.now();
             const indexNameResult = await this._getRelevantFactsByIndex(indexNameQuery, debugMode);
             const emptyRelevantFacts = !indexNameResult.factIds || !indexNameResult.factIds.length;
@@ -1187,11 +1229,11 @@ class MongoProvider {
                 const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
                 const fieldName = indexInfo.index.fieldName;
                 const fieldValue = fact?.d[fieldName] ?? "undefined";
-                this.logger.warn(`Для типа индекса ${indexTypeName} не найден список релевантных фактов для значения индекса: ${indexInfo.hashValue}. (поле "${fieldName}": "${fieldValue}")`);
+                this.logger.warn(`Для типа индекса ${indexTypeNameWithGroupNumber} не найден список релевантных фактов для значения индекса: ${indexInfo.hashValue}. (поле "${fieldName}": "${fieldValue}")`);
             }
-            const countersResult = await this._getCounters(indexTypeName, indexNameResult.factIds, indexCountersInfo[indexTypeName], debugMode);
+            const countersResult = await this._getCounters(indexTypeNameWithGroupNumber, indexNameResult.factIds, indexCountersInfo[indexTypeNameWithGroupNumber], debugMode);
             return {
-                indexTypeName: indexTypeName,
+                indexTypeName: indexTypeNameWithGroupNumber,
                 counters: countersResult.counters,
                 error: countersResult.error,
                 processingTime: Date.now() - startQuery,
@@ -1247,8 +1289,10 @@ class MongoProvider {
         /**
          * Структура отладочной информации debug:
          * totalIndexCount - общее количество индексируемых полей факта (связка по полям факта и индекса)
-         * counterIndexCount - количество индексов с счетчиками, применимых к факту (после фильтрации по условию computationConditions)
          * factCountersCount - общее количество счетчиков по всем индексам, применимых к факту (после фильтрации по условию computationConditions)
+         * maxCountersPerRequest - максимальное количество счетчиков на запрос (из файла конфигурации)
+         * maxCountersProcessing - максимальное количество счетчиков для обработки (из файла конфигурации)
+         * counterIndexCountWithGroup - количество индексов с счетчиками, применимых к факту с учетом разбивки на группы (после фильтрации по условию computationConditions)
          * relevantIndexCount - количество релевантных индексов (индексы, которые имеют факты после поиска по индексам)
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
          * processingQueriesTime - время выполнения параллельных запросов на вычисление счетчиков
@@ -1273,8 +1317,10 @@ class MongoProvider {
             metrics: {
                 includeFactDataToIndex: false,
                 totalIndexCount: factIndexInfos?.length,
-                counterIndexCount: Object.keys(indexCountersInfo).length,
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
+                maxCountersPerRequest: config.facts.maxCountersPerRequest,
+                maxCountersProcessing: config.facts.maxCountersProcessing,
+                counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
                 relevantIndexCount: Object.keys(queriesByIndexName).length,
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
@@ -1300,8 +1346,8 @@ class MongoProvider {
         this.checkConnection();
         const startTime = Date.now();
 
-        this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
-        this.logger.debug(`includeFactDataToIndex: true, lookupFacts: ${lookupFacts}`);
+        this.logger.debug(`getRelevantFactCountersFromIndex: Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+        this.logger.debug(`getRelevantFactCountersFromIndex: includeFactDataToIndex: ${this._includeFactDataToIndex}, lookupFacts: ${this._lookupFacts}`);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         const indexCountersInfo = this.getFactIndexCountersInfo(fact);
@@ -1318,12 +1364,14 @@ class MongoProvider {
         const queriesByIndexName = {};
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
         // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
-        Object.keys(indexCountersInfo).forEach((indexTypeName) => {
-            const counters = indexCountersInfo[indexTypeName] ? indexCountersInfo[indexTypeName] : {};
-            this.logger.debug(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
+        Object.keys(indexCountersInfo).forEach((indexTypeNameWithGroupNumber) => {
+            const indexTypeName = indexTypeNameWithGroupNumber.split('#')[0];
+            // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
+            const indexCounterList = indexCountersInfo[indexTypeNameWithGroupNumber] ? indexCountersInfo[indexTypeNameWithGroupNumber] : {};
+            this.logger.debug(`Обрабатываются счетчики (${Object.keys(indexCounterList).length}) для типа индекса ${indexTypeNameWithGroupNumber} для факта ${fact?._id}: ${Object.keys(indexCounterList).join(', ')}`);
             const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
             if (!indexInfo) {
-                this.logger.warn(`Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
+                this.logger.warn(`getRelevantFactCountersFromIndex: Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
                 return;
             }
             const match = {
@@ -1378,7 +1426,6 @@ class MongoProvider {
                     }
                 });
             }
-            const indexCounterList = indexCountersInfo[indexTypeName];
 
             const projectState = {};
             Object.keys(indexCounterList).forEach(counterName => {
@@ -1389,7 +1436,7 @@ class MongoProvider {
                 { "$project": projectState }
             ]);
 
-            queriesByIndexName[indexTypeName] = {
+            queriesByIndexName[indexTypeNameWithGroupNumber] = {
                 query: aggregateIndexQuery,
             };
         });
@@ -1402,8 +1449,10 @@ class MongoProvider {
                 metrics: {
                     includeFactDataToIndex: true,
                     totalIndexCount: factIndexInfos?.length,
-                    counterIndexCount: Object.keys(indexCountersInfo).length,
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
+                    maxCountersPerRequest: config.facts.maxCountersPerRequest,
+                    maxCountersProcessing: config.facts.maxCountersProcessing,
+                    counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
                     prepareCountersQueryTime: 0,
                     relevantIndexCount: 0,
                     relevantFactsQuerySize: 0,
@@ -1425,12 +1474,14 @@ class MongoProvider {
 
         // Создаем массив промисов для параллельного выполнения запросов
         const startPrepareQueriesTime = Date.now();
-        const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeName) => {
-            const indexNameQuery = queriesByIndexName[indexTypeName].query;
+        const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeNameWithGroupNumber) => {
+            // const indexTypeName = indexTypeNameWithGroupNumber.split('#')[0];
+            // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
+            const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber].query;
             const startQuery = Date.now();
 
             const aggregateOptions = {
-                batchSize: 5000,
+                batchSize: config.database.batchSize,
                 readConcern: this.READ_CONCERN,
                 readPreference: { mode: "secondaryPreferred" },
                 comment: "getRelevantFactCounters - aggregate",
@@ -1440,11 +1491,11 @@ class MongoProvider {
             const startCountersQueryTime = Date.now();
             const countersQuerySize = debugMode ? JSON.stringify(indexNameQuery).length : undefined;
             try {
-                this.logger.debug(`Агрегационный запрос для индекса ${indexTypeName}: ${JSON.stringify(indexNameQuery)}`);
+                this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(indexNameQuery)}`);
                 const countersResult = await factIndexCollection.aggregate(indexNameQuery, aggregateOptions).toArray();
                 const countersSize = debugMode ? JSON.stringify(countersResult[0]).length : undefined;
                 return {
-                    indexTypeName: indexTypeName,
+                    indexTypeName: indexTypeNameWithGroupNumber,
                     counters: countersResult[0],
                     metrics: {
                         countersQuerySize: countersQuerySize,
@@ -1457,11 +1508,11 @@ class MongoProvider {
                     }
                 };
             } catch (error) {
-                this.logger.error(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
-                this._writeToLogFile(`Ошибка при выполнении запроса для ключа ${indexTypeName}: ${error.message}`);
+                this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
+                this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
                 this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
                 return {
-                    indexTypeName: indexTypeName,
+                    indexTypeName: indexTypeNameWithGroupNumber,
                     counters: null,
                     error: error.message,
                     processingTime: Date.now() - startQuery,
@@ -1511,8 +1562,10 @@ class MongoProvider {
         /**
          * Структура отладочной информации debug:
          * totalIndexCount - общее количество индексируемых полей факта (связка по полям факта и индекса)
-         * counterIndexCount - количество индексов с счетчиками, применимых к факту (после фильтрации по условию computationConditions)
          * factCountersCount - общее количество счетчиков по всем индексам, применимых к факту (после фильтрации по условию computationConditions)
+         * maxCountersPerRequest - максимальное количество счетчиков на запрос (из файла конфигурации)
+         * maxCountersProcessing - максимальное количество счетчиков для обработки (из файла конфигурации)
+         * counterIndexCountWithGroup - количество индексов с счетчиками, применимых к факту с учетом разбивки на группы (после фильтрации по условию computationConditions)
          * relevantIndexCount - количество релевантных индексов (индексы, которые имеют факты после поиска по индексам)
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
          * processingQueriesTime - время выполнения параллельных запросов на вычисление счетчиков
@@ -1537,8 +1590,10 @@ class MongoProvider {
             metrics: {
                 includeFactDataToIndex: true,
                 totalIndexCount: factIndexInfos?.length,
-                counterIndexCount: Object.keys(indexCountersInfo).length,
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
+                maxCountersPerRequest: config.facts.maxCountersPerRequest,
+                maxCountersProcessing: config.facts.maxCountersProcessing,
+                counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
                 relevantIndexCount: Object.keys(queriesByIndexName).length,
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
@@ -1592,7 +1647,7 @@ class MongoProvider {
             this.logger.info(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeName} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
             const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
             if (!indexInfo) {
-                this.logger.warn(`Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
+                this.logger.warn(`oldGetRelevantFactCounters: Тип индекса ${indexTypeName} не найден в списке индексных значений факта ${fact?._id}.`);
                 return;
             }
             indexHashValues.push(indexInfo.hashValue);
@@ -1681,7 +1736,7 @@ class MongoProvider {
 
         // Выполняем первый агрегирующий запрос на список идентификаторов фактов в разрезе по индексов
         const aggregateIndexOptions = {
-            batchSize: 5000,
+            batchSize: config.database.batchSize,
             readConcern: this.READ_CONCERN,
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - index aggregate",
@@ -1759,7 +1814,7 @@ class MongoProvider {
 
         // Выполнить агрегирующий запрос
         const aggregateFactOptions = {
-            batchSize: 5000,
+            batchSize: config.database.batchSize,
             readConcern: this.READ_CONCERN,
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - aggregate",
@@ -1870,7 +1925,7 @@ class MongoProvider {
         countersInfo.indexTypeNames.forEach(item => {
             const index = indexInfos.find(info => info.index.indexTypeName === item);
             if (!index) {
-                this.logger.warn(`Тип индекса ${item} не найден в списке индексных значений.`);
+                this.logger.warn(`oldGetRelevantFactCounters: Тип индекса ${item} не найден в списке индексных значений.`);
             } else {
                 indexHashValues.push(index.hashValue);
             }
@@ -1895,7 +1950,7 @@ class MongoProvider {
             };
         }
         const findOptions = {
-            batchSize: 5000,
+            batchSize: config.database.batchSize,
             readConcern: this.READ_CONCERN,
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - find",
@@ -1934,7 +1989,7 @@ class MongoProvider {
 
         // Опции агрегирующего запроса
         const aggregateOptions = {
-            batchSize: 5000,
+            batchSize: config.database.batchSize,
             readConcern: this.READ_CONCERN,
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - aggregate",
@@ -2008,7 +2063,7 @@ class MongoProvider {
         countersInfo.indexTypeNames.forEach(item => {
             const index = indexInfos.find(info => info.index.indexTypeName === item);
             if (!index) {
-                this.logger.warn(`Тип индекса ${item} не найден в списке индексных значений.`);
+                this.logger.warn(`getRelevantFacts: Тип индекса ${item} не найден в списке индексных значений.`);
             } else {
                 indexHashValues.push(index.hashValue);
             }
@@ -2033,7 +2088,7 @@ class MongoProvider {
             };
         }
         const findOptions = {
-            batchSize: 5000,
+            batchSize: config.database.batchSize,
             readConcern: this.READ_CONCERN,
             readPreference: "secondaryPreferred",
             comment: "getRelevantFactCounters - find",
@@ -2044,7 +2099,7 @@ class MongoProvider {
         const factsCollection = this._getFactsCollection();
 
         // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
-        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ dt: -1 }).batchSize(5000).limit(depthLimit).toArray();
+        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ dt: -1 }).batchSize(config.database.batchSize).limit(depthLimit).toArray();
         // Сформировать агрегирующий запрос к коллекции facts,
         const aggregateQuery = [
             {
@@ -2060,12 +2115,12 @@ class MongoProvider {
 
         // Выполнить агрегирующий запрос
         const aggregateOptions = {
-            batchSize: 5000,
+            batchSize: config.database.batchSize,
             readConcern: this.READ_CONCERN,
             readPreference: { mode: "secondaryPreferred" },
             comment: "getRelevantFactCounters - aggregate",
         };
-        const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(5000).toArray();
+        const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(config.database.batchSize).toArray();
         this.logger.debug(`✓ Получено ${result.length} фактов`);
         // this.logger.debug(JSON.stringify(result, null, 2));
         // Возвращаем массив фактов
@@ -2173,7 +2228,7 @@ class MongoProvider {
             const factsCollection = this._getFactsCollection();
 
             const findOptions = {
-                batchSize: 5000,
+                batchSize: config.database.batchSize,
                 readConcern: this.READ_CONCERN,
                 readPreference: { mode: "secondaryPreferred" },
                 comment: "findFacts"

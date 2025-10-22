@@ -1018,7 +1018,7 @@ class CounterProducer {
      * @param {integer} type - Тип факта
      * @returns {Array<Object>} Массив конфигураций счетчиков для указанного типа факта
      */
-    getCounterConfigByType(type) {
+    getCounterConfigByType(type, allowedCountersNames) {
         if (!this._counterConfigByType) {
             this._counterConfigByType = {};
         }
@@ -1026,6 +1026,10 @@ class CounterProducer {
             // Находим счетчики, у которых в computationConditions есть d.MessageTypeId или t (для тестов) и его значение равно type
             this._counterConfigByType[type] = [];
             this._counterConfig.forEach(counter => {
+                // Если задан список разрешенных счетчиков и счетчик не в списке, то пропускаем
+                if (allowedCountersNames && !allowedCountersNames.includes(counter.name)) {
+                    return;
+                }
                 // Проверяем только одно условие на MessageTypeId
                 const messageTypeIdValue = counter.computationConditions["d.MessageTypeId"] || counter.computationConditions["t"];
                 const condition = { "d.MessageTypeId": messageTypeIdValue };
@@ -1050,7 +1054,7 @@ class CounterProducer {
      * @returns {Object|null} Объект с полем factCounters, или null если нет подходящих счетчиков
      * @returns {Object} factCounters - Массив счетчиков для факта
      */
-    getFactCounters(fact) {
+    getFactCounters(fact, allowedCountersNames) {
         if (!fact || !fact.d) {
             this.logger.warn('Передан некорректный факт для получения счетчиков');
             return null;
@@ -1058,7 +1062,7 @@ class CounterProducer {
 
         const factCounters = [];
         // Проходим по всем счетчикам и проверяем условия
-        for (const counter of this.getCounterConfigByType(fact.t)) {
+        for (const counter of this.getCounterConfigByType(fact.t, allowedCountersNames)) {
             if (this._matchesCondition(fact, counter.computationConditions)) {
                 if (!counter.attributes) {
                     this.logger.warn(`Счетчик '${counter.name}' не имеет атрибутов (attributes). Счетчик не будет добавлен.`);
@@ -1072,7 +1076,7 @@ class CounterProducer {
         }
 
         // this.logger.debug(`Для факта ${fact._id} найдено подходящих счетчиков: ${factCounters.length} из ${this._counterConfig.length}`);
-        // this.logger.debug(`facetStages: ${JSON.stringify(facetStages)}`);
+        // this.logger.debug(`facetStages: ${JSON.stringify(factCounters)}`);
 
         if (!factCounters.length) {
             return null;

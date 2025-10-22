@@ -8,6 +8,9 @@ const config = require('../common/config');
 class MongoProviderTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'DEBUG');
+        // Чтобы не падали тесты меняем список разрешенных счетчиков на null
+        config.facts.allowedCountersNames = null;
+
         this.countersConfig = [
             {
                 name: "total",
@@ -204,7 +207,6 @@ class MongoProviderTest {
             await this.testCheckConnection('4. Тест проверки подключения...');
             // Тесты создания базы данных
             await this.testCreateDatabase('5. Тест создания базы данных...');
-
             // Тесты работы с фактами
             await this.testInsertFact('6. Тест вставки одного факта...');
             await this.testBulkInsert('7. Тест массовой вставки фактов...');
