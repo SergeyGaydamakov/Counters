@@ -33,7 +33,11 @@
       "avg_amount": {
         "$avg": "$d.a"
       }
-    }
+    },
+    "fromTimeMs": 31536000000,
+    "toTimeMs": 0,
+    "maxEvaluatedRecords": 1000,
+    "maxMatchingRecords": 1000
   },
   {
     "name": "test_counter_1_f1_string_filter",
@@ -55,7 +59,11 @@
             }
           }
         ]
-      }
+      },
+      "fromTimeMs": 31536000000,
+      "toTimeMs": 0,
+      "maxEvaluatedRecords": 1000,
+      "maxMatchingRecords": 1000
     },
     "evaluationConditions": {
       "d.f1": {
@@ -72,7 +80,11 @@
             }
           }
         ]
-      }
+      },
+      "fromTimeMs": 31536000000,
+      "toTimeMs": 0,
+      "maxEvaluatedRecords": 100,
+      "maxMatchingRecords": 5
     },
     "attributes": {
       "cnt": {
@@ -102,7 +114,11 @@
             }
           }
         ]
-      }
+      },
+      "fromTimeMs": 31536000000,
+      "toTimeMs": 0,
+      "maxEvaluatedRecords": 1000,
+      "maxMatchingRecords": 10
     },
     "evaluationConditions": {
       "d.f2": {
@@ -120,7 +136,11 @@
             }
           }
         ]
-      }
+      },
+      "fromTimeMs": 31536000000,
+      "toTimeMs": 0,
+      "maxEvaluatedRecords": 1000,
+      "maxMatchingRecords": 500
     },
     "attributes": {
       "cnt": {
@@ -939,7 +959,11 @@
             }
           }
         ]
-      }
+      },
+      "fromTimeMs": 31536000000,
+      "toTimeMs": 0,
+      "maxEvaluatedRecords": 100,
+      "maxMatchingRecords": 5
     },
     "evaluationConditions": {
       "d.f15": {
@@ -962,7 +986,11 @@
             }
           }
         ]
-      }
+      },
+      "fromTimeMs": 31536000000,
+      "toTimeMs": 0,
+      "maxEvaluatedRecords": 100,
+      "maxMatchingRecords": 5
     },
     "attributes": {
       "cnt": {
@@ -980,6 +1008,10 @@
       "count_f3_distinct": {
         "$addToSet": "$d.f3"
       }
-    }
-  }
+    },
+    "fromTimeMs": 31536000000,
+    "toTimeMs": 0,
+    "maxEvaluatedRecords": 100,
+    "maxMatchingRecords": 5
+}
 ]

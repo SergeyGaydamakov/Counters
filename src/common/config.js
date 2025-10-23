@@ -83,6 +83,7 @@ const config = {
         enableRequestLogging: process.env.ENABLE_REQUEST_LOGGING !== 'false',
         saveFrequency: parseInt(process.env.LOG_SAVE_FREQUENCY) || 100,
         debugMode: process.env.DEBUG_MODE === 'true',
+        logLevel: process.env.LOG_LEVEL || 'INFO',
         writeErrorsToFile: process.env.WRITE_ERRORS_TO_FILE === 'true'
     },
     

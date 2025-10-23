@@ -1046,6 +1046,13 @@ class CounterProducer {
                     this._counterConfigByType[type].push(counter);
                 }
             });
+            // Сортируем счетчики в порядке возрастания fromTimeMs и затем по возрастанию toTimeMs
+            this._counterConfigByType[type].sort((a, b) => {
+                if (a.fromTimeMs !== b.fromTimeMs) {
+                    return a.fromTimeMs - b.fromTimeMs;
+                }
+                return a.toTimeMs - b.toTimeMs;
+            });
         }
         return this._counterConfigByType[type];
     }

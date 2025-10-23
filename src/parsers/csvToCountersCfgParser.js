@@ -146,6 +146,15 @@ class CountersCsvParser {
         // Парсим атрибуты
         const attributes = this.parseAttributes(counterData.Attributes, lineNumber);
 
+        // Конвертируем время в миллисекунды
+        const timeUnit = counterData['Time unit'] || 'hours';
+        const fromTimeMs = this.convertTimeToMs(counterData.From || 0, timeUnit);
+        const toTimeMs = this.convertTimeToMs(counterData.To || 0, timeUnit);
+
+        // Парсим числовые значения
+        const maxEvaluatedRecords = parseInt(counterData['Max evaluated records']) || 0;
+        const maxMatchingRecords = parseInt(counterData['Max matching records']) || 0;
+
         // Создаем объект счетчика
         const counter = {
             name: counterData.Name.replace(/\./g, '_'), // Заменяем точки на подчеркивания
@@ -153,7 +162,11 @@ class CountersCsvParser {
             indexTypeName: counterData.Index || 'idx_default',
             computationConditions: computationConditions,
             evaluationConditions: evaluationConditions,
-            attributes: attributes
+            attributes: attributes,
+            fromTimeMs: fromTimeMs,
+            toTimeMs: toTimeMs,
+            maxEvaluatedRecords: maxEvaluatedRecords,
+            maxMatchingRecords: maxMatchingRecords
         };
 
         // Добавляем информацию об ошибках в комментарий, если есть
@@ -733,6 +746,28 @@ class CountersCsvParser {
             's': 'second'
         };
         return unitMap[unit] || 'day';
+    }
+
+    /**
+     * Конвертирует время в миллисекунды
+     * @param {string|number} timeValue - значение времени
+     * @param {string} timeUnit - единица времени (hours, minutes, days, seconds)
+     * @returns {number} время в миллисекундах
+     */
+    convertTimeToMs(timeValue, timeUnit) {
+        const value = parseFloat(timeValue);
+        if (isNaN(value)) {
+            return 0;
+        }
+
+        const unitMultipliers = {
+            'seconds': 1000,
+            'minutes': 60 * 1000,
+            'hours': 60 * 60 * 1000,
+            'days': 24 * 60 * 60 * 1000
+        };
+
+        return Math.round(value * (unitMultipliers[timeUnit] || unitMultipliers['hours']));
     }
 
     /**

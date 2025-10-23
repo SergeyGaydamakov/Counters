@@ -59,7 +59,7 @@ class MongoProvider {
         // Создаем логгер для этого провайдера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
-        this._debugMode= config.logging.debugMode;
+        this._debugMode= config.logging.debugMode || config.logging.logLevel.toUpperCase() === 'DEBUG';
         this._connectionString = connectionString;
         this._databaseName = databaseName;
         this._databaseOptions = this._mergeDatabaseOptions(databaseOptions);
@@ -533,9 +533,10 @@ class MongoProvider {
      * Выдает счетчики применительно к факту, с разбивкой по типам индексов с разбивкой на группы счетчиков для ограничения количества счетчиков в запросе.
      * Формат названия индекса: indexTypeName#groupNumber
      * @param {Object} fact - факт
+     * @param {string} timeFieldName - имя поля даты факта, по которому будут вычисляться счетчики: либо "c" для факта, либо "dt" для индексных значений
      * @returns {Promise<Array>} выражение для вычисления группы счетчиков для факта и типа индексов
      */
-    getFactIndexCountersInfo(fact) {
+    getFactIndexCountersInfo(fact, timeFieldName = "dt") {
         if (!this._counterProducer) {
             this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
             return this.getDefaultFactIndexCountersInfo();
@@ -550,21 +551,42 @@ class MongoProvider {
         // Список условий по каждому типу индекса.
         // К имени индекса добавляется постфикс #N, где N - номер группы счетчиков для ограничения количества счетчиков в запросе.
         const indexFacetStages = {};
+        const indexLimits = {};
         // Счетчик количества counters в каждой группе {countersCount, groupNumber}
         const countersGroupCount = {};
         // Общее число счетчиков
         let totalCountersCount = 0;
+        // Текущая дата и время
+        const nowDate = Date.now();
         // Подставляем параметры для каждого счетчика
         factCounters.forEach(counter => {
             totalCountersCount++;
+            // Ограничение на число счетчиков, заданное в настройках
             if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
                 return;
             }
-            const matchStage = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : null;
+            //
+            // Условие фильтрации счетчика
+            //
+            const matchStageCondition = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : { "$match": {} };
+            // Нужно добвить условие по fromTimeMs и toTimeMs в matchStage
+            if (counter.fromTimeMs) {
+                matchStageCondition["$match"] = { [timeFieldName]: {"$gte": new Date(nowDate - counter.fromTimeMs) } };
+            }
+            if (counter.toTimeMs) {
+                matchStageCondition["$match"] = { [timeFieldName]: {"$lte": new Date(nowDate - counter.toTimeMs) } };
+            }
+            const matchStage = Object.keys(matchStageCondition["$match"]).length ? matchStageCondition : null;
+            //
+            // Ограничение количества записей для счетчика
+            //
+            const limitValue = (counter.maxEvaluatedRecords ? (counter.maxMatchingRecords ? Math.min(counter.maxEvaluatedRecords, counter.maxMatchingRecords) : counter.maxEvaluatedRecords) : (counter.maxMatchingRecords ? counter.maxMatchingRecords : null));
+            const limitStage = limitValue > 0 ? { "$limit": limitValue } : null;
+            //
+            // Добавление условия по группировке
+            //
             const groupStage = { "$group": counter.attributes };
-            //
             // Всегда добавлять идентификатор, по которому выполняется группировка - _id = null
-            //
             groupStage["$group"]["_id"] = null;
             //
             // Вычисление номера группы счетчиков в запросе и названия индекса с номером группы
@@ -591,6 +613,9 @@ class MongoProvider {
             if (matchStage) {
                 indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push(matchStage);
             }
+            if (limitStage) {
+                indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push(limitStage);
+            }
             indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push(groupStage);
             // Дополнительно обрабатываем счетчики на получение уникальных значений, признаком является $addToSet
             const addFieldsStage = {};
@@ -604,6 +629,13 @@ class MongoProvider {
             if (Object.keys(addFieldsStage).length) {
                 indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push({ "$addFields": addFieldsStage });
             }
+            // Добавление максимального количества записей для группы счетчиков
+            if (!indexLimits[indexTypeNameWithGroupNumber]){
+                indexLimits[indexTypeNameWithGroupNumber] = {};
+            }
+            indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords = Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ?? 0, counter.maxEvaluatedRecords ?? 0);
+            indexLimits[indexTypeNameWithGroupNumber].fromTimeMs = Math.max(indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ?? 0, counter.fromTimeMs ?? 0);
+            indexLimits[indexTypeNameWithGroupNumber].toTimeMs = (counter.toTimeMs ? (indexLimits[indexTypeNameWithGroupNumber].toTimeMs ? Math.min(counter.toTimeMs, indexLimits[indexTypeNameWithGroupNumber].toTimeMs) : counter.toTimeMs) : (indexLimits[indexTypeNameWithGroupNumber].toTimeMs ? indexLimits[indexTypeNameWithGroupNumber].toTimeMs : null));
         });
         if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
             this.logger.warn(`Превышено максимальное количество счетчиков для обработки: ${config.facts.maxCountersProcessing}. Всего счетчиков: ${totalCountersCount}.`);
@@ -613,14 +645,14 @@ class MongoProvider {
         // Например, если в выражении счетчиков есть параметр "$$f2", то он будет заменен на значение атрибута "f2" из факта
         const indexFacetStagesString = JSON.stringify(indexFacetStages);
         if (!indexFacetStagesString.includes('$$')) {
-            return indexFacetStages;
+            return {indexFacetStages: indexFacetStages, indexLimits: indexLimits};
         }
         // Создаем глубокую копию выражения счетчиков
         const parameterizedFacetStages = JSON.parse(indexFacetStagesString);
         // Рекурсивно заменяем переменные в объекте
         this._replaceParametersRecursive(parameterizedFacetStages, fact.d);
 
-        return parameterizedFacetStages;
+        return {indexFacetStages: parameterizedFacetStages, indexLimits: indexLimits};
     }
 
     /**
@@ -1131,7 +1163,7 @@ class MongoProvider {
         }
     }
 
-    async getRelevantFactCountersFromFact(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
+    async getRelevantFactCountersFromFact(factIndexInfos, fact = undefined, depthLimit = 2000, depthFromDate = undefined, debugMode = false) {
         if (!factIndexInfos || !factIndexInfos.length) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет индексных значений.`);
 
@@ -1149,7 +1181,11 @@ class MongoProvider {
         this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
-        const indexCountersInfo = this.getFactIndexCountersInfo(fact);
+        // Так как счетчики будут по списку фактов, то используем поле "c", а не "dt"
+        const info = this.getFactIndexCountersInfo(fact, "c");
+        const indexCountersInfo = info.indexFacetStages;
+        const indexLimits = info.indexLimits;
+
         if (!indexCountersInfo) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
 
@@ -1173,6 +1209,8 @@ class MongoProvider {
             // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
             // Если тип индекса уже был обработан, то пропускаем
             if(indexTypeNames.has(indexTypeName)) {
+                // Нужно обновить глубину запроса для типа индекса, если она меньше максимальной глубины для группы счетчиков
+                queriesByIndexName[indexTypeName].depthLimit = Math.max(queriesByIndexName[indexTypeName].depthLimit, indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords);
                 return;
             }
             const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
@@ -1183,9 +1221,17 @@ class MongoProvider {
             const factIndexFindQuery = {
                 "_id.h": indexInfo.hashValue
             };
-            if (depthFromDate) {
+            if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs) {
+                const depthFromDateTime = depthFromDate ? depthFromDate.getTime() : Date.now();
+                const indexFromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ? Date.now() - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : Date.now();
+                const fromDateTime = Math.min(depthFromDateTime, indexFromDateTime);
                 factIndexFindQuery["dt"] = {
-                    "$gte": depthFromDate
+                    "$gte": new Date(fromDateTime)
+                };
+            }
+            if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs) {
+                factIndexFindQuery["dt"] = {
+                    "$lte": new Date( Date.now() - indexLimits[indexTypeNameWithGroupNumber].toTimeMs)
                 };
             }
             if (fact) {
@@ -1194,6 +1240,8 @@ class MongoProvider {
                 };
             }
             indexTypeNames.add(indexTypeName);
+            const limitValue = indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ? (indexInfo.index.limit ? Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords, indexInfo.index.limit) : indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords) : (indexInfo.index.limit ? indexInfo.index.limit : 100);
+
             queriesByIndexName[indexTypeName] = {
                 factIndexFindQuery: factIndexFindQuery,
                 factIndexFindOptions: {
@@ -1207,7 +1255,7 @@ class MongoProvider {
                     "_id.h": 1,
                     "dt": -1
                 },
-                depthLimit: Math.min(indexInfo.index.limit ?? 100, depthLimit),
+                depthLimit: Math.min(limitValue, depthLimit),
             };
         });
 
@@ -1251,6 +1299,7 @@ class MongoProvider {
             const indexNameQuery = queriesByIndexName[indexTypeName];
             const startQuery = Date.now();
             const indexNameResult = await this._getRelevantFactsByIndex(indexNameQuery, debugMode);
+            
             const emptyRelevantFacts = !indexNameResult.factIds || !indexNameResult.factIds.length;
             if (emptyRelevantFacts) {
                 const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
@@ -1396,7 +1445,11 @@ class MongoProvider {
         this.logger.debug(`getRelevantFactCountersFromIndex: includeFactDataToIndex: ${this._includeFactDataToIndex}, lookupFacts: ${this._lookupFacts}`);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
-        const indexCountersInfo = this.getFactIndexCountersInfo(fact);
+        // Так как счетчики будут по списку фактов, то используем поле "dt", а не "c"
+        const info = this.getFactIndexCountersInfo(fact, "dt");
+        const indexCountersInfo = info.indexFacetStages;
+        const indexLimits = info.indexLimits;
+
         if (!indexCountersInfo) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
 
@@ -1423,9 +1476,17 @@ class MongoProvider {
             const match = {
                 "_id.h": indexInfo.hashValue
             };
-            if (depthFromDate) {
+            if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs) {
+                const depthFromDateTime = depthFromDate ? depthFromDate.getTime() : Date.now();
+                const indexFromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ? Date.now() - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : Date.now();
+                const fromDateTime = Math.min(depthFromDateTime, indexFromDateTime);
                 match["dt"] = {
-                    "$gte": depthFromDate
+                    "$gte": new Date(fromDateTime)
+                };
+            }
+            if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs) {
+                match["dt"] = {
+                    "$lte": new Date( Date.now() - indexLimits[indexTypeNameWithGroupNumber].toTimeMs)
                 };
             }
             if (fact) {
@@ -1437,7 +1498,8 @@ class MongoProvider {
                 "_id.h": 1,
                 "dt": -1
             };
-            const limit = Math.min(indexInfo.index.limit ?? 100, depthLimit);
+            const limitValue = indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ? (indexInfo.index.limit ? Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords, indexInfo.index.limit) : indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords) : (indexInfo.index.limit ? indexInfo.index.limit : 100);
+            const limit = Math.min(limitValue, depthLimit);
             const aggregateIndexQuery = [
                 { "$match": match },
                 { "$sort": sort },
@@ -1539,7 +1601,9 @@ class MongoProvider {
             const startCountersQueryTime = Date.now();
             const countersQuerySize = debugMode ? JSON.stringify(indexNameQuery).length : undefined;
             try {
-                this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(indexNameQuery)}`);
+                if (this._debugMode) {
+                    this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(indexNameQuery)}`);
+                }
                 const countersResult = await factIndexCollection.aggregate(indexNameQuery, aggregateOptions).toArray();
                 const countersSize = debugMode ? JSON.stringify(countersResult[0]).length : undefined;
                 return {
