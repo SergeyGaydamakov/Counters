@@ -182,7 +182,7 @@ async function saveDebugInfoIfNeeded(factController, message, fact, processingTi
         stats.requestCounter++;
         
         // Обновляем максимальное время обработки и связанную информацию
-        if (!stats.maxProcessingTime || (processingTime.total > stats.maxProcessingTime.total)) {
+        if (!stats.maxProcessingTime || (processingTime.counters > stats.maxProcessingTime.counters)) {
             stats.maxProcessingTime = processingTime;
             stats.maxMetrics = metrics;
             stats.maxDebugInfo = debugInfo;
@@ -355,32 +355,45 @@ function createRoutes(factController) {
     // POST /api/v1/message/iris
     apiV1.post('/message/iris', async (req, res) => {
         try {
-            // Извлекаем messageType из атрибута MessageTypeId входящего документа
-            const messageType = req.body?.MessageTypeId;
-            
             // Валидация входных данных
-            if (!messageType || messageType.trim() === '') {
+            if (!req.body?.MessageTypeId || typeof req.body?.MessageTypeId !== 'string' || req.body?.MessageTypeId.trim() === '') {
                 return res.status(400).json({
                     success: false,
                     error: 'Неверный атрибут MessageTypeId',
-                    message: 'MessageTypeId не может быть пустым'
+                    message: `MessageTypeId (${req.body?.MessageTypeId}) должен быть указан`
                 });
             }
 
-            // Преобразуем messageType в число
-            const messageTypeNumber = parseInt(messageType.trim());
+            // Извлекаем messageType из атрибута MessageTypeId входящего документа
+            const messageType = parseInt(req.body?.MessageTypeId.trim());
+            if (isNaN(messageType)) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Неверный формат MessageTypeId`,
+                    message: `MessageTypeId (${req.body?.MessageTypeId}) должен быть целым числом больше 0`
+                });
+            }
             
+            // Валидация входных данных
+            if (!messageType) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Неверный атрибут MessageTypeId',
+                    message: 'MessageTypeId (${req.body?.MessageTypeId}) должен быть целым числолм больше 0'
+                });
+            }
+
             // Проверяем, разрешен ли этот тип сообщения
-            if (!isMessageTypeAllowed(messageTypeNumber)) {
-                logger.warn(`Тип IRIS сообщения ${messageTypeNumber} не разрешен для обработки - возвращаем пустой IRIS узел`, {
+            if (!isMessageTypeAllowed(messageType)) {
+                logger.warn(`Тип IRIS сообщения ${messageType} не разрешен для обработки - возвращаем пустой IRIS узел`, {
                     allowedTypes: config.messageTypes.allowedTypes,
-                    messageType: messageTypeNumber
+                    messageType: messageType
                 });
                 
                 // Создаем пустой XML ответ с правильными атрибутами
                 const emptyResponse = {
                     IRIS: {
-                        status: `Тип сообщения ${messageTypeNumber} не разрешен для обработки. Обрабатываются только типы сообщений: ${config.messageTypes.allowedTypes.join(', ')}`
+                        status: `Тип сообщения ${messageType} не разрешен для обработки. Обрабатываются только типы сообщений: ${config.messageTypes.allowedTypes.join(', ')}`
                     },
                     _attributes: {
                         Version: '1',
@@ -485,17 +498,19 @@ function createRoutes(factController) {
             delete messageData.Message;
             delete messageData.MessageTypeId;
 
+            // logger.info(JSON.stringify(messageData, null, 2));
+
             // Именно с большими буквами ID
             messageData.MessageTypeID = messageType;
             messageData.MessageId = messageId;
 
             // Создаем сообщение в формате для FactController
             const message = {
-                t: messageTypeNumber,
+                t: messageType,
                 d: messageData
             };
 
-            logger.debug(`Обработка IRIS события типа: ${messageTypeNumber}`, { message });
+            logger.debug(`Обработка IRIS события типа: ${messageType}`, { message });
 
             // Проверяем, что контроллер инициализирован
             if (!factController) {

@@ -116,6 +116,7 @@ class FactController {
      */
     async processMessageWithCounters(message, debugMode) {
         const fact = this.factMapper.mapMessageToFact(message);
+
         const factIndexes = this.factIndexer.index(fact);
         if (factIndexes.length === 0) {
             this.logger.warn(`✓ Нет индексных значений для факта с типом ${fact.t}, обработка факта будет пропущена.`);
@@ -137,6 +138,7 @@ class FactController {
             this.dbProvider.saveFact(fact),
             this.dbProvider.saveFactIndexList(factIndexes)
         ]);
+
         return {
             fact,
             counters: factCountersResult.result,

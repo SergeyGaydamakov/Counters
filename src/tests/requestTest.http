@@ -8,7 +8,7 @@
 @password = 1
 
 # Тип сообщения
-@messageType = 50
+@messageType = 1
 
 
 ### Health check
@@ -50,6 +50,190 @@ Debug-Mode: true
   <f22>"1234567890"</f22>
 </IRIS>
 
+
+
+### !!! Обработка IRIS XML сложного 50 сообщения
+POST http://{{host}}/api/v1/message/iris
+Content-Type: text/xml
+Debug-Mode: true
+
+<IRIS Version="1" Message="ModelRequest" MessageTypeId="50" MessageId="12345678901234567895" custom="test">
+	<i000>0100</i000>
+	<fmt>A</fmt>
+	<rul>atm88.1</rul>
+	<ssnumber>12345678</ssnumber>
+	<i039>00</i039>
+	<i022>0710</i022>
+	<dpan>1234567890123456</dpan>
+	<agreement>1234567890</agreement>
+	<i018>4814</i018>
+	<i002>1234567890123456</i002>
+	<i042>123456789012345</i042>
+	<oac>5000</oac>
+	<p_prv_id>1</p_prv_id>
+	<tstamp>2025-10-19</tstamp>
+	<status>00</status>
+	<rsncd>00</rsncd>
+	<i049>643</i049>
+	<i043b>Moscow</i043b>
+	<receiverCardNum>9876543210987654</receiverCardNum>
+	<i043a>Test Merchant LLC</i043a>
+	<requestorID>MobileApp</requestorID>
+	<receiverRequisites>1234567890123456</receiverRequisites>
+	<ops_source_client_id>87654321</ops_source_client_id>
+	<eci>05</eci>
+	<i003>000000</i003>
+	<s_authenticationResult>1</s_authenticationResult>
+	<authenticationType>1</authenticationType>
+	<i032>123456</i032>
+	<organization_id>123456789</organization_id>
+	<i052>1234</i052>
+	<i041>12345678</i041>
+	<otbAffGrp>1000</otbAffGrp>
+	<servrul>rule1,rule2</servrul>
+	<nspk_rulesSet>Android 12</nspk_rulesSet>
+	<cnt>RU</cnt>
+	<mtrtyp>1</mtrtyp>
+	<cavv>abc123def456</cavv>
+	<bankacc>40817810123456789012</bankacc>
+	<status_reverse>00</status_reverse>
+	<mtrmod>1</mtrmod>
+	<phone>+79001234567</phone>
+	<email>test@example.com</email>
+	<IP>192.168.1.100</IP>
+	<orderId>ORD123456789</orderId>
+	<deviceId>device123456789</deviceId>
+	<userAgent>Mozilla/5.0 (Android 12; Mobile; rv:91.0)</userAgent>
+	<s_origin>Card</s_origin>
+	<p_cardtype>1</p_cardtype>
+	<p_dstCardType>1</p_dstCardType>
+	<White_List>0</White_List>
+	<Resolution>1</Resolution>
+	<payType>1</payType>
+	<p_PGinterface>P2P_PRT</p_PGinterface>
+	<md_issBIN_3NumCntCode>643</md_issBIN_3NumCntCode>
+	<p_basicFieldKey_CRC32>a1b2c3d4</p_basicFieldKey_CRC32>
+	<pe_tb_client_private_flag>false</pe_tb_client_private_flag>
+	<pe_vip_flag_3>0</pe_vip_flag_3>
+	<pe_casino_flag_2>1</pe_casino_flag_2>
+	<md_casino_client_flag_2>1</md_casino_client_flag_2>
+	<Issuing_BIN_8>12345678</Issuing_BIN_8>
+	<agg_uniqueMerchId>unique123</agg_uniqueMerchId>
+	<PAN_Listing>1</PAN_Listing>
+	<ap_source_ip_by_client>192.168.1.100</ap_source_ip_by_client>
+	<rebillId>rebill123</rebillId>
+	<deviceId_CRC32>device123</deviceId_CRC32>
+	<p_prvCode>PRV001</p_prvCode>
+	<ap_payment_after_tokenization_3h>1</ap_payment_after_tokenization_3h>
+	<ap_payment_after_tokenization_not_green_7d>0</ap_payment_after_tokenization_not_green_7d>
+	<ap_payments_by_token_30_2d_ind>1</ap_payments_by_token_30_2d_ind>
+	<atmRejectedItems>0</atmRejectedItems>
+	<atm_after_activation_lk_3h>0</atm_after_activation_lk_3h>
+	<atm_after_activation_sr_3h>0</atm_after_activation_sr_3h>
+	<atm_after_pc_2h>0</atm_after_pc_2h>
+	<atm_after_pn_2h>0</atm_after_pn_2h>
+	<atm_attribute>1</atm_attribute>
+	<c2c_from_PAN_15m_cnt>1</c2c_from_PAN_15m_cnt>
+	<c2c_from_PAN_15m_dst>1</c2c_from_PAN_15m_dst>
+	<c2c_same_dst_card_and_basicFieldKey>1</c2c_same_dst_card_and_basicFieldKey>
+	<c2c_same_dst_cardnum>1</c2c_same_dst_cardnum>
+	<c2c_same_recipient>1</c2c_same_recipient>
+	<c2c_type>1</c2c_type>
+	<case_from_iris_sme>0</case_from_iris_sme>
+	<clientType>1</clientType>
+	<confirmationType>1</confirmationType>
+	<confirmed_device_indicator>1</confirmed_device_indicator>
+	<drop_output_list>0</drop_output_list>
+	<exc_merch>0</exc_merch>
+	<exc_providers>0</exc_providers>
+	<exchange_broker>0</exchange_broker>
+	<exchange_mobile>0</exchange_mobile>
+	<exchange_prv_groups>0</exchange_prv_groups>
+	<finalTimestamp>2025-10-19T18:42:25.701Z</finalTimestamp>
+	<i_3ds_fp>fp123</i_3ds_fp>
+	<i_Drunk_places_fraud_merchant_30d>0</i_Drunk_places_fraud_merchant_30d>
+	<i_PG_same_PAN_dst_200d_2d>0</i_PG_same_PAN_dst_200d_2d>
+	<i_PG_same_recipient_200_to_2d>0</i_PG_same_recipient_200_to_2d>
+	<i_any_payment_after_bad_drinking_place_24h_indicator_cnt>0</i_any_payment_after_bad_drinking_place_24h_indicator_cnt>
+	<i_any_payment_after_bad_drinking_place_24h_indicator_sum>0</i_any_payment_after_bad_drinking_place_24h_indicator_sum>
+	<i_any_payment_after_drinking_place_9h>0</i_any_payment_after_drinking_place_9h>
+	<i_any_trxn_after_PINCHNG_indicator_3h>0</i_any_trxn_after_PINCHNG_indicator_3h>
+	<i_atm_CO_05_in_kzn_5d_ind>0</i_atm_CO_05_in_kzn_5d_ind>
+	<i_atm_after_taxi_5h_ind>0</i_atm_after_taxi_5h_ind>
+	<i_auths_many_devices_14d_cnt>0</i_auths_many_devices_14d_cnt>
+	<i_auths_trusted_device_30d>0</i_auths_trusted_device_30d>
+	<i_auths_trusted_wuid_30d>0</i_auths_trusted_wuid_30d>
+	<i_diff_clients_1_device_30d>0</i_diff_clients_1_device_30d>
+	<i_many_clients_from_1_device_30d>0</i_many_clients_from_1_device_30d>
+	<i_operation_after_night_bars_3h_cnt>0</i_operation_after_night_bars_3h_cnt>
+	<i_operation_after_pc_bad_FP_4h>0</i_operation_after_pc_bad_FP_4h>
+	<i_operations_with_PIN_1h>0</i_operations_with_PIN_1h>
+	<i_pg_auth_after_sr_wb_48h>0</i_pg_auth_after_sr_wb_48h>
+	<i_stas_after_bad_drinking_place_24h_ind_cnt>0</i_stas_after_bad_drinking_place_24h_ind_cnt>
+	<i_stas_after_bad_drinking_place_24h_ind_sum>0</i_stas_after_bad_drinking_place_24h_ind_sum>
+	<i_stas_any_trxn_after_PINCHNG_ind_3h>0</i_stas_any_trxn_after_PINCHNG_ind_3h>
+	<i_stas_payment_after_drinking_place_6h_indicator_sum>0</i_stas_payment_after_drinking_place_6h_indicator_sum>
+	<i_stas_payment_after_drinking_place_or_shop_8h>0</i_stas_payment_after_drinking_place_or_shop_8h>
+	<i_test_cancel_selfie_by_device_70_trxn_24h>0</i_test_cancel_selfie_by_device_70_trxn_24h>
+	<iss_black_listed>0</iss_black_listed>
+	<kpp>123456789</kpp>
+	<localTimestamp>2025-10-19T18:42:25.701Z</localTimestamp>
+	<mass3_softDate>2024-01-01</mass3_softDate>
+	<md_ATM_city>Moscow</md_ATM_city>
+	<md_ATM_regionCode>77</md_ATM_regionCode>
+	<md_IPGEO_3NumCntCode>643</md_IPGEO_3NumCntCode>
+	<md_IP_proxy_type>0</md_IP_proxy_type>
+	<md_casino_client_flag>1</md_casino_client_flag>
+	<md_new_IPGEO_city_crc32>city123</md_new_IPGEO_city_crc32>
+	<md_suspectCall_date>2024-01-01</md_suspectCall_date>
+	<md_userAgent>Mozilla/5.0</md_userAgent>
+	<message_CRC32>msg123</message_CRC32>
+	<model_phone>iPhone 13</model_phone>
+	<non_rur_exch>0</non_rur_exch>
+	<one_month_attribute>1</one_month_attribute>
+	<p_depEndDate_sys>2025-12-31</p_depEndDate_sys>
+	<p_dstBankBik>044525225</p_dstBankBik>
+	<p_dstOrganisationID>123456789</p_dstOrganisationID>
+	<p_prv_grp_id>1</p_prv_grp_id>
+	<payCheckResult>1</payCheckResult>
+	<pe_actual_residence_place>Moscow</pe_actual_residence_place>
+	<pe_control_question_flag>0</pe_control_question_flag>
+	<pe_deposit_active_flag>1</pe_deposit_active_flag>
+	<pe_inv_value_client>1000000</pe_inv_value_client>
+	<pe_vip_flag>0</pe_vip_flag>
+	<pe_vip_flag_2>0</pe_vip_flag_2>
+	<pe_vip_flag_2_dst>0</pe_vip_flag_2_dst>
+	<pe_vip_flag_dst>0</pe_vip_flag_dst>
+	<prec_authType_temp>1</prec_authType_temp>
+	<respCq>0</respCq>
+	<respSms>0</respSms>
+	<ri_dn>ri123</ri_dn>
+	<ri_i160_i177_179_2>0</ri_i160_i177_179_2>
+	<risk_mcc>4814</risk_mcc>
+	<s_gpu_vendor>NVIDIA</s_gpu_vendor>
+	<s_screen_heigth>1920</s_screen_heigth>
+	<s_screen_width>1080</s_screen_width>
+	<s_web_user_id_CRC32>user123</s_web_user_id_CRC32>
+	<same_currency>1</same_currency>
+	<same_mn_in_hist_cnt>1</same_mn_in_hist_cnt>
+	<score>100</score>
+	<screensharing_flag_dttm>0</screensharing_flag_dttm>
+	<sme_confirmed_device_indicator>1</sme_confirmed_device_indicator>
+	<sme_orgId_c2c_to_same_recip_200_1d>0</sme_orgId_c2c_to_same_recip_200_1d>
+	<sme_orgId_norm_200days_to_1acc>0</sme_orgId_norm_200days_to_1acc>
+	<sme_organizationId_norm_200days_to_1_INN>0</sme_organizationId_norm_200days_to_1_INN>
+	<sme_organizationId_trxn_200days_to_1acc>0</sme_organizationId_trxn_200days_to_1acc>
+	<sme_trans_dt_week_ago>2024-01-01</sme_trans_dt_week_ago>
+	<ssoId>sso123</ssoId>
+	<termType>1</termType>
+	<SystemTime>2025-10-19T18:42:25.701Z</SystemTime>
+	<ukbo_flag>0</ukbo_flag>
+	<userAgent_md5>md5hash123</userAgent_md5>
+	<INN_recepient_CRC32>inn123</INN_recepient_CRC32>
+	<s_customer_session_id>session123</s_customer_session_id>
+	<baml>0</baml>
+	<acsMLresult_temp>1</acsMLresult_temp>
+</IRIS>
 
 ### Обработка IRIS XML сообщения
 POST http://{{host}}/api/v1/message/iris

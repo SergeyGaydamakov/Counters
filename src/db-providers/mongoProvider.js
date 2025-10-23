@@ -504,7 +504,7 @@ class MongoProvider {
                 this.logger.warn(`⚠ Ошибок при обработке: ${writeErrors.length}: ${writeErrors.join(', \n')}`);
             }
 
-            return {
+            const result = {
                 success: true,
                 inserted: inserted,
                 updated: updated,
@@ -514,9 +514,14 @@ class MongoProvider {
                 metrics: {
                     factIndexValuesCount: factIndexValues.length,
                     saveIndexBulkUpdate: this._indexBulkUpdate,
-                    saveIndexMetrics: saveIndexMetrics,
                 }
             };
+            if (saveIndexMetrics && saveIndexMetrics.length > 0){
+                // Чтобы никого не смущали пустые метрики
+                result.metrics.saveIndexMetrics = saveIndexMetrics;
+            }
+
+            return result;
 
         } catch (error) {
             this.logger.error('✗ Критическая ошибка при вставке индексных значений:', error.message);
@@ -1120,13 +1125,24 @@ class MongoProvider {
             this.logger.warn(`getRelevantFactCounters: Параметры includeFactDataToIndex и lookupFacts не могут быть true одновременно.`);
         }
         if (this._includeFactDataToIndex || this._lookupFacts) {
-            return this.getRelevantFactCountersFromIndex(factIndexInfos, fact, depthLimit, depthFromDate, this._lookupFacts, debugMode);
+            return await this.getRelevantFactCountersFromIndex(factIndexInfos, fact, depthLimit, depthFromDate, this._lookupFacts, debugMode);
         } else {
-            return this.getRelevantFactCountersFromFact(factIndexInfos, fact, depthLimit, depthFromDate, debugMode);
+            return await this.getRelevantFactCountersFromFact(factIndexInfos, fact, depthLimit, depthFromDate, debugMode);
         }
     }
 
     async getRelevantFactCountersFromFact(factIndexInfos, fact = undefined, depthLimit = 1000, depthFromDate = undefined, debugMode = false) {
+        if (!factIndexInfos || !factIndexInfos.length) {
+            this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет индексных значений.`);
+
+            return {
+                result: {},
+                processingTime: Date.now() - startTime,
+                metrics: {
+                    info: "У факта нет индексных значений",
+                },
+            };
+        }
         this.checkConnection();
         const startTime = Date.now();
 
@@ -1140,6 +1156,9 @@ class MongoProvider {
             return {
                 result: {},
                 processingTime: Date.now() - startTime,
+                metrics: {
+                    info: "Для данных факта нет подходящих счетчиков.",
+                },
             };
         }
 
@@ -1198,7 +1217,9 @@ class MongoProvider {
                 result: {},
                 processingTime: Date.now() - startTime,
                 metrics: {
-                    includeFactDataToIndex: false,
+                    info: "Для подходящих счетчиков нет индексных значений. Вычисление счетчиков невозможно.",
+                    includeFactDataToIndex: this._includeFactDataToIndex,
+                    lookupFacts: this._lookupFacts,
                     totalIndexCount: factIndexInfos?.length,
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                     maxCountersPerRequest: config.facts.maxCountersPerRequest,
@@ -1343,7 +1364,8 @@ class MongoProvider {
             result: Object.keys(mergedCounters).length ? mergedCounters : {},
             processingTime: Date.now() - startTime,
             metrics: {
-                includeFactDataToIndex: false,
+                includeFactDataToIndex: this._includeFactDataToIndex,
+                lookupFacts: this._lookupFacts,
                 totalIndexCount: factIndexInfos?.length,
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                 maxCountersPerRequest: config.facts.maxCountersPerRequest,
@@ -1472,7 +1494,8 @@ class MongoProvider {
                 result: {},
                 processingTime: Date.now() - startTime,
                 metrics: {
-                    includeFactDataToIndex: true,
+                    includeFactDataToIndex: this._includeFactDataToIndex,
+                    lookupFacts: this._lookupFacts,
                     totalIndexCount: factIndexInfos?.length,
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                     maxCountersPerRequest: config.facts.maxCountersPerRequest,
@@ -1611,11 +1634,13 @@ class MongoProvider {
          */
 
         // Возвращаем массив статистики
+        
         return {
             result: Object.keys(mergedCounters).length ? mergedCounters : {},
             processingTime: Date.now() - startTime,
             metrics: {
-                includeFactDataToIndex: true,
+                includeFactDataToIndex: this._includeFactDataToIndex,
+                lookupFacts: this._lookupFacts,
                 totalIndexCount: factIndexInfos?.length,
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                 maxCountersPerRequest: config.facts.maxCountersPerRequest,
