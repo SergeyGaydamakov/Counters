@@ -84,7 +84,7 @@ class ClusterMetricsAggregator {
         // Добавляем метрику активных worker'ов
         combinedMetrics += `# HELP active_workers Number of active workers\n`;
         combinedMetrics += `# TYPE active_workers gauge\n`;
-        combinedMetrics += `active_workers ${this.workerMetrics.size}\n\n`;
+        // combinedMetrics += `active_workers ${this.workerMetrics.size}\n\n`;
         
         // Объединяем метрики от всех worker'ов
         for (const [workerId, workerData] of this.workerMetrics) {

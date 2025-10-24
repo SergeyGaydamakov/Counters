@@ -1183,10 +1183,8 @@ class MongoProvider {
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         // Так как счетчики будут по списку фактов, то используем поле "c", а не "dt"
         const info = this.getFactIndexCountersInfo(fact, "c");
-        const indexCountersInfo = info.indexFacetStages;
-        const indexLimits = info.indexLimits;
 
-        if (!indexCountersInfo) {
+        if (!info || !info.indexFacetStages) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
 
             return {
@@ -1197,6 +1195,8 @@ class MongoProvider {
                 },
             };
         }
+        const indexCountersInfo = info.indexFacetStages;
+        const indexLimits = info.indexLimits;
 
         // Перебираем все индексы, по которым нужно построить счетчики и формируем агрегационный запрос
         const queriesByIndexName = {};
@@ -1447,10 +1447,8 @@ class MongoProvider {
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         // Так как счетчики будут по списку фактов, то используем поле "dt", а не "c"
         const info = this.getFactIndexCountersInfo(fact, "dt");
-        const indexCountersInfo = info.indexFacetStages;
-        const indexLimits = info.indexLimits;
 
-        if (!indexCountersInfo) {
+        if (!info || !info.indexFacetStages) {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
 
             return {
@@ -1458,6 +1456,8 @@ class MongoProvider {
                 processingTime: Date.now() - startTime,
             };
         }
+        const indexCountersInfo = info.indexFacetStages;
+        const indexLimits = info.indexLimits;
 
         // Перебираем все индексы, по которым нужно построить счетчики и формируем агрегационный запрос
         const queriesByIndexName = {};
