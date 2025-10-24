@@ -5,6 +5,7 @@ const { ObjectId } = require('mongodb');
 
 const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
 const config = require('../common/config');
+const { getRegister, collectPrometheusMetrics } = require('../common/metrics');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
@@ -241,6 +242,26 @@ function createRoutes(factController) {
         });
     });
 
+    // Prometheus metrics endpoint
+    router.get('/metrics', async (req, res) => {
+        try {
+            const register = getRegister();
+            if (!register) {
+                res.status(503).end('Metrics collector not initialized');
+                return;
+            }
+            
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
+        } catch (error) {
+            logger.error('Ошибка при получении метрик Prometheus:', {
+                error: error.message,
+                stack: error.stack
+            });
+            res.status(500).end('Internal Server Error');
+        }
+    });
+
     // API v1 routes
     const apiV1 = express.Router();
 
@@ -322,6 +343,9 @@ function createRoutes(factController) {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });
 
+            // Собираем метрики Prometheus
+            collectPrometheusMetrics(messageTypeNumber, 'json', result.processingTime, result.metrics, logger);
+
             logger.debug(`Сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
                 processingTime: result.processingTime ? result.processingTime.total : 'N/A'
@@ -342,6 +366,10 @@ function createRoutes(factController) {
                 stack: error.stack,
                 messageData: req.body
             });
+
+            // Собираем метрики даже при ошибке
+            const messageTypeNumber = parseInt(req.params.messageType) || 0;
+            collectPrometheusMetrics(messageTypeNumber, 'json', null, null, logger);
 
             res.status(500).json({
                 success: false,
@@ -531,6 +559,9 @@ function createRoutes(factController) {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });
 
+            // Собираем метрики Prometheus
+            collectPrometheusMetrics(messageType, 'iris', result.processingTime, result.metrics, logger);
+
             logger.debug(`IRIS сообщение ${messageType} успешно обработано`, {
                 factId: result.fact._id,
                 processingTime: result.processingTime ? result.processingTime.total : 'N/A'
@@ -605,6 +636,10 @@ function createRoutes(factController) {
                 stack: error.stack,
                 messageData: req.body
             });
+
+            // Собираем метрики даже при ошибке
+            const messageTypeNumber = parseInt(messageType) || 0;
+            collectPrometheusMetrics(messageTypeNumber, 'iris', null, null, logger);
 
             // Создаем XML ответ с ошибкой
             const errorResponse = {
@@ -784,5 +819,5 @@ module.exports = {
     createRoutes, 
     getThreadStats, 
     clearThreadStats, 
-    clearAllThreadStats 
+    clearAllThreadStats
 };

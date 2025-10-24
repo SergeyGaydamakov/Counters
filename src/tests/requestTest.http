@@ -15,6 +15,13 @@
 GET http://{{host}}/health
 
 
+### Metrics
+GET http://{{host}}/metrics
+
+### Cluster Metrics
+GET http://localhost:12081/metrics
+
+
 ### Генерация IRIS сообщения типа messageType
 # @name newIrisMessage
 GET http://{{host}}/api/v1/message/{{messageType}}/iris

@@ -1,6 +1,8 @@
 const cluster = require('cluster');
 const os = require('os');
+const http = require('http');
 const Logger = require('../utils/logger');
+const ClusterMetricsAggregator = require('../common/clusterMetricsAggregator');
 
 // Загружаем переменные окружения
 const dotenv = require('dotenv');
@@ -10,10 +12,42 @@ const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
 // Количество CPU ядер для создания воркеров
 const numCPUs = process.env.CLUSTER_WORKERS || os.cpus().length;
+// Общий порт для сбора метрик
+const metricsPort = parseInt(process.env.METRICS_PORT) || 12081;
 
 if (cluster.isMaster) {
     logger.info(`🚀 Master процесс ${process.pid} запущен`);
     logger.info(`⚙️  Создаю ${numCPUs} воркеров для обработки запросов`);
+    
+    // Инициализируем агрегатор метрик
+    logger.info(`🔧 Инициализирую агрегатор метрик...`);
+    const metricsAggregator = new ClusterMetricsAggregator();
+    logger.info(`✅ Агрегатор метрик инициализирован`);
+    
+    // Создаем HTTP сервер для метрик на отдельном порту
+    const metricsServer = http.createServer(async (req, res) => {
+        if (req.url === '/metrics') {
+            try {
+                // Получаем объединенные метрики от всех worker'ов
+                const combinedMetrics = await metricsAggregator.getCombinedMetrics();
+                res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+                res.end(combinedMetrics);
+            } catch (error) {
+                logger.error('Ошибка при получении агрегированных метрик:', error);
+                logger.error('Stack trace:', error.stack);
+                res.statusCode = 500;
+                res.end(`Internal Server Error: ${error.message}`);
+            }
+        } else {
+            res.statusCode = 404;
+            res.end('Not Found');
+        }
+    });
+    
+    metricsServer.listen(metricsPort, () => {
+        logger.info(`📊 Сервер метрик запущен на порту ${metricsPort}`);
+        logger.info(`📈 Метрики доступны по адресу: http://localhost:${metricsPort}/metrics`);
+    });
     
     // Выводим информацию о разрешенных типах сообщений
     const config = require('../common/config');
@@ -48,6 +82,9 @@ if (cluster.isMaster) {
                     logger.info(`✅ Воркер ${worker.process.pid} готов к работе`);
                 } else if (msg.type === 'worker-error') {
                     logger.error(`❌ Воркер ${worker.process.pid} сообщает об ошибке:`, msg.error);
+                } else if (msg.type === 'worker-metrics') {
+                    // Обновляем метрики от worker'а
+                    metricsAggregator.updateWorkerMetrics(msg.workerId, msg.metricsData);
                 }
             });
             
@@ -60,6 +97,9 @@ if (cluster.isMaster) {
     // Обработка завершения воркеров
     cluster.on('exit', (worker, code, signal) => {
         const workerInfo = `Воркер ${worker.process.pid}`;
+        
+        // Удаляем метрики завершенного worker'а
+        metricsAggregator.removeWorkerMetrics(`worker-${worker.process.pid}`);
         
         if (signal) {
             logger.warn(`⚠️  ${workerInfo} завершен сигналом ${signal}`);
@@ -150,6 +190,22 @@ if (cluster.isMaster) {
         
         isShuttingDown = true;
         logger.info(`📡 Получен сигнал ${signal}, завершаю все воркеры...`);
+        
+        // Завершаем агрегатор метрик
+        try {
+            metricsAggregator.destroy();
+            logger.info(`✅ Агрегатор метрик завершен`);
+        } catch (error) {
+            logger.error(`❌ Ошибка при завершении агрегатора метрик:`, error.message);
+        }
+        
+        // Завершаем сервер метрик
+        try {
+            metricsServer.close();
+            logger.info(`✅ Сервер метрик завершен`);
+        } catch (error) {
+            logger.error(`❌ Ошибка при завершении сервера метрик:`, error.message);
+        }
         
         // Отключаем автоматический перезапуск воркеров
         cluster.removeAllListeners('exit');

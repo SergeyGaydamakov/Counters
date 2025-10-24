@@ -15,6 +15,7 @@ const {
     responseMetadata 
 } = require('./middleware');
 const Diagnostics = require('../utils/diagnostics');
+const { initializeMetricsCollector, destroyMetricsCollector } = require('../common/metrics');
 
 // Загружаем переменные окружения
 const dotenv = require('dotenv');
@@ -185,6 +186,11 @@ async function initialize() {
         );
         logger.info(`✅ FactController инициализирован в воркере ${process.pid}`);
 
+        // Инициализируем коллектор метрик
+        logger.info(`🔧 Инициализирую коллектор метрик...`);
+        initializeMetricsCollector(`worker-${process.pid}`);
+        logger.info(`✅ Коллектор метрик инициализирован в воркере ${process.pid}`);
+
         // Подключаем API маршруты с инициализированным контроллером
         logger.info(`🔧 Настраиваю API маршруты...`);
         app.use(createRoutes(factController));
@@ -232,6 +238,15 @@ async function initialize() {
                         logger.error(`❌ Ошибка при отключении от MongoDB:`, error.message);
                     }
                 }
+                
+                // Завершаем коллектор метрик
+                try {
+                    destroyMetricsCollector();
+                    logger.info(`✅ Коллектор метрик завершен в воркере ${process.pid}`);
+                } catch (error) {
+                    logger.error(`❌ Ошибка при завершении коллектора метрик:`, error.message);
+                }
+                
                 logger.info(`✅ Воркер ${process.pid} завершен`);
                 process.exit(0);
             });
