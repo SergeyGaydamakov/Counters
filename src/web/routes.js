@@ -24,7 +24,9 @@ function getThreadStats() {
             requestCounter: 0,
             maxProcessingTime: null,
             maxMetrics: null,
-            maxDebugInfo: null
+            maxDebugInfo: null,
+            maxMessage: null,
+            maxFact: null
         });
     }
     
