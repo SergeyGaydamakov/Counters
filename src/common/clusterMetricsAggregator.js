@@ -86,23 +86,27 @@ class ClusterMetricsAggregator {
 //        combinedMetrics += `# TYPE active_workers gauge\n`;
 //        combinedMetrics += `active_workers ${this.workerMetrics.size}\n\n`;
         
-        // Выводим данные только по первому worker'у
-        const workerId = Array.from(this.workerMetrics.keys())[0];
-        const workerData = this.workerMetrics.get(workerId);
-        if (workerData) {
-            combinedMetrics += workerData.rawMetrics + '\n';
-        }
-/*
         // Объединяем метрики от всех worker'ов
         for (const [workerId, workerData] of this.workerMetrics) {
             if (workerData.rawMetrics && typeof workerData.rawMetrics === 'string') {
-                combinedMetrics += `# Metrics from ${workerId}\n`;
+                // Проверяем, есть ли данные в метриках (строки кроме комментариев)
+                // Используем флаг 'm' для многострочного режима и проверяем наличие непустых строк
+                const hasData = workerData.rawMetrics.match(/^[^#\s].*$/m);
+                if (!hasData) {
+                    logger.debug(`Worker ${workerId} не имеет данных метрик (только комментарии)`);
+                    continue;
+                }
+
+                logger.debug(`Добавляем метрики от worker ${workerId}, размер: ${workerData.rawMetrics.length} символов`);
+                
                 // Для уникальности комментариев добавляем идентификатор процесса
-                const workerMetrics = workerData.rawMetrics.replace(/# HELP/g, `# ${workerId} HELP`).replace(/# TYPE/g, `# ${workerId} TYPE`);
-                combinedMetrics += workerMetrics + '\n';
+                // const workerMetrics = workerData.rawMetrics.replace(/# HELP/g, `# ${workerId} HELP`).replace(/# TYPE/g, `# ${workerId} TYPE`);
+                combinedMetrics += workerData.rawMetrics + '\n';
+
+                // Пока только по одному worker'у (можно убрать break для объединения всех worker'ов)
+                break;
             }
         }
-*/        
         return combinedMetrics;
     }
 

@@ -17,8 +17,6 @@ let global_mongoClientAggregate = null;
  * Содержит методы для управления подключением, схемами, вставкой данных, запросами и статистикой
  */
 class MongoProvider {
-    _READ_PREFERENCE = {"mode": "secondaryPreferred"};
-
     // Настройки по умолчанию
     DEFAULT_OPTIONS = {
         // Признак индивидуального клиента для подключения к базе данных 
@@ -32,6 +30,7 @@ class MongoProvider {
         // Читаем всегда локальную копию данных
         // https://www.mongodb.com/docs/manual/reference/read-concern/
         readConcern: { "level": "local" },
+        aggregateReadPreference: {"mode": "secondaryPreferred"},
         // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
         // https://www.mongodb.com/docs/manual/core/journaling/#std-label-journal-process
         // Параметр на сервере: storage.journal.commitIntervalMs
@@ -208,7 +207,7 @@ class MongoProvider {
         // Опции для подключения по умолчанию
         const options = {
             readConcern: databaseOptions.readConcern,
-            readPreference: {"mode": "primary"},
+            readPreference: databaseOptions.aggregateReadPreference,
             writeConcern: databaseOptions.writeConcern,
             appName: "CounterTest",
             // monitorCommands: true,
@@ -689,12 +688,20 @@ class MongoProvider {
             // Условие фильтрации счетчика
             //
             const matchStageCondition = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : { "$match": {} };
-            // Нужно добвить условие по fromTimeMs и toTimeMs в matchStage
-            if (counter.fromTimeMs) {
-                matchStageCondition["$match"] = { [timeFieldName]: {"$gte": new Date(nowDate - counter.fromTimeMs) } };
+            // Нужно добавить условие по fromTimeMs и toTimeMs в matchStage
+            const fromDateTime = counter.fromTimeMs ? nowDate - counter.fromTimeMs : null;
+            const toDateTime = counter.toTimeMs ? nowDate - counter.toTimeMs : null;
+            if (fromDateTime) {
+                if (!matchStageCondition["$match"]) {
+                    matchStageCondition["$match"] = {};
+                }
+                matchStageCondition["$match"][timeFieldName] = { "$gte": new Date(fromDateTime) };
             }
-            if (counter.toTimeMs) {
-                matchStageCondition["$match"] = { [timeFieldName]: {"$lte": new Date(nowDate - counter.toTimeMs) } };
+            if (toDateTime) {
+                if (!matchStageCondition["$match"]) {
+                    matchStageCondition["$match"] = {};
+                }
+                matchStageCondition["$match"][timeFieldName] = { "$lte": new Date(toDateTime) };
             }
             const matchStage = Object.keys(matchStageCondition["$match"]).length ? matchStageCondition : null;
             //
@@ -755,7 +762,7 @@ class MongoProvider {
             }
             indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords = Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ?? 0, counter.maxEvaluatedRecords ?? 0);
             indexLimits[indexTypeNameWithGroupNumber].fromTimeMs = Math.max(indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ?? 0, counter.fromTimeMs ?? 0);
-            indexLimits[indexTypeNameWithGroupNumber].toTimeMs = (counter.toTimeMs ? (indexLimits[indexTypeNameWithGroupNumber].toTimeMs ? Math.min(counter.toTimeMs, indexLimits[indexTypeNameWithGroupNumber].toTimeMs) : counter.toTimeMs) : (indexLimits[indexTypeNameWithGroupNumber].toTimeMs ? indexLimits[indexTypeNameWithGroupNumber].toTimeMs : null));
+            indexLimits[indexTypeNameWithGroupNumber].toTimeMs = (counter.toTimeMs > 0 ? (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0 ? Math.min(counter.toTimeMs, indexLimits[indexTypeNameWithGroupNumber].toTimeMs) : counter.toTimeMs) : (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0 ? indexLimits[indexTypeNameWithGroupNumber].toTimeMs : 0));
         });
         if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
             this.logger.warn(`Превышено максимальное количество счетчиков для обработки: ${config.facts.maxCountersProcessing}. Всего счетчиков: ${totalCountersCount}.`);
@@ -1210,7 +1217,7 @@ class MongoProvider {
         const aggregateFactOptions = {
             batchSize: config.database.batchSize,
             readConcern: this._databaseOptions.readConcern,
-            readPreference: this._READ_PREFERENCE,
+            readPreference: this._databaseOptions.aggregateReadPreference,
             comment: "getRelevantFactCounters - aggregate",
         };
         // this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
@@ -1298,7 +1305,7 @@ class MongoProvider {
         this.checkConnection();
         const startTime = Date.now();
 
-        this.logger.debug(`Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
+        this.logger.debug(`getRelevantFactCountersFromFact: Получение счетчиков релевантных фактов для факта ${fact?._id} с глубиной от даты: ${depthFromDate}, последние ${depthLimit} фактов`);
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         // Так как счетчики будут по списку фактов, то используем поле "c", а не "dt"
@@ -1321,6 +1328,7 @@ class MongoProvider {
         // Перебираем все индексы, по которым нужно построить счетчики и формируем агрегационный запрос
         const queriesByIndexName = {};
         const indexTypeNames = new Set();
+        const nowDate = Date.now();
 
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
         // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
@@ -1341,18 +1349,17 @@ class MongoProvider {
             const factIndexFindQuery = {
                 "_id.h": indexInfo.hashValue
             };
-            if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs) {
-                const depthFromDateTime = depthFromDate ? depthFromDate.getTime() : Date.now();
-                const indexFromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ? Date.now() - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : Date.now();
-                const fromDateTime = Math.min(depthFromDateTime, indexFromDateTime);
+            if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0) {
+                const fromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0 ? nowDate - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : (depthFromDate ? depthFromDate.getTime() : nowDate);
                 factIndexFindQuery["dt"] = {
                     "$gte": new Date(fromDateTime)
                 };
             }
-            if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs) {
-                factIndexFindQuery["dt"] = {
-                    "$lte": new Date( Date.now() - indexLimits[indexTypeNameWithGroupNumber].toTimeMs)
-                };
+            if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0) {
+                if (!factIndexFindQuery["dt"]) {
+                    factIndexFindQuery["dt"] = {};
+                }
+                factIndexFindQuery["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
                 factIndexFindQuery["_id.f"] = {
@@ -1367,7 +1374,7 @@ class MongoProvider {
                 factIndexFindOptions: {
                     batchSize: config.database.batchSize,
                     readConcern: this._databaseOptions.readConcern,
-                    readPreference: this._READ_PREFERENCE,
+                    readPreference: this._databaseOptions.aggregateReadPreference,
                     comment: "getRelevantFactsByIndex - find",
                     projection: { "_id.f": 1 }
                 },
@@ -1394,12 +1401,14 @@ class MongoProvider {
                     maxCountersProcessing: config.facts.maxCountersProcessing,
                     counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
                     relevantIndexCount: 0,
+                    queryCountersCount: 0,
                     relevantFactsCount: 0,
                     relevantFactsSize: 0,
                     relevantFactsTime: 0,
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,
+                    resultCountersCount: 0,
                     countersMetrics: null
                 },
                 debug: {
@@ -1432,13 +1441,14 @@ class MongoProvider {
             const indexTypeNamesWithGroupNumbers = Object.keys(indexCountersInfo).filter(key => key.startsWith(indexTypeName + '#'));
 
             const countersPromises = indexTypeNamesWithGroupNumbers.map(async (indexTypeNameWithGroupNumber) => {
+                const counters = indexCountersInfo[indexTypeNameWithGroupNumber] ? indexCountersInfo[indexTypeNameWithGroupNumber] : {};
                 if (debugMode) {
-                    const counters = indexCountersInfo[indexTypeNameWithGroupNumber] ? indexCountersInfo[indexTypeNameWithGroupNumber] : {};
                     this.logger.debug(`Обрабатываются счетчики (${Object.keys(counters).length}) для типа индекса ${indexTypeNameWithGroupNumber} для факта ${fact?._id}: ${Object.keys(counters).join(', ')}`);
                 }
                 const countersResult = await this._getCounters(indexTypeNameWithGroupNumber, indexNameResult.factIds, indexCountersInfo[indexTypeNameWithGroupNumber], debugMode);
                 return {
                     indexTypeNameWithGroupNumber: indexTypeNameWithGroupNumber,
+                    queryCountersCount: Object.keys(counters).length,
                     counters: countersResult.counters,
                     error: countersResult.error,
                     metrics: countersResult.metrics,
@@ -1451,6 +1461,7 @@ class MongoProvider {
                 indexTypeName: indexTypeName,
                 processingTime: Date.now() - startQuery,
                 factsMetrics: indexNameResult.metrics,
+                queryCountersCount: countersResult.reduce((a, b) => a + b.queryCountersCount, 0),
                 counters: {},
                 countersErrors: {},
                 countersMetrics: {},
@@ -1469,6 +1480,7 @@ class MongoProvider {
         const stopQueriesTime = Date.now();
 
         // Объединяем результаты в один JSON объект
+        const queryCountersCount = queryResults.reduce((a, b) => a + b.queryCountersCount, 0);
         const mergedCounters = {};
         const details = {};
         let relevantFactsQuerySize = 0;
@@ -1514,6 +1526,7 @@ class MongoProvider {
          * maxCountersProcessing - максимальное количество счетчиков для обработки (из файла конфигурации)
          * counterIndexCountWithGroup - количество индексов с счетчиками, применимых к факту с учетом разбивки на группы (после фильтрации по условию computationConditions)
          * relevantIndexCount - количество релевантных индексов (индексы, которые имеют факты после поиска по индексам)
+         * queryCountersCount - количество запрошенных счетчиков в запросах на вычисление счетчиков
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
          * processingQueriesTime - время выполнения параллельных запросов на вычисление счетчиков
          * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
@@ -1524,13 +1537,14 @@ class MongoProvider {
          * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
          * countersQueryCount - число одновременных запросов на вычисление счетчиков
          * countersSize - размер полученных всех счетчиков по всем индексам,
+         * resultCountersCount - количество полученных счетчиков, которые были вычислены
          * details - метрики выполнения запросов в разрезе индексов и групп индексов
          * 
          */
 
         // Возвращаем массив статистики
         return {
-            result: Object.keys(mergedCounters).length ? mergedCounters : {},
+            result: mergedCounters,
             processingTime: Date.now() - startTime,
             metrics: {
                 includeFactDataToIndex: this._includeFactDataToIndex,
@@ -1541,6 +1555,7 @@ class MongoProvider {
                 maxCountersProcessing: config.facts.maxCountersProcessing,
                 counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
                 relevantIndexCount: Object.keys(queriesByIndexName).length,
+                queryCountersCount: queryCountersCount,
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
                 relevantFactsQuerySize: relevantFactsQuerySize,
@@ -1551,7 +1566,12 @@ class MongoProvider {
                 countersQueryTime: countersQueryTime,
                 countersQueryCount: countersQueryCount,
                 countersSize: countersSize,
+                resultCountersCount: Object.keys(mergedCounters).length,
                 details: details,
+            },
+            debug: {
+                counters: mergedCounters,
+                options: JSON.stringify(this._databaseOptions)
             }
         };
     }
@@ -1581,6 +1601,7 @@ class MongoProvider {
 
         // Перебираем все индексы, по которым нужно построить счетчики и формируем агрегационный запрос
         const queriesByIndexName = {};
+        const nowDate = Date.now();
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
         // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
         Object.keys(indexCountersInfo).forEach((indexTypeNameWithGroupNumber) => {
@@ -1596,18 +1617,17 @@ class MongoProvider {
             const match = {
                 "_id.h": indexInfo.hashValue
             };
-            if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs) {
-                const depthFromDateTime = depthFromDate ? depthFromDate.getTime() : Date.now();
-                const indexFromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ? Date.now() - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : Date.now();
-                const fromDateTime = Math.min(depthFromDateTime, indexFromDateTime);
+            if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0) {
+                const fromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0 ? nowDate - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : (depthFromDate ? depthFromDate.getTime() : nowDate);
                 match["dt"] = {
                     "$gte": new Date(fromDateTime)
                 };
             }
-            if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs) {
-                match["dt"] = {
-                    "$lte": new Date( Date.now() - indexLimits[indexTypeNameWithGroupNumber].toTimeMs)
-                };
+            if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0) {
+                if (!match["dt"]) {
+                    match["dt"] = {};
+                }
+                match["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
                 match["_id.f"] = {
@@ -1683,8 +1703,9 @@ class MongoProvider {
                     maxCountersPerRequest: config.facts.maxCountersPerRequest,
                     maxCountersProcessing: config.facts.maxCountersProcessing,
                     counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
-                    prepareCountersQueryTime: 0,
                     relevantIndexCount: 0,
+                    queryCountersCount: 0,
+                    prepareCountersQueryTime: 0,
                     relevantFactsQuerySize: 0,
                     relevantFactsQueryCount: 0,
                     relevantFactsQuerySize: 0,
@@ -1693,6 +1714,7 @@ class MongoProvider {
                     countersQueryTime: 0,
                     countersQueryCount: 0,
                     countersSize: 0,
+                    resultCountersCount: 0,
                     countersMetrics: null
                 },
                 debug: {
@@ -1713,7 +1735,7 @@ class MongoProvider {
             const aggregateOptions = {
                 batchSize: config.database.batchSize,
                 readConcern: this._databaseOptions.readConcern,
-                readPreference: this._READ_PREFERENCE,
+                readPreference: this._databaseOptions.aggregateReadPreference,
                 comment: "getRelevantFactCounters - aggregate",
             };
             // this.logger.info(`Агрегационный запрос на счетчики по фактам: ${JSON.stringify(indexNameQuery)}`);
@@ -1793,6 +1815,8 @@ class MongoProvider {
             this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
         }
 
+        const queryCountersCount = Object.keys(Object.keys(queriesByIndexName).map(indexTypeNameWithGroupNumber => queriesByIndexName[indexTypeNameWithGroupNumber].query)).length;
+
         /**
          * Структура отладочной информации debug:
          * totalIndexCount - общее количество индексируемых полей факта (связка по полям факта и индекса)
@@ -1801,6 +1825,7 @@ class MongoProvider {
          * maxCountersProcessing - максимальное количество счетчиков для обработки (из файла конфигурации)
          * counterIndexCountWithGroup - количество индексов с счетчиками, применимых к факту с учетом разбивки на группы (после фильтрации по условию computationConditions)
          * relevantIndexCount - количество релевантных индексов (индексы, которые имеют факты после поиска по индексам)
+         * queryCountersCount - количество запрошенных счетчиков в запросах
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
          * processingQueriesTime - время выполнения параллельных запросов на вычисление счетчиков
          * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
@@ -1811,6 +1836,7 @@ class MongoProvider {
          * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
          * countersQueryCount - число одновременных запросов на вычисление счетчиков
          * countersSize - размер полученных всех счетчиков по всем индексам,
+         * resultCountersCount - количество полученных счетчиков, которые были вычислены
          * countersMetrics - метрики выполнения запросов в разрезе индексов
          * 
          * indexQuery - запрос по индексам для поиска ИД релевантных фактов
@@ -1820,7 +1846,7 @@ class MongoProvider {
         // Возвращаем массив статистики
         
         return {
-            result: Object.keys(mergedCounters).length ? mergedCounters : {},
+            result: mergedCounters,
             processingTime: Date.now() - startTime,
             metrics: {
                 includeFactDataToIndex: this._includeFactDataToIndex,
@@ -1831,6 +1857,7 @@ class MongoProvider {
                 maxCountersProcessing: config.facts.maxCountersProcessing,
                 counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
                 relevantIndexCount: Object.keys(queriesByIndexName).length,
+                queryCountersCount: queryCountersCount,
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
                 relevantFactsQuerySize: undefined,
@@ -1841,11 +1868,13 @@ class MongoProvider {
                 countersQueryTime: countersQueryTime,
                 countersQueryCount: countersCount,
                 countersSize: countersSize,
+                resultCountersCount: Object.keys(mergedCounters).length,
                 countersMetrics: countersMetrics,
             },
             debug: {
                 indexQuery: undefined,
                 countersQuery: countersQuery,
+                counters: mergedCounters
             }
         };
     }
@@ -1974,7 +2003,7 @@ class MongoProvider {
         const aggregateIndexOptions = {
             batchSize: config.database.batchSize,
             readConcern: this._databaseOptions.readConcern,
-            readPreference: this._READ_PREFERENCE,
+            readPreference: this._databaseOptions.aggregateReadPreference,
             comment: "getRelevantFactCounters - index aggregate",
         };
 
@@ -2052,7 +2081,7 @@ class MongoProvider {
         const aggregateFactOptions = {
             batchSize: config.database.batchSize,
             readConcern: this._databaseOptions.readConcern,
-            readPreference: this._READ_PREFERENCE,
+            readPreference: this._databaseOptions.aggregateReadPreference,
             comment: "getRelevantFactCounters - aggregate",
         };
         // this.logger.info(`Опции агрегирующего запроса: ${JSON.stringify(aggregateOptions)}`);
@@ -2188,7 +2217,7 @@ class MongoProvider {
         const findOptions = {
             batchSize: config.database.batchSize,
             readConcern: this._databaseOptions.readConcern,
-            readPreference: this._READ_PREFERENCE,
+            readPreference: this._databaseOptions.aggregateReadPreference,
             comment: "getRelevantFactCounters - find",
             projection: { "_id": 1, "it": 1 }
         };
@@ -2227,7 +2256,7 @@ class MongoProvider {
         const aggregateOptions = {
             batchSize: config.database.batchSize,
             readConcern: this._databaseOptions.readConcern,
-            readPreference: this._READ_PREFERENCE,
+            readPreference: this._databaseOptions.aggregateReadPreference,
             comment: "getRelevantFactCounters - aggregate",
         };
 
@@ -2326,13 +2355,13 @@ class MongoProvider {
         const findOptions = {
             batchSize: config.database.batchSize,
             readConcern: this._databaseOptions.readConcern,
-            readPreference: this._READ_PREFERENCE,
+            readPreference: this._databaseOptions.aggregateReadPreference,
             comment: "getRelevantFactCounters - find",
             projection: { "_id": 1 }
         };
         // Создаем локальные ссылки на коллекции для этого запроса
-        const factIndexCollection = this._getFactIndexCollection();
-        const factsCollection = this._getFactsCollection();
+        const factIndexCollection = this._getFactIndexAggregateCollection();
+        const factsCollection = this._getFactsAggregateCollection();
 
         // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
         const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ dt: -1 }).batchSize(config.database.batchSize).limit(depthLimit).toArray();
@@ -2353,7 +2382,7 @@ class MongoProvider {
         const aggregateOptions = {
             batchSize: config.database.batchSize,
             readConcern: this._databaseOptions.readConcern,
-            readPreference: this._READ_PREFERENCE,
+            readPreference: this._databaseOptions.aggregateReadPreference,
             comment: "getRelevantFactCounters - aggregate",
         };
         const result = await factsCollection.aggregate(aggregateQuery, aggregateOptions).batchSize(config.database.batchSize).toArray();
@@ -2466,7 +2495,7 @@ class MongoProvider {
             const findOptions = {
                 batchSize: config.database.batchSize,
                 readConcern: this._databaseOptions.readConcern,
-                readPreference: this._READ_PREFERENCE,
+                readPreference: this._databaseOptions.aggregateReadPreference,
                 comment: "findFacts"
             };
             const facts = await factsCollection.find(filter, findOptions).toArray();

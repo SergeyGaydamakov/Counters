@@ -97,6 +97,7 @@ const config = {
             disableSave: process.env.DISABLE_SAVE === 'true' || false,
             writeConcern: safeJsonParse(process.env.MONGODB_WRITE_CONCERN, { w: 1, j: false, wtimeout: 5000 }, 'MONGODB_WRITE_CONCERN'),
             readConcern: safeJsonParse(process.env.MONGODB_READ_CONCERN, { level: "local" }, 'MONGODB_READ_CONCERN'),
+            aggregateReadPreference: safeJsonParse(process.env.MONGODB_AGGREGATE_READ_PREFERENCE, { "mode": "secondaryPreferred" }, 'MONGODB_AGGREGATE_READ_PREFERENCE'),
             minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE) || 100,
             maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE) || 400,
             maxConnecting: parseInt(process.env.MONGODB_MAX_CONNECTING) || 10,

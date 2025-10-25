@@ -549,7 +549,7 @@ function CreateShardZones(databaseName) {
     });
     */
     // Добавление диапазонов ключей
-    const ranges = [
+    const ranges_for_3_shards = [
         {
             namespace: databaseName + ".facts",
             keys: [
@@ -569,8 +569,27 @@ function CreateShardZones(databaseName) {
             ]
         },
     ];
+    const ranges_for_2_shards = [
+        {
+            namespace: databaseName + ".facts",
+            keys: [
+                { _id: MinKey },
+                { _id: hexToBase64("7fffffffffffffffffffffffffffffffffffffff") },
+                { _id: MaxKey }
+            ]
+        },
+        {
+            namespace: databaseName + ".factIndex",
+            keys: [
+                { "_id.h": MinKey},
+                { "_id.h": hexToBase64("7fffffffffffffffffffffffffffffffffffffff")},
+                { "_id.h": MaxKey},
+            ]
+        },
+    ];
+    
     print("*** TAGS ********************************************")
-    ranges.forEach(range => {
+    ranges_for_2_shards.forEach(range => {
         // Сначала удалим существующие диапазоны
         print(`Removing ${db.getSiblingDB("config").tags.find({ "ns": range.namespace }).count()} tag ranges for ${range.namespace}`);
         // Удаляем старые зоны коллекции

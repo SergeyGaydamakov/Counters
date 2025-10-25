@@ -15,21 +15,6 @@ class WorkerMetricsCollector {
         // Создаем локальные метрики
         this.createLocalMetrics();
         
-        // Данные для отправки мастеру
-        this.metricsData = {
-            requestCounts: {},
-            requestDurations: {},
-            saveFactDurations: {},
-            saveIndexDurations: {},
-            countersDurations: {},
-            totalProcessingDurations: {},
-            totalIndexCounts: {},
-            parallelCountersRequestsCounts: {},
-            factCountersCounts: {},
-            relevantFactsTimes: {},
-            countersQueryTimes: {}
-        };
-        
         // Интервал отправки метрик мастеру
         this.sendInterval = setInterval(async () => {
             await this.sendMetricsToMaster();
@@ -138,6 +123,24 @@ class WorkerMetricsCollector {
             buckets: [10, 25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 750, 1000, 1250, 1500, 2000],
             registers: [this.register]
         });
+
+        // + 12. Гистограмма количества запрошенных счетчиков
+        this.queryCountersCountHistogram = new client.Histogram({
+            name: 'query_counters_count',
+            help: 'Number of query counters',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
+            registers: [this.register]
+        });
+
+        // + 13. Гистограмма количества полученных счетчиков
+        this.resultCountersCountHistogram = new client.Histogram({
+            name: 'result_counters_count',
+            help: 'Number of result counters',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
+            registers: [this.register]
+        });
     }
 
     /**
@@ -185,27 +188,35 @@ class WorkerMetricsCollector {
                 this.totalIndexCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.totalIndexCount);
             }
 
-            // *7. Количество сохраняемых индексов
+            // *8. Количество одновременных запросов на получение счетчиков
             if (metrics && typeof metrics.counterIndexCountWithGroup === 'number') {
                 this.parallelCountersRequestsCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.counterIndexCountWithGroup);
             }
             
-            
-            // 8. Количество вычисляемых счетчиков
+            // 9. Количество вычисляемых счетчиков
             if (metrics && typeof metrics.factCountersCount === 'number') {
                 this.factCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.factCountersCount);
             }
             
-            // 8. Длительность запросов к базе данных для получения ИД фактов
+            // 10. Длительность запросов к базе данных для получения ИД фактов
             if (metrics && typeof metrics.relevantFactsTime === 'number') {
                 this.relevantFactsTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.relevantFactsTime);
             }
             
-            // 9. Длительность запросов к базе данных для вычисления значений счетчиков
+            // 11. Длительность запросов к базе данных для вычисления значений счетчиков
             if (metrics && typeof metrics.countersQueryTime === 'number') {
                 this.countersQueryTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersQueryTime);
             }
             
+            // + 12. Количество запрошенных счетчиков
+            if (metrics && typeof metrics.queryCountersCount === 'number') {
+                this.queryCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.queryCountersCount);
+            }
+            
+            // + 13. Количество полученных счетчиков
+            if (metrics && typeof metrics.resultCountersCount === 'number') {
+                this.resultCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.resultCountersCount);
+            }
         } catch (error) {
             if (logger) {
                 logger.error('Ошибка при сборе метрик Prometheus:', {
