@@ -82,18 +82,27 @@ class ClusterMetricsAggregator {
         let combinedMetrics = '';
         
         // Добавляем метрику активных worker'ов
-        combinedMetrics += `# HELP active_workers Number of active workers\n`;
-        combinedMetrics += `# TYPE active_workers gauge\n`;
-        // combinedMetrics += `active_workers ${this.workerMetrics.size}\n\n`;
+//        combinedMetrics += `# HELP active_workers Number of active workers\n`;
+//        combinedMetrics += `# TYPE active_workers gauge\n`;
+//        combinedMetrics += `active_workers ${this.workerMetrics.size}\n\n`;
         
+        // Выводим данные только по первому worker'у
+        const workerId = Array.from(this.workerMetrics.keys())[0];
+        const workerData = this.workerMetrics.get(workerId);
+        if (workerData) {
+            combinedMetrics += workerData.rawMetrics + '\n';
+        }
+/*
         // Объединяем метрики от всех worker'ов
         for (const [workerId, workerData] of this.workerMetrics) {
             if (workerData.rawMetrics && typeof workerData.rawMetrics === 'string') {
                 combinedMetrics += `# Metrics from ${workerId}\n`;
-                combinedMetrics += workerData.rawMetrics + '\n';
+                // Для уникальности комментариев добавляем идентификатор процесса
+                const workerMetrics = workerData.rawMetrics.replace(/# HELP/g, `# ${workerId} HELP`).replace(/# TYPE/g, `# ${workerId} TYPE`);
+                combinedMetrics += workerMetrics + '\n';
             }
         }
-        
+*/        
         return combinedMetrics;
     }
 

@@ -1,0 +1,2067 @@
+{
+    host: 'DESKTOP-JM56VM1:27020',
+    version: '8.2.0',
+    process: 'C:\\Program Files\\MongoDB\\Server\\8.2\\bin\\mongos.exe',
+    service: [
+      'router'
+    ],
+    pid: Long('2620'),
+    uptime: 20,
+    uptimeMillis: Long('11036'),
+    uptimeEstimate: Long('11'),
+    localTime: ISODate('2025-10-25T06:57:32.037Z'),
+    asserts: {
+      regular: 0,
+      warning: 0,
+      msg: 0,
+      user: 15,
+      tripwire: 0,
+      rollovers: 0
+    },
+    connections: {
+      current: 5,
+      available: 999995,
+      totalCreated: 5,
+      rejected: 0,
+      active: 2,
+      queuedForEstablishment: Long('0'),
+      establishmentRateLimit: {
+        rejected: Long('0'),
+        exempted: Long('0'),
+        interruptedDueToClientDisconnect: Long('0')
+      },
+      threaded: 5,
+      exhaustIsMaster: Long('0'),
+      exhaustHello: Long('1'),
+      awaitingTopologyChanges: Long('1'),
+      loadBalanced: Long('0')
+    },
+    defaultRWConcern: {
+      defaultReadConcern: {
+        level: 'local'
+      },
+      defaultWriteConcern: {
+        w: 'majority',
+        wtimeout: 0
+      },
+      updateOpTime: Timestamp({ t: 1760811092, i: 1 }),
+      updateWallClockTime: ISODate('2025-10-18T18:11:33.493Z'),
+      defaultWriteConcernSource: 'global',
+      defaultReadConcernSource: 'implicit',
+      localUpdateWallClockTime: ISODate('2025-10-25T06:57:13.861Z')
+    },
+    extra_info: {
+      note: 'fields vary by platform',
+      page_faults: 21573,
+      usagePageFileMB: 49,
+      totalPageFileMB: 69323,
+      availPageFileMB: 57749,
+      ramMB: 65227
+    },
+    health: {
+      state: 'Ok',
+      enteredStateAtTime: ISODate('2025-10-25T06:57:14.023Z')
+    },
+    incrementalRollout: {
+      featureFlags: [
+        {
+          name: 'featureFlagInDevelopmentForTest',
+          value: false,
+          falseChecks: Long('0'),
+          trueChecks: Long('0'),
+          numToggles: Long('0')
+        },
+        {
+          name: 'featureFlagReleasedForTest',
+          value: true,
+          falseChecks: Long('0'),
+          trueChecks: Long('0'),
+          numToggles: Long('0')
+        },
+        {
+          name: 'featureFlagMultiPlanLimiter',
+          value: false,
+          falseChecks: Long('0'),
+          trueChecks: Long('0'),
+          numToggles: Long('0')
+        },
+        {
+          name: 'featureFlagSbeUpgradeBinaryTrees',
+          value: false,
+          falseChecks: Long('0'),
+          trueChecks: Long('0'),
+          numToggles: Long('0')
+        }
+      ]
+    },
+    internalTransactions: {
+      started: Long('0'),
+      retriedTransactions: Long('0'),
+      retriedCommits: Long('0'),
+      succeeded: Long('0')
+    },
+    logicalSessionRecordCache: {
+      activeSessionsCount: 2,
+      sessionsCollectionJobCount: 1,
+      lastSessionsCollectionJobDurationMillis: 2,
+      lastSessionsCollectionJobTimestamp: ISODate('2025-10-25T06:57:14.023Z'),
+      lastSessionsCollectionJobEntriesRefreshed: 0,
+      lastSessionsCollectionJobEntriesEnded: 0,
+      lastSessionsCollectionJobCursorsClosed: 0,
+      transactionReaperJobCount: 1,
+      lastTransactionReaperJobDurationMillis: 2,
+      lastTransactionReaperJobTimestamp: ISODate('2025-10-25T06:57:14.023Z'),
+      lastTransactionReaperJobEntriesCleanedUp: 0,
+      sessionCatalogSize: 0
+    },
+    network: {
+      bytesIn: Long('6347'),
+      bytesOut: Long('44460'),
+      physicalBytesIn: Long('6115'),
+      physicalBytesOut: Long('44460'),
+      egress: {
+        bytesIn: Long('71637'),
+        bytesOut: Long('41035'),
+        physicalBytesIn: Long('71637'),
+        physicalBytesOut: Long('41399'),
+        numRequests: Long('91')
+      },
+      numSlowDNSOperations: Long('0'),
+      numSlowSSLOperations: Long('0'),
+      numRequests: Long('21'),
+      tcpFastOpen: {
+        serverSupported: false,
+        clientSupported: false,
+        accepted: Long('0')
+      },
+      ingressRequestRateLimiter: {
+        rejectedAdmissions: Long('0'),
+        successfulAdmissions: Long('0'),
+        exemptedAdmissions: Long('0'),
+        attemptedAdmissions: Long('0'),
+        totalAvailableTokens: 9223372036854776000
+      },
+      serviceExecutors: {
+        passthrough: {
+          threadsRunning: 5,
+          clientsInTotal: 5,
+          clientsRunning: 5,
+          clientsWaitingForData: 0
+        },
+        inline: {
+          threadsRunning: 0,
+          clientsInTotal: 0,
+          clientsRunning: 0,
+          clientsWaitingForData: 0
+        }
+      },
+      listenerProcessingTime: {
+        durationMicros: Long('1726')
+      }
+    },
+    opLatencies: {
+      commands: {
+        latency: Long('14254'),
+        ops: Long('18'),
+        queryableEncryptionLatencyMicros: Long('0')
+      },
+      reads: {
+        latency: Long('4035'),
+        ops: Long('1'),
+        queryableEncryptionLatencyMicros: Long('0')
+      },
+      writes: {
+        latency: Long('0'),
+        ops: Long('0'),
+        queryableEncryptionLatencyMicros: Long('0')
+      },
+      transactions: {
+        latency: Long('0'),
+        ops: Long('0'),
+        queryableEncryptionLatencyMicros: Long('0')
+      }
+    },
+    opWorkingTime: {
+      commands: {
+        latency: Long('9000'),
+        ops: Long('18'),
+        queryableEncryptionLatencyMicros: Long('0')
+      },
+      reads: {
+        latency: Long('4000'),
+        ops: Long('1'),
+        queryableEncryptionLatencyMicros: Long('0')
+      },
+      writes: {
+        latency: Long('0'),
+        ops: Long('0'),
+        queryableEncryptionLatencyMicros: Long('0')
+      },
+      transactions: {
+        latency: Long('0'),
+        ops: Long('0'),
+        queryableEncryptionLatencyMicros: Long('0')
+      }
+    },
+    opcounters: {
+      insert: Long('0'),
+      query: Long('1'),
+      update: Long('0'),
+      delete: Long('0'),
+      getmore: Long('0'),
+      command: Long('19')
+    },
+    queryAnalyzers: {
+      activeCollections: Long('0'),
+      totalCollections: Long('0'),
+      totalSampledReadsCount: Long('0'),
+      totalSampledWritesCount: Long('0')
+    },
+    querySettings: {
+      count: 0,
+      size: 0,
+      rejectCount: 0
+    },
+    queues: {
+      ingressSessionEstablishment: {
+        addedToQueue: Long('0'),
+        removedFromQueue: Long('0'),
+        interruptedInQueue: Long('0'),
+        rejectedAdmissions: Long('0'),
+        exemptedAdmissions: Long('0'),
+        successfulAdmissions: Long('0'),
+        attemptedAdmissions: Long('0'),
+        totalAvailableTokens: 9223372036854776000
+      }
+    },
+    scramCache: {
+      'SCRAM-SHA-1': {
+        count: Long('0'),
+        hits: Long('0'),
+        misses: Long('0')
+      },
+      'SCRAM-SHA-256': {
+        count: Long('0'),
+        hits: Long('0'),
+        misses: Long('0')
+      }
+    },
+    security: {
+      authentication: {
+        saslSupportedMechsReceived: Long('3'),
+        mechanisms: {
+          'MONGODB-X509': {
+            speculativeAuthenticate: {
+              received: Long('0'),
+              successful: Long('0')
+            },
+            clusterAuthenticate: {
+              received: Long('0'),
+              successful: Long('0')
+            },
+            authenticate: {
+              received: Long('0'),
+              successful: Long('0')
+            }
+          },
+          'SCRAM-SHA-1': {
+            speculativeAuthenticate: {
+              received: Long('0'),
+              successful: Long('0')
+            },
+            clusterAuthenticate: {
+              received: Long('0'),
+              successful: Long('0')
+            },
+            authenticate: {
+              received: Long('0'),
+              successful: Long('0')
+            }
+          },
+          'SCRAM-SHA-256': {
+            speculativeAuthenticate: {
+              received: Long('3'),
+              successful: Long('3')
+            },
+            clusterAuthenticate: {
+              received: Long('0'),
+              successful: Long('0')
+            },
+            authenticate: {
+              received: Long('3'),
+              successful: Long('3')
+            }
+          }
+        },
+        totalAuthenticationTimeMicros: Long('83169')
+      }
+    },
+    sharding: {
+      routerServiceEnabled: true,
+      configsvrConnectionString: 'cfg/localhost:29001',
+      lastSeenConfigServerOpTime: {
+        ts: Timestamp({ t: 1761375449, i: 1 }),
+        t: Long('-1')
+      },
+      lastSeenTopologyOpTime: {
+        ts: Timestamp({ t: 1760811095, i: 19 }),
+        t: Long('-1')
+      },
+      maxChunkSizeInBytes: Long('134217728')
+    },
+    shardingStatistics: {
+      configServerInShardCache: false,
+      numHostsTargeted: {
+        find: {
+          allShards: 0,
+          manyShards: 0,
+          oneShard: 0,
+          unsharded: 0
+        },
+        insert: {
+          allShards: 0,
+          manyShards: 0,
+          oneShard: 0,
+          unsharded: 0
+        },
+        update: {
+          allShards: 0,
+          manyShards: 0,
+          oneShard: 0,
+          unsharded: 0
+        },
+        delete: {
+          allShards: 0,
+          manyShards: 0,
+          oneShard: 0,
+          unsharded: 0
+        },
+        aggregate: {
+          allShards: 0,
+          manyShards: 0,
+          oneShard: 0,
+          unsharded: 1
+        }
+      },
+      catalogCache: {
+        numDatabaseEntries: Long('3'),
+        numCollectionEntries: Long('10'),
+        countStaleConfigErrors: Long('0'),
+        totalRefreshWaitTimeMicros: Long('18856'),
+        numActiveIncrementalRefreshes: Long('0'),
+        countIncrementalRefreshesStarted: Long('1'),
+        numActiveFullRefreshes: Long('0'),
+        countFullRefreshesStarted: Long('10'),
+        countFailedRefreshes: Long('0')
+      },
+      shardRegistry: {
+        activeRefreshCount: Long('0'),
+        totalRefreshCount: Long('5'),
+        failedRefreshCount: Long('0')
+      }
+    },
+    tcmalloc: {
+      generic: {
+        current_allocated_bytes: 0,
+        heap_size: 1048576
+      },
+      tcmalloc: {
+        pageheap_free_bytes: 1040384,
+        pageheap_unmapped_bytes: 0,
+        max_total_thread_cache_bytes: 1073741824,
+        current_total_thread_cache_bytes: 8,
+        central_cache_free_bytes: 8184,
+        transfer_cache_free_bytes: 0,
+        thread_cache_free_bytes: 8,
+        aggressive_memory_decommit: 0,
+        pageheap_committed_bytes: 1048576,
+        pageheap_scavenge_count: 0,
+        pageheap_commit_count: 1,
+        pageheap_total_commit_bytes: 1048576,
+        pageheap_decommit_count: 0,
+        pageheap_total_decommit_bytes: 0,
+        pageheap_reserve_count: 1,
+        pageheap_total_reserve_bytes: 1048576,
+        spinlock_total_delay_ns: 0,
+        release_rate: 1
+      },
+      tcmalloc_derived: {
+        total_free_bytes: 1040384
+      }
+    },
+    trafficRecording: {
+      running: false
+    },
+    transactions: {
+      currentOpen: Long('0'),
+      currentActive: Long('0'),
+      currentInactive: Long('0'),
+      totalStarted: Long('0'),
+      totalCommitted: Long('0'),
+      totalAborted: Long('0'),
+      abortCause: {},
+      totalContactedParticipants: Long('0'),
+      totalParticipantsAtCommit: Long('0'),
+      totalRequestsTargeted: Long('0'),
+      commitTypes: {
+        noShards: {
+          initiated: Long('0'),
+          successful: Long('0'),
+          successfulDurationMicros: Long('0')
+        },
+        singleShard: {
+          initiated: Long('0'),
+          successful: Long('0'),
+          successfulDurationMicros: Long('0')
+        },
+        singleWriteShard: {
+          initiated: Long('0'),
+          successful: Long('0'),
+          successfulDurationMicros: Long('0')
+        },
+        readOnly: {
+          initiated: Long('0'),
+          successful: Long('0'),
+          successfulDurationMicros: Long('0')
+        },
+        twoPhaseCommit: {
+          initiated: Long('0'),
+          successful: Long('0'),
+          successfulDurationMicros: Long('0')
+        },
+        recoverWithToken: {
+          initiated: Long('0'),
+          successful: Long('0'),
+          successfulDurationMicros: Long('0')
+        }
+      }
+    },
+    transportSecurity: {
+      '1.0': Long('0'),
+      '1.1': Long('0'),
+      '1.2': Long('0'),
+      '1.3': Long('0'),
+      unknown: Long('0')
+    },
+    mem: {
+      bits: 64,
+      resident: 63,
+      virtual: 4311,
+      supported: true,
+      secureAllocByteCount: 0,
+      secureAllocBytesInPages: 0
+    },
+    metrics: {
+      apiVersions: {
+        'mongosh 2.5.8': [
+          'default'
+        ]
+      },
+      cursor: {
+        timedOut: Long('0'),
+        open: {
+          multiTarget: Long('0'),
+          singleTarget: Long('0'),
+          queuedData: Long('0'),
+          pinned: Long('0'),
+          total: Long('0')
+        }
+      },
+      aggStageCounters: {
+        '$_internalAllCollectionStats': Long('0'),
+        '$_internalApplyOplogUpdate': Long('0'),
+        '$_internalBoundedSort': Long('0'),
+        '$_internalChangeStreamAddPostImage': Long('0'),
+        '$_internalChangeStreamAddPreImage': Long('0'),
+        '$_internalChangeStreamCheckInvalidate': Long('0'),
+        '$_internalChangeStreamCheckResumability': Long('0'),
+        '$_internalChangeStreamCheckTopologyChange': Long('0'),
+        '$_internalChangeStreamHandleTopologyChange': Long('0'),
+        '$_internalChangeStreamInjectControlEvents': Long('0'),
+        '$_internalChangeStreamOplogMatch': Long('0'),
+        '$_internalChangeStreamTransform': Long('0'),
+        '$_internalChangeStreamUnwindTransaction': Long('0'),
+        '$_internalComputeGeoNearDistance': Long('0'),
+        '$_internalConvertBucketIndexStats': Long('0'),
+        '$_internalDensify': Long('0'),
+        '$_internalFindAndModifyImageLookup': Long('0'),
+        '$_internalInhibitOptimization': Long('0'),
+        '$_internalListCollections': Long('0'),
+        '$_internalSearchIdLookup': Long('0'),
+        '$_internalSetWindowFields': Long('0'),
+        '$_internalShardServerInfo': Long('0'),
+        '$_internalShredDocuments': Long('0'),
+        '$_internalSplitPipeline': Long('0'),
+        '$_internalStreamingGroup': Long('0'),
+        '$_internalUnpackBucket': Long('0'),
+        '$_unpackBucket': Long('0'),
+        '$addFields': Long('0'),
+        '$bucket': Long('0'),
+        '$bucketAuto': Long('0'),
+        '$changeStream': Long('0'),
+        '$changeStreamSplitLargeEvent': Long('0'),
+        '$collStats': Long('0'),
+        '$count': Long('0'),
+        '$currentOp': Long('0'),
+        '$densify': Long('0'),
+        '$documents': Long('0'),
+        '$facet': Long('0'),
+        '$fill': Long('0'),
+        '$geoNear': Long('0'),
+        '$graphLookup': Long('0'),
+        '$group': Long('1'),
+        '$indexStats': Long('0'),
+        '$limit': Long('0'),
+        '$listCachedAndActiveUsers': Long('0'),
+        '$listCatalog': Long('0'),
+        '$listClusterCatalog': Long('0'),
+        '$listLocalSessions': Long('0'),
+        '$listMqlEntities': Long('0'),
+        '$listSampledQueries': Long('0'),
+        '$listSearchIndexes': Long('0'),
+        '$listSessions': Long('0'),
+        '$lookup': Long('0'),
+        '$match': Long('1'),
+        '$merge': Long('0'),
+        '$mergeCursors': Long('0'),
+        '$out': Long('0'),
+        '$planCacheStats': Long('0'),
+        '$project': Long('0'),
+        '$querySettings': Long('0'),
+        '$queryStats': Long('0'),
+        '$queue': Long('0'),
+        '$rankFusion': Long('0'),
+        '$redact': Long('0'),
+        '$replaceRoot': Long('0'),
+        '$replaceWith': Long('0'),
+        '$sample': Long('0'),
+        '$score': Long('0'),
+        '$scoreFusion': Long('0'),
+        '$search': Long('0'),
+        '$searchBeta': Long('0'),
+        '$searchMeta': Long('0'),
+        '$set': Long('0'),
+        '$setMetadata': Long('0'),
+        '$setVariableFromSubPipeline': Long('0'),
+        '$setWindowFields': Long('0'),
+        '$shardedDataDistribution': Long('0'),
+        '$skip': Long('0'),
+        '$sort': Long('0'),
+        '$sortByCount': Long('0'),
+        '$unionWith': Long('0'),
+        '$unset': Long('0'),
+        '$unwind': Long('0'),
+        '$vectorSearch': Long('0')
+      },
+      changeStreams: {
+        largeEventsFailed: Long('0'),
+        largeEventsSplit: Long('0'),
+        showExpandedEvents: Long('0')
+      },
+      commands: {
+        '<UNKNOWN>': Long('1'),
+        _clusterQueryWithoutShardKey: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        _clusterWriteWithoutShardKey: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        _isSelf: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        _killOperations: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        _mergeAuthzCollections: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        abortMoveCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        abortReshardCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        abortTransaction: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        abortUnshardCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        addShard: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        addShardToZone: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        aggregate: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('1')
+        },
+        analyzeShardKey: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        appendOplogNote: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        authenticate: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        autoSplitVector: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        balancerCollectionStatus: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        balancerStart: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        balancerStatus: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        balancerStop: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        buildInfo: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('1')
+        },
+        bulkWrite: {
+          arrayFilters: Long('0'),
+          failed: Long('0'),
+          pipeline: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        changePrimary: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        checkMetadataConsistency: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        cleanupReshardCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        cleanupStructuredEncryptionData: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        clearJumboFlag: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        collMod: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0'),
+          validator: {
+            failed: Long('0'),
+            jsonSchema: Long('0'),
+            total: Long('0')
+          }
+        },
+        collStats: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        commitReshardCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        commitTransaction: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        compact: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        compactStructuredEncryptionData: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        configureCollectionBalancing: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        configureQueryAnalyzer: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        connPoolStats: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        connPoolSync: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        connectionStatus: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        convertToCapped: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        coordinateCommitTransaction: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        count: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        create: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0'),
+          validator: {
+            failed: Long('0'),
+            jsonSchema: Long('0'),
+            total: Long('0')
+          }
+        },
+        createIndexes: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        createRole: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        createSearchIndexes: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        createUser: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        currentOp: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dataSize: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dbStats: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        delete: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        distinct: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        drop: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropAllRolesFromDatabase: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropAllUsersFromDatabase: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropConnections: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropDatabase: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropIndexes: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropRole: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropSearchIndex: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        dropUser: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        enableSharding: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        endSessions: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        explain: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        features: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        filemd5: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        find: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        findAndModify: {
+          arrayFilters: Long('0'),
+          failed: Long('0'),
+          pipeline: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        flushRouterConfig: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        fsync: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        fsyncUnlock: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getClusterParameter: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getCmdLineOpts: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getDatabaseVersion: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getDefaultRWConcern: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getDiagnosticData: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getLog: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('1')
+        },
+        getMore: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getParameter: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('1')
+        },
+        getQueryableEncryptionCountInfo: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getShardMap: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getShardVersion: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        getTrafficRecordingStatus: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        grantPrivilegesToRole: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        grantRolesToRole: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        grantRolesToUser: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        hello: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('3')
+        },
+        hostInfo: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        insert: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        invalidateUserCache: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        isMaster: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('5')
+        },
+        isdbgrid: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        killAllSessions: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        killAllSessionsByPattern: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        killCursors: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        killOp: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        killSessions: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        listCollections: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('2')
+        },
+        listCommands: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        listDatabases: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        listIndexes: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        listSearchIndexes: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        listShards: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        lockInfo: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        logRotate: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        logout: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        mapReduce: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        mergeAllChunksOnShard: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        mergeChunks: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        moveChunk: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        moveCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        movePrimary: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        moveRange: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        netstat: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        ping: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('1')
+        },
+        planCacheClear: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        planCacheClearFilters: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        planCacheListFilters: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        planCacheSetFilter: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        profile: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        refineCollectionShardKey: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        refreshSessions: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        releaseMemory: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        removeQuerySettings: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        removeShard: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        removeShardFromZone: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        renameCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        repairShardedCollectionChunksHistory: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        replSetGetStatus: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        resetPlacementHistory: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        reshardCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        revokePrivilegesFromRole: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        revokeRolesFromRole: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        revokeRolesFromUser: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        rolesInfo: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        rotateCertificates: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        rotateFTDC: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        saslContinue: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('3')
+        },
+        saslStart: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        serverStatus: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('2')
+        },
+        setAllowMigrations: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setClusterParameter: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setDefaultRWConcern: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setFeatureCompatibilityVersion: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setIndexCommitQuorum: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setParameter: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setProfilingFilterGlobally: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setQuerySettings: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        setUserWriteBlockMode: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        shardCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        shardDrainingStatus: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        shutdown: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        split: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        splitVector: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        startSession: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        startShardDraining: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        startTrafficRecording: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        stopTrafficRecording: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        transitionFromDedicatedConfigServer: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        transitionToDedicatedConfigServer: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        unshardCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        untrackUnshardedCollection: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        update: {
+          arrayFilters: Long('0'),
+          failed: Long('0'),
+          pipeline: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        updateRole: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        updateSearchIndex: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        updateUser: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        updateZoneKeyRange: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        usersInfo: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        validate: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        validateDBMetadata: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        },
+        whatsmyuri: {
+          failed: Long('0'),
+          rejected: Long('0'),
+          total: Long('0')
+        }
+      },
+      diskSpaceMonitor: {
+        passes: Long('0'),
+        tookAction: Long('0')
+      },
+      dotsAndDollarsFields: {
+        inserts: Long('0'),
+        updates: Long('0')
+      },
+      getLastError: {
+        wtime: {
+          num: 0,
+          totalMillis: 0
+        },
+        wtimeouts: Long('0'),
+        default: {
+          unsatisfiable: Long('0'),
+          wtimeouts: Long('0')
+        }
+      },
+      mongos: {
+        cursor: {
+          moreThanOneBatch: Long('0'),
+          totalOpened: Long('0')
+        },
+        shardRegistry: {
+          blockedOpsGauge: Long('0')
+        }
+      },
+      network: {
+        averageTimeToCompletedAuthMicros: 383054.2,
+        averageTimeToCompletedHelloMicros: 56958.09920000001,
+        totalEgressConnectionEstablishmentTimeMillis: Long('2059'),
+        totalIngressTLSConnections: Long('0'),
+        totalIngressTLSHandshakeTimeMillis: Long('0'),
+        totalTimeForEgressConnectionAcquiredToWireMicros: Long('3972'),
+        totalTimeToFirstNonAuthCommandMillis: Long('4427')
+      },
+      operation: {
+        killedDueToClientDisconnect: Long('0'),
+        killedDueToDefaultMaxTimeMSExpired: Long('0'),
+        killedDueToMaxTimeMSExpired: Long('0'),
+        killedDueToRangeDeletion: Long('0'),
+        numConnectionNetworkTimeouts: Long('0'),
+        prepareConflictWaitMicros: Long('0'),
+        prepareConflicts: Long('0'),
+        temporarilyUnavailableErrors: Long('0'),
+        temporarilyUnavailableErrorsConvertedToWriteConflict: Long('0'),
+        temporarilyUnavailableErrorsEscaped: Long('0'),
+        totalTimeWaitingBeforeConnectionTimeoutMillis: Long('0'),
+        transactionTooLargeForCacheErrors: Long('0'),
+        transactionTooLargeForCacheErrorsConvertedToWriteConflict: Long('0'),
+        unsendableCompletedResponses: Long('0')
+      },
+      operatorCounters: {
+        expressions: {
+          '$_internalFindAllValuesAtPath': Long('0'),
+          '$_internalFleBetween': Long('0'),
+          '$_internalFleEq': Long('0'),
+          '$_internalIndexKey': Long('0'),
+          '$_internalJsEmit': Long('0'),
+          '$_internalKeyStringValue': Long('0'),
+          '$_internalOwningShard': Long('0'),
+          '$_internalSortKey': Long('0'),
+          '$abs': Long('0'),
+          '$acos': Long('0'),
+          '$acosh': Long('0'),
+          '$add': Long('0'),
+          '$allElementsTrue': Long('0'),
+          '$and': Long('0'),
+          '$anyElementTrue': Long('0'),
+          '$arrayElemAt': Long('0'),
+          '$arrayToObject': Long('0'),
+          '$asin': Long('0'),
+          '$asinh': Long('0'),
+          '$atan': Long('0'),
+          '$atan2': Long('0'),
+          '$atanh': Long('0'),
+          '$avg': Long('0'),
+          '$binarySize': Long('0'),
+          '$bitAnd': Long('0'),
+          '$bitNot': Long('0'),
+          '$bitOr': Long('0'),
+          '$bitXor': Long('0'),
+          '$bsonSize': Long('0'),
+          '$ceil': Long('0'),
+          '$cmp': Long('0'),
+          '$concat': Long('0'),
+          '$concatArrays': Long('0'),
+          '$cond': Long('0'),
+          '$const': Long('0'),
+          '$convert': Long('0'),
+          '$cos': Long('0'),
+          '$cosh': Long('0'),
+          '$dateAdd': Long('0'),
+          '$dateDiff': Long('0'),
+          '$dateFromParts': Long('0'),
+          '$dateFromString': Long('0'),
+          '$dateSubtract': Long('0'),
+          '$dateToParts': Long('0'),
+          '$dateToString': Long('0'),
+          '$dateTrunc': Long('0'),
+          '$dayOfMonth': Long('0'),
+          '$dayOfWeek': Long('0'),
+          '$dayOfYear': Long('0'),
+          '$degreesToRadians': Long('0'),
+          '$divide': Long('0'),
+          '$encStrContains': Long('0'),
+          '$encStrEndsWith': Long('0'),
+          '$encStrNormalizedEq': Long('0'),
+          '$encStrStartsWith': Long('0'),
+          '$eq': Long('22'),
+          '$exp': Long('0'),
+          '$expr': Long('0'),
+          '$filter': Long('0'),
+          '$first': Long('0'),
+          '$firstN': Long('0'),
+          '$floor': Long('0'),
+          '$function': Long('0'),
+          '$getField': Long('0'),
+          '$gt': Long('0'),
+          '$gte': Long('0'),
+          '$hour': Long('0'),
+          '$ifNull': Long('0'),
+          '$in': Long('0'),
+          '$indexOfArray': Long('0'),
+          '$indexOfBytes': Long('0'),
+          '$indexOfCP': Long('0'),
+          '$isArray': Long('0'),
+          '$isNumber': Long('0'),
+          '$isoDayOfWeek': Long('0'),
+          '$isoWeek': Long('0'),
+          '$isoWeekYear': Long('0'),
+          '$last': Long('0'),
+          '$lastN': Long('0'),
+          '$let': Long('0'),
+          '$literal': Long('0'),
+          '$ln': Long('0'),
+          '$log': Long('0'),
+          '$log10': Long('0'),
+          '$lt': Long('0'),
+          '$lte': Long('0'),
+          '$ltrim': Long('0'),
+          '$map': Long('0'),
+          '$max': Long('0'),
+          '$maxN': Long('0'),
+          '$median': Long('0'),
+          '$mergeObjects': Long('0'),
+          '$meta': Long('0'),
+          '$millisecond': Long('0'),
+          '$min': Long('0'),
+          '$minN': Long('0'),
+          '$minute': Long('0'),
+          '$mod': Long('0'),
+          '$month': Long('0'),
+          '$multiply': Long('0'),
+          '$ne': Long('0'),
+          '$not': Long('0'),
+          '$objectToArray': Long('0'),
+          '$or': Long('0'),
+          '$percentile': Long('0'),
+          '$pow': Long('0'),
+          '$radiansToDegrees': Long('0'),
+          '$rand': Long('0'),
+          '$range': Long('0'),
+          '$reduce': Long('0'),
+          '$regexFind': Long('0'),
+          '$regexFindAll': Long('0'),
+          '$regexMatch': Long('0'),
+          '$replaceAll': Long('0'),
+          '$replaceOne': Long('0'),
+          '$reverseArray': Long('0'),
+          '$round': Long('0'),
+          '$rtrim': Long('0'),
+          '$second': Long('0'),
+          '$setDifference': Long('0'),
+          '$setEquals': Long('0'),
+          '$setField': Long('0'),
+          '$setIntersection': Long('0'),
+          '$setIsSubset': Long('0'),
+          '$setUnion': Long('0'),
+          '$sigmoid': Long('0'),
+          '$similarityCosine': Long('0'),
+          '$similarityDotProduct': Long('0'),
+          '$similarityEuclidean': Long('0'),
+          '$sin': Long('0'),
+          '$sinh': Long('0'),
+          '$size': Long('0'),
+          '$slice': Long('0'),
+          '$sortArray': Long('0'),
+          '$split': Long('0'),
+          '$sqrt': Long('0'),
+          '$stdDevPop': Long('0'),
+          '$stdDevSamp': Long('0'),
+          '$strLenBytes': Long('0'),
+          '$strLenCP': Long('0'),
+          '$strcasecmp': Long('0'),
+          '$substr': Long('0'),
+          '$substrBytes': Long('0'),
+          '$substrCP': Long('0'),
+          '$subtract': Long('0'),
+          '$sum': Long('0'),
+          '$switch': Long('0'),
+          '$tan': Long('0'),
+          '$tanh': Long('0'),
+          '$toBool': Long('0'),
+          '$toDate': Long('0'),
+          '$toDecimal': Long('0'),
+          '$toDouble': Long('0'),
+          '$toHashedIndexKey': Long('0'),
+          '$toInt': Long('0'),
+          '$toLong': Long('0'),
+          '$toLower': Long('0'),
+          '$toObjectId': Long('0'),
+          '$toString': Long('0'),
+          '$toUUID': Long('0'),
+          '$toUpper': Long('0'),
+          '$trim': Long('0'),
+          '$trunc': Long('0'),
+          '$tsIncrement': Long('0'),
+          '$tsSecond': Long('0'),
+          '$type': Long('0'),
+          '$unsetField': Long('0'),
+          '$week': Long('0'),
+          '$year': Long('0'),
+          '$zip': Long('0')
+        },
+        groupAccumulators: {
+          '$_internalConstructStats': Long('0'),
+          '$_internalJsReduce': Long('0'),
+          '$accumulator': Long('0'),
+          '$addToSet': Long('0'),
+          '$avg': Long('0'),
+          '$bottom': Long('0'),
+          '$bottomN': Long('0'),
+          '$concatArrays': Long('0'),
+          '$count': Long('0'),
+          '$first': Long('0'),
+          '$firstN': Long('0'),
+          '$last': Long('0'),
+          '$lastN': Long('0'),
+          '$max': Long('0'),
+          '$maxN': Long('0'),
+          '$median': Long('0'),
+          '$mergeObjects': Long('0'),
+          '$min': Long('0'),
+          '$minN': Long('0'),
+          '$percentile': Long('0'),
+          '$push': Long('0'),
+          '$setUnion': Long('0'),
+          '$stdDevPop': Long('0'),
+          '$stdDevSamp': Long('0'),
+          '$sum': Long('0'),
+          '$top': Long('0'),
+          '$topN': Long('0')
+        },
+        match: {
+          '$all': Long('0'),
+          '$alwaysFalse': Long('0'),
+          '$alwaysTrue': Long('0'),
+          '$and': Long('0'),
+          '$bitsAllClear': Long('0'),
+          '$bitsAllSet': Long('0'),
+          '$bitsAnyClear': Long('0'),
+          '$bitsAnySet': Long('0'),
+          '$comment': Long('0'),
+          '$elemMatch': Long('0'),
+          '$eq': Long('0'),
+          '$exists': Long('0'),
+          '$expr': Long('22'),
+          '$geoIntersects': Long('0'),
+          '$geoWithin': Long('0'),
+          '$gt': Long('0'),
+          '$gte': Long('11'),
+          '$in': Long('0'),
+          '$jsonSchema': Long('0'),
+          '$lt': Long('0'),
+          '$lte': Long('0'),
+          '$mod': Long('0'),
+          '$ne': Long('0'),
+          '$near': Long('0'),
+          '$nearSphere': Long('0'),
+          '$nin': Long('0'),
+          '$nor': Long('0'),
+          '$not': Long('0'),
+          '$or': Long('0'),
+          '$regex': Long('0'),
+          '$sampleRate': Long('0'),
+          '$size': Long('0'),
+          '$text': Long('0'),
+          '$type': Long('0'),
+          '$where': Long('0')
+        },
+        windowAccumulators: {
+          '$addToSet': Long('0'),
+          '$avg': Long('0'),
+          '$bottom': Long('0'),
+          '$bottomN': Long('0'),
+          '$concatArrays': Long('0'),
+          '$count': Long('0'),
+          '$covariancePop': Long('0'),
+          '$covarianceSamp': Long('0'),
+          '$denseRank': Long('0'),
+          '$derivative': Long('0'),
+          '$documentNumber': Long('0'),
+          '$expMovingAvg': Long('0'),
+          '$first': Long('0'),
+          '$firstN': Long('0'),
+          '$integral': Long('0'),
+          '$last': Long('0'),
+          '$lastN': Long('0'),
+          '$linearFill': Long('0'),
+          '$locf': Long('0'),
+          '$max': Long('0'),
+          '$maxN': Long('0'),
+          '$median': Long('0'),
+          '$min': Long('0'),
+          '$minMaxScaler': Long('0'),
+          '$minN': Long('0'),
+          '$percentile': Long('0'),
+          '$push': Long('0'),
+          '$rank': Long('0'),
+          '$setUnion': Long('0'),
+          '$shift': Long('0'),
+          '$stdDevPop': Long('0'),
+          '$stdDevSamp': Long('0'),
+          '$sum': Long('0'),
+          '$top': Long('0'),
+          '$topN': Long('0')
+        }
+      },
+      query: {
+        deleteManyCount: Long('0'),
+        deleteOneNonTargetedShardedCount: Long('0'),
+        deleteOneTargetedShardedCount: Long('0'),
+        deleteOneUnshardedCount: Long('0'),
+        deleteOneWithoutShardKeyWithIdCount: Long('0'),
+        deleteOneWithoutShardKeyWithIdRetryCount: Long('0'),
+        externalRetryableWriteCount: Long('0'),
+        findAndModifyNonTargetedShardedCount: Long('0'),
+        findAndModifyTargetedShardedCount: Long('0'),
+        findAndModifyUnshardedCount: Long('0'),
+        internalRetryableWriteCount: Long('0'),
+        nonRetryableDeleteOneWithoutShardKeyWithIdCount: Long('0'),
+        nonRetryableUpdateOneWithoutShardKeyWithIdCount: Long('0'),
+        recordIdDeduplicationSwitchedToRoaring: Long('0'),
+        retryableInternalTransactionCount: Long('0'),
+        updateManyCount: Long('0'),
+        updateOneNonTargetedShardedCount: Long('0'),
+        updateOneOpStyleBroadcastWithExactIDCount: Long('0'),
+        updateOneTargetedShardedCount: Long('0'),
+        updateOneUnshardedCount: Long('0'),
+        updateOneWithoutShardKeyWithIdCount: Long('0'),
+        updateOneWithoutShardKeyWithIdRetryCount: Long('0'),
+        bucketAuto: {
+          spilledBytes: Long('0'),
+          spilledDataStorageSize: Long('0'),
+          spilledRecords: Long('0'),
+          spills: Long('0')
+        },
+        expressionSimplifier: {
+          abortedTooLarge: Long('0'),
+          notSimplified: Long('0'),
+          simplified: Long('0'),
+          trivial: Long('0')
+        },
+        graphLookup: {
+          spilledBytes: Long('0'),
+          spilledDataStorageSize: Long('0'),
+          spilledRecords: Long('0'),
+          spills: Long('0')
+        },
+        group: {
+          spilledBytes: Long('0'),
+          spilledDataStorageSize: Long('0'),
+          spilledRecords: Long('0'),
+          spills: Long('0')
+        },
+        lookup: {
+          dynamicIndexedLoopJoin: Long('0'),
+          hashLookup: Long('0'),
+          hashLookupSpillToDisk: Long('0'),
+          hashLookupSpillToDiskBytes: Long('0'),
+          hashLookupSpilledBytes: Long('0'),
+          hashLookupSpilledDataStorageSize: Long('0'),
+          hashLookupSpilledRecords: Long('0'),
+          hashLookupSpills: Long('0'),
+          indexedLoopJoin: Long('0'),
+          nestedLoopJoin: Long('0')
+        },
+        multiPlanner: {
+          allPlansHitMemoryLimit: Long('0'),
+          classicCount: Long('0'),
+          classicMicros: Long('0'),
+          classicNumPlans: Long('0'),
+          classicWorks: Long('0'),
+          histograms: {
+            classicMicros: [
+              {
+                lowerBound: Long('0'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('1024'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('4096'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('16384'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('65536'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('262144'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('1048576'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('4194304'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('16777216'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('67108864'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('268435456'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('1073741824'),
+                count: Long('0')
+              }
+            ],
+            classicNumPlans: [
+              {
+                lowerBound: Long('0'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('2'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('4'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('8'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('16'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('32'),
+                count: Long('0')
+              }
+            ],
+            classicWorks: [
+              {
+                lowerBound: Long('0'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('128'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('256'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('512'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('1024'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('2048'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('4096'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('8192'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('16384'),
+                count: Long('0')
+              },
+              {
+                lowerBound: Long('32768'),
+                count: Long('0')
+              }
+            ]
+          },
+          rateLimiter: {
+            allowed: Long('0'),
+            delayed: Long('0'),
+            released: Long('0')
+          },
+          stoppingCondition: {
+            hitEof: Long('0'),
+            hitResultsLimit: Long('0'),
+            hitWorksLimit: Long('0')
+          }
+        },
+        planCache: {
+          totalQueryShapes: Long('0'),
+          totalSizeEstimateBytes: Long('0'),
+          classic: {
+            cached_plans_evicted: Long('0'),
+            hits: Long('0'),
+            inactive_cached_plans_replaced: Long('0'),
+            misses: Long('0'),
+            replanned: Long('0'),
+            replanned_plan_is_cached_plan: Long('0'),
+            skipped: Long('0')
+          },
+          sbe: {
+            cached_plans_evicted: Long('0'),
+            hits: Long('0'),
+            inactive_cached_plans_replaced: Long('0'),
+            misses: Long('0'),
+            replanned: Long('0'),
+            replanned_plan_is_cached_plan: Long('0'),
+            skipped: Long('0')
+          }
+        },
+        planning: {
+          fastPath: {
+            express: Long('0'),
+            idHack: Long('0')
+          }
+        },
+        queryFramework: {
+          aggregate: {
+            classicHybrid: Long('0'),
+            classicOnly: Long('0'),
+            sbeHybrid: Long('0'),
+            sbeOnly: Long('0')
+          },
+          find: {
+            classic: Long('0'),
+            sbe: Long('0')
+          }
+        },
+        setWindowFields: {
+          spilledBytes: Long('0'),
+          spilledDataStorageSize: Long('0'),
+          spilledRecords: Long('0'),
+          spills: Long('0')
+        },
+        sort: {
+          spillToDisk: Long('0'),
+          spillToDiskBytes: Long('0'),
+          totalBytesSorted: Long('0'),
+          totalKeysSorted: Long('0')
+        },
+        textOr: {
+          spilledBytes: Long('0'),
+          spilledDataStorageSize: Long('0'),
+          spilledRecords: Long('0'),
+          spills: Long('0')
+        }
+      },
+      queryExecutor: {
+        collectionScans: {
+          nonTailable: Long('0'),
+          total: Long('0')
+        },
+        profiler: {
+          collectionScans: {
+            nonTailable: Long('0'),
+            tailable: Long('0'),
+            total: Long('0')
+          }
+        }
+      },
+      queryStats: {
+        maxSizeBytes: Long('683964006'),
+        numEntries: Long('0'),
+        numEvicted: Long('0'),
+        numHmacApplicationErrors: Long('0'),
+        numPartitions: Long('41'),
+        numQueryStatsStoreWriteErrors: Long('0'),
+        numRateLimitedRequests: Long('0'),
+        queryStatsStoreSizeEstimateBytes: Long('0')
+      },
+      repl: {
+        network: {
+          oplogGetMoresProcessed: {
+            num: 0,
+            totalMillis: 0
+          }
+        },
+        stateTransition: {
+          totalOperationsKilledByIntentRegistry: Long('0')
+        }
+      },
+      timeseries: {
+        directDeleted: Long('0'),
+        directUpdated: Long('0'),
+        measurementDelete: Long('0'),
+        measurementUpdate: Long('0'),
+        metaDelete: Long('0'),
+        metaUpdate: Long('0')
+      }
+    },
+    ok: 1,
+    '$clusterTime': {
+      clusterTime: Timestamp({ t: 1761375449, i: 1 }),
+      signature: {
+        hash: Binary.createFromBase64('AAAAAAAAAAAAAAAAAAAAAAAAAAA=', 0),
+        keyId: Long('0')
+      }
+    },
+    operationTime: Timestamp({ t: 1761375449, i: 1 })
+  }

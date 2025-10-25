@@ -206,50 +206,48 @@ class MongoProviderTest {
             await this.testDisconnection('2. Тест отключения от MongoDB...');
             await this.testReconnection('3. Тест переподключения к MongoDB...');
             await this.testCheckConnection('4. Тест проверки подключения...');
-            /*            
-                        // Тесты создания базы данных
-                        await this.testCreateDatabase('5. Тест создания базы данных...');
-                        // Тесты работы с фактами
-                        await this.testInsertFact('6. Тест вставки одного факта...');
-                        await this.testBulkInsert('7. Тест массовой вставки фактов...');
-                        await this.testGetFactsCollectionSchema('8. Тест получения схемы коллекции фактов...');
-                        await this.testClearFactsCollection('09. Тест очистки коллекции фактов...');
-            
-                        // Тесты индексных значений
-                        await this.testInsertFactIndexList('10. Тест вставки списка индексных значений...');
-                        await this.testGetFactIndexSchema('11. Тест получения схемы коллекции индексных значений...');
-                        await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
-            
-                        // Тесты повторных вызовов с теми же данными
-                        await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
-                        await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
-                        await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
-            
-                        // Тесты получения релевантных фактов
-                        await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
-                        await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
-                        await this.testGetRelevantFactsWithNoMatches('18. Тест получения релевантных фактов без совпадений...');
-                        await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
-                        await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
-                        await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
-                        // Тесты получения релевантных счетчиков фактов
-                        await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
-                        await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
-                        await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
-                        await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');
-                        await this.testGetRelevantFactCountersWithDepthFromDate('26. Тест получения релевантных счетчиков с глубиной от даты...');
-                        await this.testGetRelevantFactCountersWithBothParameters('27. Тест получения релевантных счетчиков с обоими параметрами...');
-            
-                        // Тесты статистики
-                        await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
-                        await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
-                        
-                        // Тесты работы с логами
-                        await this.testSaveLog('30. Тест сохранения записи в лог...');
-                        await this.testClearLogCollection('31. Тест очистки коллекции логов...');
-                        // 
-                        await this.testProcessMessage('32. Тест обработки конкретного сообщения...');
-            */
+            // Тесты создания базы данных
+            await this.testCreateDatabase('5. Тест создания базы данных...');
+            // Тесты работы с фактами
+            await this.testInsertFact('6. Тест вставки одного факта...');
+            await this.testBulkInsert('7. Тест массовой вставки фактов...');
+            await this.testGetFactsCollectionSchema('8. Тест получения схемы коллекции фактов...');
+            await this.testClearFactsCollection('09. Тест очистки коллекции фактов...');
+
+            // Тесты индексных значений
+            await this.testInsertFactIndexList('10. Тест вставки списка индексных значений...');
+            await this.testGetFactIndexSchema('11. Тест получения схемы коллекции индексных значений...');
+            await this.testClearFactIndexCollection('12. Тест очистки коллекции индексных значений...');
+
+            // Тесты повторных вызовов с теми же данными
+            await this.testDuplicateInsertFact('13. Тест повторной вставки того же факта...');
+            await this.testDuplicateInsertFactIndexList('14. Тест повторной вставки тех же индексных значений...');
+            await this.testDuplicateBulkInsert('15. Тест повторной массовой вставки...');
+
+            // Тесты получения релевантных фактов
+            await this.testGetRelevantFacts('16. Тест получения релевантных фактов...');
+            await this.testGetRelevantFactsWithMultipleFields('17. Тест получения релевантных фактов с множественными полями...');
+            await this.testGetRelevantFactsWithNoMatches('18. Тест получения релевантных фактов без совпадений...');
+            await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
+            await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
+            await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
+            // Тесты получения релевантных счетчиков фактов
+            await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
+            await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
+            await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
+            await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');
+            await this.testGetRelevantFactCountersWithDepthFromDate('26. Тест получения релевантных счетчиков с глубиной от даты...');
+            await this.testGetRelevantFactCountersWithBothParameters('27. Тест получения релевантных счетчиков с обоими параметрами...');
+
+            // Тесты статистики
+            await this.testGetFactsCollectionStats('28. Тест получения статистики коллекции facts...');
+            await this.testGetFactIndexStats('29. Тест получения статистики индексных значений...');
+
+            // Тесты работы с логами
+            await this.testSaveLog('30. Тест сохранения записи в лог...');
+            await this.testClearLogCollection('31. Тест очистки коллекции логов...');
+            // 
+            await this.testProcessMessage('32. Тест обработки конкретного сообщения...');
             // Тесты новых атрибутов счетчиков
             await this.testCounterTimeLimits('33. Тест временных ограничений счетчиков (fromTimeMs, toTimeMs)...');
             await this.testCounterRecordLimits('34. Тест ограничений количества записей (maxEvaluatedRecords, maxMatchingRecords)...');

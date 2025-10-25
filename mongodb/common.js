@@ -9,6 +9,44 @@ function ExtractFirstKeyOfIndex(tag) {
   return res;
 }
 
+function ConnectionsAnalysis( serverConnections = ["192.168.88.54:27020","192.168.88.54:29101","192.168.88.54:29201","192.168.88.54:29301"] ) {
+  function printAnalysis(connstionString, analysis) {
+    print("");
+    print("*************************************************************************");
+    print("***");
+    print("***   Connections analysis for <" + connstionString + ">");
+    print("***");
+    print("*************************************************************************");
+    // print("Query analyzers activeCollections: " + analysis.queryAnalyzers.activeCollections);
+    // print("Query analyzers totalCollections: " + analysis.queryAnalyzers.totalCollections);
+    print("Total connections: " + analysis.connections.total);
+    print("Available connections: " + analysis.connections.available);
+    print("Current connections: " + analysis.connections.current);
+    print("Rejected connections: " + analysis.connections.rejected);
+    print("Active connections: " + analysis.connections.active);
+    print("Queued for establishment: " + analysis.connections.queuedForEstablishment);
+    print("Establishment threaded: " + analysis.connections.threaded);
+    print("Service executors . passthrough.threadsRunning: " + analysis.passthrough?.threadsRunning);
+    print("Service executors . passthrough.clientsInTotal: " + analysis.passthrough?.clientsInTotal);
+    print("Service executors . passthrough.clientsRunning: " + analysis.passthrough?.clientsRunning);
+    print("Service executors . passthrough.clientsWaitingForData: " + analysis.passthrough?.clientsWaitingForData);
+    print("Service executors . inline.threadsRunning: " + analysis.inline?.threadsRunning);
+    print("Service executors . inline.clientsInTotal: " + analysis.inline?.clientsInTotal);
+    print("Service executors . inline.clientsRunning: " + analysis.inline?.clientsRunning);
+    print("Service executors . inline.clientsWaitingForData: " + analysis.inline?.clientsWaitingForData);
+  }
+  serverConnections.forEach((connstionString) => {
+    const connDb = connect(connstionString);
+    const result = connDb.serverStatus({connections: 1});
+    const analysis = {
+    };
+    analysis.connections = result.connections;
+    analysis.serviceExecutors = result.network.serviceExecutors;
+    analysis.queryAnalyzers = result.queryAnalyzers;
+    printAnalysis(connstionString, analysis);
+  });
+}
+
 // Вывод информации о медленных запросах
 // detail - степень детализации вывода
 function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){

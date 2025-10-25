@@ -93,6 +93,8 @@ const config = {
         databaseName: process.env.MONGODB_DATABASE_NAME || 'counters',
         options: {
             individualProcessClient: process.env.INDIVIDUAL_PROCESS_CLIENT === 'true' || false,
+            individualCollectionObject: process.env.INDIVIDUAL_COLLECTION_OBJECT === 'true' || false,
+            disableSave: process.env.DISABLE_SAVE === 'true' || false,
             writeConcern: safeJsonParse(process.env.MONGODB_WRITE_CONCERN, { w: 1, j: false, wtimeout: 5000 }, 'MONGODB_WRITE_CONCERN'),
             readConcern: safeJsonParse(process.env.MONGODB_READ_CONCERN, { level: "local" }, 'MONGODB_READ_CONCERN'),
             minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE) || 100,
