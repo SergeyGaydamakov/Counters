@@ -232,7 +232,7 @@ class MongoProviderTest {
             await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
             await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
             // Тесты получения релевантных счетчиков фактов
-            await this.testGetRelevantFactCounters('22. Тест получения релевантных счетчиков фактов...');
+            await this.testGetRelevantFactCounters('22. Тест получения и проверки релевантных счетчиков фактов...');
             await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');
             await this.testGetRelevantFactCountersWithNoMatches('24. Тест получения релевантных счетчиков без совпадений...');
             await this.testGetRelevantFactCountersWithDepthLimit('25. Тест получения релевантных счетчиков с ограничением глубины...');

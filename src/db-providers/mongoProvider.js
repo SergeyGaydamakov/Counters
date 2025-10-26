@@ -1311,7 +1311,7 @@ class MongoProvider {
         // Так как счетчики будут по списку фактов, то используем поле "c", а не "dt"
         const info = this.getFactIndexCountersInfo(fact, "c");
 
-        if (!info || !info.indexFacetStages) {
+        if (!info || !info.indexFacetStages || typeof info.indexFacetStages !== 'object') {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
 
             return {
@@ -1322,6 +1322,7 @@ class MongoProvider {
                 },
             };
         }
+
         const indexCountersInfo = info.indexFacetStages;
         const indexLimits = info.indexLimits;
 
@@ -1399,7 +1400,7 @@ class MongoProvider {
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                     maxCountersPerRequest: config.facts.maxCountersPerRequest,
                     maxCountersProcessing: config.facts.maxCountersProcessing,
-                    counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
+                    counterIndexCountWithGroup: indexCountersInfo ? Object.keys(indexCountersInfo).length : 0,
                     relevantIndexCount: 0,
                     queryCountersCount: 0,
                     relevantFactsCount: 0,
@@ -1461,7 +1462,7 @@ class MongoProvider {
                 indexTypeName: indexTypeName,
                 processingTime: Date.now() - startQuery,
                 factsMetrics: indexNameResult.metrics,
-                queryCountersCount: countersResult.reduce((a, b) => a + b.queryCountersCount, 0),
+                queryCountersCount: countersResult ? countersResult.reduce((a, b) => a + b.queryCountersCount, 0) : 0,
                 counters: {},
                 countersErrors: {},
                 countersMetrics: {},
@@ -1480,7 +1481,7 @@ class MongoProvider {
         const stopQueriesTime = Date.now();
 
         // Объединяем результаты в один JSON объект
-        const queryCountersCount = queryResults.reduce((a, b) => a + b.queryCountersCount, 0);
+        const queryCountersCount = queryResults ? queryResults.reduce((a, b) => a + b.queryCountersCount, 0) : 0;
         const mergedCounters = {};
         const details = {};
         let relevantFactsQuerySize = 0;
@@ -1508,10 +1509,10 @@ class MongoProvider {
             relevantFactsCount += result.factsMetrics.relevantFactsCount ?? 0;
             relevantFactsSize += result.factsMetrics.relevantFactsSize ?? 0;
 
-            countersQuerySize += Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersQuerySize ?? 0), 0);
+            countersQuerySize += result.countersMetrics ? Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersQuerySize ?? 0), 0) : 0;
             countersQueryTime = Math.max(countersQueryTime, Math.max(...Object.keys(result.countersMetrics).map(key => result.countersMetrics[key].countersQueryTime ?? 0)));
-            countersQueryCount += Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersQueryCount ?? 0), 0);
-            countersSize += Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersSize ?? 0), 0);
+            countersQueryCount += result.countersMetrics ? Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersQueryCount ?? 0), 0) : 0;
+            countersSize += result.countersMetrics ? Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersSize ?? 0), 0) : 0;
         });
 
         if (this._debugMode) {
@@ -1553,8 +1554,8 @@ class MongoProvider {
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                 maxCountersPerRequest: config.facts.maxCountersPerRequest,
                 maxCountersProcessing: config.facts.maxCountersProcessing,
-                counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
-                relevantIndexCount: Object.keys(queriesByIndexName).length,
+                counterIndexCountWithGroup: indexCountersInfo ? Object.keys(indexCountersInfo).length : 0,
+                relevantIndexCount: queriesByIndexName ? Object.keys(queriesByIndexName).length : 0,
                 queryCountersCount: queryCountersCount,
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
@@ -1566,12 +1567,11 @@ class MongoProvider {
                 countersQueryTime: countersQueryTime,
                 countersQueryCount: countersQueryCount,
                 countersSize: countersSize,
-                resultCountersCount: Object.keys(mergedCounters).length,
+                resultCountersCount: mergedCounters ? Object.keys(mergedCounters).length : 0,
                 details: details,
             },
             debug: {
                 counters: mergedCounters,
-                options: JSON.stringify(this._databaseOptions)
             }
         };
     }
@@ -1588,7 +1588,7 @@ class MongoProvider {
         // Так как счетчики будут по списку фактов, то используем поле "dt", а не "c"
         const info = this.getFactIndexCountersInfo(fact, "dt");
 
-        if (!info || !info.indexFacetStages) {
+        if (!info || !info.indexFacetStages || typeof info.indexFacetStages !== 'object') {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
 
             return {
@@ -1596,12 +1596,14 @@ class MongoProvider {
                 processingTime: Date.now() - startTime,
             };
         }
+
         const indexCountersInfo = info.indexFacetStages;
         const indexLimits = info.indexLimits;
 
         // Перебираем все индексы, по которым нужно построить счетчики и формируем агрегационный запрос
         const queriesByIndexName = {};
         const nowDate = Date.now();
+        
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
         // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
         Object.keys(indexCountersInfo).forEach((indexTypeNameWithGroupNumber) => {
@@ -1702,7 +1704,7 @@ class MongoProvider {
                     factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                     maxCountersPerRequest: config.facts.maxCountersPerRequest,
                     maxCountersProcessing: config.facts.maxCountersProcessing,
-                    counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
+                    counterIndexCountWithGroup: indexCountersInfo ? Object.keys(indexCountersInfo).length : 0,
                     relevantIndexCount: 0,
                     queryCountersCount: 0,
                     prepareCountersQueryTime: 0,
@@ -1815,7 +1817,7 @@ class MongoProvider {
             this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
         }
 
-        const queryCountersCount = Object.keys(Object.keys(queriesByIndexName).map(indexTypeNameWithGroupNumber => queriesByIndexName[indexTypeNameWithGroupNumber].query)).length;
+        const queryCountersCount = queriesByIndexName ? Object.keys(queriesByIndexName).map(key => queriesByIndexName[key] ? Object.keys(queriesByIndexName[key].query["$facet"] ?? {})?.length : 0).reduce((a, b) => a + b, 0) : 0;
 
         /**
          * Структура отладочной информации debug:
@@ -1855,8 +1857,8 @@ class MongoProvider {
                 factCountersCount: indexCountersInfo ? Object.keys(indexCountersInfo).map(key => indexCountersInfo[key] ? Object.keys(indexCountersInfo[key])?.length : 0).reduce((a, b) => a + b, 0) : 0,
                 maxCountersPerRequest: config.facts.maxCountersPerRequest,
                 maxCountersProcessing: config.facts.maxCountersProcessing,
-                counterIndexCountWithGroup: Object.keys(indexCountersInfo).length,
-                relevantIndexCount: Object.keys(queriesByIndexName).length,
+                counterIndexCountWithGroup: indexCountersInfo ? Object.keys(indexCountersInfo).length : 0,
+                relevantIndexCount: queriesByIndexName ? Object.keys(queriesByIndexName).length : 0,
                 queryCountersCount: queryCountersCount,
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
@@ -2980,7 +2982,7 @@ class MongoProvider {
 
             const indexesToCreate = [
                 {
-                    key: { "_id.h": 1, "dt": -1 },
+                    key: { "_id.h": 1, "dt": 1 },
                     options: {
                         name: 'idx_id_h_dt',
                         background: true

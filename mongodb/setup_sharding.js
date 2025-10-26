@@ -334,7 +334,7 @@ try {
     });
     const indexesToCreate = [
         {
-            key: { "_id.h": 1, "dt": -1 },
+            key: { "_id.h": 1, "dt": 1 },
             options: {
                 name: 'idx_id_h_dt',
                 background: true
@@ -365,10 +365,10 @@ print(`\n8. Настройка шардирования для коллекци�
 const factIndexShardingResult = executeCommand(
     {
         shardCollection: `${DATABASE_NAME}.${FACT_INDEX_COLLECTION}`,
-        key: { "_id.h": 1 }, // Может быть до 64Мб записей для разных фактов примерно 600000 фактов
+        key: { "_id.h": 1, "dt": 1 }, // dt позволяет избежать jumbo chunks
         unique: false
     },
-    `Настройка шардирования для коллекции ${FACT_INDEX_COLLECTION} по ключу {_id.h: 1}`
+    `Настройка шардирования для коллекции ${FACT_INDEX_COLLECTION} по ключу {_id.h: 1, "dt": 1}`
 );
 
 if (!factIndexShardingResult.success) {
