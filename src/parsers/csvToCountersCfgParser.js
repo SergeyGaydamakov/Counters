@@ -325,12 +325,13 @@ class CountersCsvParser {
     parseContainsOperator(fieldName, value, type, lineNumber) {
         const cleanFieldName = this.cleanFieldName(fieldName);
         const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName, true);
         
-        if (values.length === 1) {
-            return { [`d.${cleanFieldName}`]: { "$regex": values[0], "$options": "i" } };
+        if (typedValues.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$regex": typedValues[0], "$options": "i" } };
         } else {
             // Объединяем множественные значения в один regex с OR
-            const escapedValues = values.map(v => this.escapeRegex(v));
+            const escapedValues = typedValues.map(v => this.escapeRegex(v));
             const combinedRegex = `(${escapedValues.join('|')})`;
             return { [`d.${cleanFieldName}`]: { "$regex": combinedRegex, "$options": "i" } };
         }
@@ -342,12 +343,13 @@ class CountersCsvParser {
     parseNotContainsOperator(fieldName, value, type, lineNumber) {
         const cleanFieldName = this.cleanFieldName(fieldName);
         const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName, true);
         
-        if (values.length === 1) {
-            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": values[0], "$options": "i" } } };
+        if (typedValues.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": typedValues[0], "$options": "i" } } };
         } else {
             // Объединяем множественные значения в один regex с OR и применяем $not
-            const escapedValues = values.map(v => this.escapeRegex(v));
+            const escapedValues = typedValues.map(v => this.escapeRegex(v));
             const combinedRegex = `(${escapedValues.join('|')})`;
             return { [`d.${cleanFieldName}`]: { "$not": { "$regex": combinedRegex, "$options": "i" } } };
         }
@@ -359,12 +361,13 @@ class CountersCsvParser {
     parseStartsWithOperator(fieldName, value, type, lineNumber) {
         const cleanFieldName = this.cleanFieldName(fieldName);
         const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName, true);
         
-        if (values.length === 1) {
-            return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(values[0])}`, "$options": "i" } };
+        if (typedValues.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(typedValues[0])}`, "$options": "i" } };
         } else {
             // Объединяем множественные значения в один regex с OR и якорем начала
-            const escapedValues = values.map(v => this.escapeRegex(v));
+            const escapedValues = typedValues.map(v => this.escapeRegex(v));
             const combinedRegex = `^(${escapedValues.join('|')})`;
             return { [`d.${cleanFieldName}`]: { "$regex": combinedRegex, "$options": "i" } };
         }
@@ -376,12 +379,13 @@ class CountersCsvParser {
     parseNotStartsWithOperator(fieldName, value, type, lineNumber) {
         const cleanFieldName = this.cleanFieldName(fieldName);
         const values = this.parseValueList(value);
+        const typedValues = this.convertValuesToType(values, cleanFieldName, true);
         
-        if (values.length === 1) {
-            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(values[0])}`, "$options": "i" } } };
+        if (typedValues.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(typedValues[0])}`, "$options": "i" } } };
         } else {
             // Объединяем множественные значения в один regex с OR и якорем начала, применяем $not
-            const escapedValues = values.map(v => this.escapeRegex(v));
+            const escapedValues = typedValues.map(v => this.escapeRegex(v));
             const combinedRegex = `^(${escapedValues.join('|')})`;
             return { [`d.${cleanFieldName}`]: { "$not": { "$regex": combinedRegex, "$options": "i" } } };
         }
@@ -405,11 +409,13 @@ class CountersCsvParser {
 
         // Для обычных значений используем regex с игнорированием регистра
         const values = this.parseValueList(value);
-        if (values.length === 1) {
-            return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(values[0])}$`, "$options": "i" } };
+        const typedValues = this.convertValuesToType(values, cleanFieldName, true);
+        
+        if (typedValues.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$regex": `^${this.escapeRegex(typedValues[0])}$`, "$options": "i" } };
         } else {
             // Объединяем множественные значения в один regex с OR и якорями начала/конца
-            const escapedValues = values.map(v => this.escapeRegex(v));
+            const escapedValues = typedValues.map(v => this.escapeRegex(v));
             const combinedRegex = `^(${escapedValues.join('|')})$`;
             return { [`d.${cleanFieldName}`]: { "$regex": combinedRegex, "$options": "i" } };
         }
@@ -433,11 +439,13 @@ class CountersCsvParser {
 
         // Для обычных значений используем $not с regex
         const values = this.parseValueList(value);
-        if (values.length === 1) {
-            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(values[0])}$`, "$options": "i" } } };
+        const typedValues = this.convertValuesToType(values, cleanFieldName, true);
+        
+        if (typedValues.length === 1) {
+            return { [`d.${cleanFieldName}`]: { "$not": { "$regex": `^${this.escapeRegex(typedValues[0])}$`, "$options": "i" } } };
         } else {
             // Объединяем множественные значения в один regex с OR и якорями начала/конца, применяем $not
-            const escapedValues = values.map(v => this.escapeRegex(v));
+            const escapedValues = typedValues.map(v => this.escapeRegex(v));
             const combinedRegex = `^(${escapedValues.join('|')})$`;
             return { [`d.${cleanFieldName}`]: { "$not": { "$regex": combinedRegex, "$options": "i" } } };
         }
@@ -643,17 +651,41 @@ class CountersCsvParser {
 
     /**
      * Конвертирует значения в соответствующие типы
+     * @param {Array<string>} values - массив значений для конвертации
+     * @param {string} fieldName - имя поля
+     * @param {boolean} forceString - принудительно оставлять значения строками (для строковых операторов)
      */
-    convertValuesToType(values, fieldName) {
+    convertValuesToType(values, fieldName, forceString = false) {
+        // Проверяем, есть ли в массиве строковые значения (начинающиеся с 0)
+        const hasZeroPrefixedValues = values.some(v => /^0\d+$/.test(v));
+        
         return values.map(value => {
             // Специальная обработка для пустого значения
             if (value === '∅') {
                 return null;
             }
             
-            // MessageTypeID всегда числа
+            // Если оператор строковый, оставляем как строку
+            if (forceString) {
+                return value;
+            }
+            
+            // Если значение начинается с 0 и состоит из цифр, оставляем как строку
+            if (/^0\d+$/.test(value)) {
+                return value;
+            }
+            
+            // Если в массиве есть строковые значения, конвертируем все остальные в строки
+            if (hasZeroPrefixedValues) {
+                return value;
+            }
+            
+            // MessageTypeID всегда числа (кроме случаев когда начинается с 0)
             if (fieldName === 'MessageTypeID') {
-                return parseInt(value);
+                const numValue = parseInt(value);
+                if (!isNaN(numValue)) {
+                    return numValue;
+                }
             }
             
             // Поля с суффиксом _flag, _indicator - boolean
