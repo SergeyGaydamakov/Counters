@@ -9,6 +9,14 @@ function ExtractFirstKeyOfIndex(tag) {
   return res;
 }
 
+const servers = [ 
+  "10.152.227.64:27017", 
+  "10.152.227.196:27017", 
+  "10.152.227.227:27017", 
+  "10.152.227.233:27017", 
+  "10.152.227.246:27017" 
+];
+
 function ConnectionsAnalysis( serverConnections = ["192.168.88.54:27020","192.168.88.54:29101","192.168.88.54:29201","192.168.88.54:29301"] ) {
   function printAnalysis(connstionString, analysis) {
     print("");
