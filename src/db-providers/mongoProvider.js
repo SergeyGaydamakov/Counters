@@ -1817,7 +1817,7 @@ class MongoProvider {
             this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
         }
 
-        const queryCountersCount = queriesByIndexName ? Object.keys(queriesByIndexName).map(key => queriesByIndexName[key] ? Object.keys(queriesByIndexName[key].query["$facet"] ?? {})?.length : 0).reduce((a, b) => a + b, 0) : 0;
+        const queryCountersCount = Object.keys(countersQuery).map(key => countersQuery[key] ? Object.keys( (countersQuery[key].find(i => i["$facet"]) ?? {"$facet": {}})["$facet"]).length : 0).reduce((a, b) => a + b, 0);
 
         /**
          * Структура отладочной информации debug:

@@ -89,6 +89,14 @@ function SlowRequests(detail = 1, limit = 10, lastSeconds = 60){
   } else {
     print("***   Количество счетчиков > 2: не найдено");
   }
+  print("");
+  const resultMaxResultCountersCount = db.log.find({c: {$gte: searchFromDate}, "m.resultCountersCount": {$gt: 0}}).sort({"m.resultCountersCount":-1}).limit(1).toArray();
+  if (resultMaxResultCountersCount.length > 0) {
+    print(`***   Максимальное количество полученных счетчиков: ${resultMaxResultCountersCount[0].m?.resultCountersCount} в факте: ${resultMaxResultCountersCount[0].f._id}, запись в журнале: ${resultMaxResultCountersCount[0]._id}`);
+  } else {
+    print("***   Количество полученных счетчиков > 0: не найдено");
+  }
+  print("");
 }
 
 function ShardingAnalysis() {
