@@ -732,3 +732,139 @@ admin.runCommand(
  
  * 
  */
+
+ 
+//  Ожидание появления операции с указанным условием
+//
+// Примеры использования:
+// WaitingDurableOp(10, true).filter(i => i.secs_running > 3000).forEach(function(o){db.killOp(o.opid);print(o.opid);})
+// WaitingDurableOp(10, true).filter(i => i.command.comment && i.command.comment.split("56068bae-d1ad-4414-b773-194d0192a667").length==2)
+// WaitingDurableOp(10, [ "remove", "query" ])
+
+function WaitingDurableOp( durationMSec, crudOnly, waitingSec ) {
+  var test = db.currentOp();
+  if (!test.ok) {
+      print("ERROR Can not call db.currentOp()");
+      print(test.errmsg);
+      return;
+  }
+  var dbName = db.getName();
+  var r = new RegExp("^"+dbName+".");
+  //
+  var filter = {
+      //active: true,
+      //waitingForLock : true,
+      //microsecs_running : { $gt : dur*1000 }, //longer than duration microseconds
+      //$ownOps:true //returns information on the current user’s operations only.
+      //$all:true, //including operations on idle connections and system operations
+      ns: r
+  };
+  if (durationMSec == undefined) {
+      filter.microsecs_running = { $gt : 1000*1000 };
+  }
+  if (durationMSec) {
+      filter.microsecs_running = { $gt : durationMSec*1000 };
+  };
+  if ( (crudOnly == undefined) || (typeof( crudOnly ) == "boolean") && crudOnly ) {
+      filter.$or = [
+          { "op":  { "$in" : [ "insert", "update", "remove", "query" ] }},
+          { "query.findandmodify": { $exists: true }} 
+      ];
+  } else if (typeof( crudOnly ) == "object") {
+      filter.$or = [
+          { "op":  { "$in" : crudOnly }},
+          { "query.findandmodify": { $exists: true }} 
+      ];
+}
+
+  var startTime = (new Date()).getTime();
+  var period = 10000;
+  if (waitingSec) {
+      period = waitingSec * 1000;
+  }
+  
+  var d={inprog: []};
+  printjson( filter );
+  while ( (d.inprog.length==0) && ((new Date()).getTime() - startTime) < period) {
+      d = db.currentOp( filter );
+  };
+  
+  if (d.inprog.length == 0) {
+      print("Not found operations for filter:");
+      printjson( filter );
+      return;
+  }
+  // printjson( d.inprog );
+  if (d.inprog.length > 0) {
+      var numYields = d.inprog.filter(i => i.numYields > 50);
+      print("Count operation with numYields: " + numYields.length );
+      var maxTimeLock = 1000;
+      var timeAcquiringMicros = d.inprog.filter(i => (i.lockStats.Global && i.lockStats.Global.timeAcquiringMicros && i.lockStats.Global.timeAcquiringMicros.W > maxTimeLock) || (i.lockStats.Database && i.lockStats.Database.timeAcquiringMicros && i.lockStats.Database.timeAcquiringMicros.W > maxTimeLock) || (i.lockStats.Collection && i.lockStats.Collection.timeAcquiringMicros && i.lockStats.Collection.timeAcquiringMicros.W > maxTimeLock));
+      /*
+      if (!timeAcquiringMicros.length) {
+          print("Not found operation with timeAcquiringMicros");
+          printjson(d.inprog);
+      }
+      */
+      print("Count operation with timeAcquiringMicros: " + timeAcquiringMicros.length );
+  }
+  //  query performance:
+  // planSummary: COLLSCAN
+  // docsExamined:42601  keysExamined:0  => nReturned = totalKeysExamined = totalDocsExamined
+  //
+  // locks.*.timeAcquiringMicros     locks:{ Global: { acquireCount: { r: 3, W: 1 } }, Database: { acquireCount: { r: 1 } }, Collection: { acquireCount: { r: 1 } } }
+  //
+  // connections & sessions (e.g. how many connections is opened )
+  // Если число соединений растет, то значит есть зависшие запросы.
+  return d.inprog;
+}
+
+
+
+// Статистика по колличеству выполняемых операций в единицу времени
+function OperationStats() {
+  var start = db.serverStatus();
+  if (!start.ok) {
+      print("ERROR Can not call db.serverStatus()");
+      print(start.errmsg);
+      return;
+  }
+  var startTime = (new Date()).getTime();
+  var period = 1000;
+  while ( ((new Date()).getTime() - startTime) < period) {
+  };
+  var finish = db.serverStatus();
+  var duration = (finish.localTime - start.localTime) / 1000;
+  print("From: " + DateTimeToString(start.localTime) + "    to: " + DateTimeToString(finish.localTime));
+  print("Duration: " + duration + " sec");
+  
+  print("");
+  print( ArrayToRow([
+      StrCenterAlign("Operation", 25), 
+      StrCenterAlign("Total count", 20), 
+      StrCenterAlign("Count per second",20),
+      StrCenterAlign("Failed count", 20), 
+  ]));
+  var commands = finish.metrics.commands;
+  for(var key in commands) {
+      if(commands.hasOwnProperty(key)) {
+          var finishOperation = commands[key];
+          var startOperation = start.metrics.commands[key];
+          var total = Number(finishOperation.total) - Number(startOperation.total);
+          var failed = Number(finishOperation.failed) - Number(startOperation.failed);
+          print( ArrayToRow([ 
+              StrLeftAlign(key, 25),
+              StrRightAlign( total, 20),
+              StrRightAlign( (total / duration).toFixed(5), 20),
+              StrRightAlign( failed, 20)
+          ]));
+      }
+  }
+}
+
+// Получение медленных запросов, которые дольше 100мсек
+function ProfileOperation(){
+  // Последний 1 час
+  var fromDate = GetDate(0,-1);
+  db.system.profile.find({planSummary: "COLLSCAN", ts: {$gt: fromDate}}, {"op": 1, "millis": 1, "numYield": 1, "command": 1}).sort({ts: -1}).limit(10);
+}

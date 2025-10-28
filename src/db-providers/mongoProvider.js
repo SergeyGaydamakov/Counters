@@ -7,10 +7,16 @@ const Logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 const config = require('../common/config');
+const connectionPoolStatus = require('./connectionPool');
 
 // Общий объект для подключения к MongoDB
+let mongoProviderCounter = 0;
 let global_mongoClient = null;
 let global_mongoClientAggregate = null;
+let global_counterClientPoolStatus = null;
+let global_aggregateClientPoolStatus = null;
+
+let mongoProvider = null;
 
 /**
  * Класс-провайдер для работы с MongoDB коллекциями facts и factIndex
@@ -85,6 +91,23 @@ class MongoProvider {
         this._counterClient = null;
         this._counterDb = null;
         this._isConnected = false;
+        
+        // Переменные для мониторинга connection pool
+        this._counterClientPoolStatus = null;
+        this._aggregateClientPoolStatus = null;
+        this._metricsCollector = null;
+
+        //
+        this.logger.debug("*** Создан новый MongoProvider. individualProcessClient: "+ this._databaseOptions.individualProcessClient);
+    }
+
+    /**
+     * Устанавливает коллектор метрик для мониторинга connection pool
+     * @param {Object} metricsCollector - коллектор метрик
+     */
+    setMetricsCollector(metricsCollector) {
+        this._metricsCollector = metricsCollector;
+        this.logger.debug('Metrics collector установлен для мониторинга connection pool');
     }
 
     /**
@@ -237,6 +260,7 @@ class MongoProvider {
     async connect() {
         try {
             this.logger.debug(`Подключение к MongoDB: ${this._connectionString}`);
+            this.logger.debug(`Настройки: \n${JSON.stringify(this._databaseOptions, null, 2)}`);
 
             this._counterClient = await this._getMongoClient(this._connectionString, this._databaseOptions);
             await this._counterClient.connect();
@@ -247,9 +271,15 @@ class MongoProvider {
 
             this._isConnected = true;
 
+            // Инициализируем мониторинг connection pool для обоих клиентов
+            this._initConnectionPoolMonitoring();
+
             this.logger.debug(`✓ Успешное подключение к базе данных: ${this._databaseName}`);
             this.logger.debug(`✓ Коллекция фактов: ${this.FACT_COLLECTION_NAME}`);
             this.logger.debug(`✓ Коллекция индексных значений: ${this.FACT_INDEX_COLLECTION_NAME}`);
+
+            mongoProviderCounter++;
+            this.logger.debug(`*** Вызван connect ${mongoProviderCounter}`);
         } catch (error) {
             this.logger.error('✗ Ошибка подключения к MongoDB:', error.message);
             this._isConnected = false;
@@ -266,11 +296,91 @@ class MongoProvider {
     }
 
     /**
+     * Инициализирует мониторинг connection pool для обоих клиентов
+     */
+    _initConnectionPoolMonitoring() {
+        try {
+            if (this._databaseOptions.individualProcessClient) {
+                // Мониторинг для counter client
+                this._counterClientPoolStatus = connectionPoolStatus(
+                    this._counterClient,
+                    'counter',
+                    this._metricsCollector,
+                    this.logger
+                );
+            } else if (!global_counterClientPoolStatus) {
+                global_counterClientPoolStatus = connectionPoolStatus(
+                    this._counterClient,
+                    'counter',
+                    this._metricsCollector,
+                    this.logger
+                );
+            }
+
+            if (this._databaseOptions.individualProcessClient) {
+                // Мониторинг для aggregate client
+                this._aggregateClientPoolStatus = connectionPoolStatus(
+                    this._aggregateClient,
+                    'aggregate',
+                    this._metricsCollector,
+                    this.logger
+                );
+            } else if (!global_aggregateClientPoolStatus){
+                global_aggregateClientPoolStatus = connectionPoolStatus(
+                    this._aggregateClient,
+                    'aggregate',
+                    this._metricsCollector,
+                    this.logger
+                );
+            }
+            
+            this.logger.info('✓ Мониторинг connection pool инициализирован для обоих клиентов');
+        } catch (error) {
+            this.logger.error('✗ Ошибка инициализации мониторинга connection pool:', error.message);
+        }
+    }
+
+    /**
      * Отключение от MongoDB
      */
     async disconnect() {
         try {
-            if (this._counterClient && this._isConnected) {
+            mongoProviderCounter--;
+            this.logger.debug(`*** Вызван diconnect ${mongoProviderCounter}`);
+            if (mongoProviderCounter < 0) {
+                this.logger.warn('⚠ Попытка закрыть несуществующее подключение');
+                mongoProviderCounter = 0;
+            }
+
+            // Очищаем мониторинг connection pool
+            if (mongoProviderCounter <= 0 && global_counterClientPoolStatus && !this._databaseOptions.individualProcessClient) {
+                global_counterClientPoolStatus.cleanUp();
+                global_counterClientPoolStatus = null;
+
+            }
+            if (mongoProviderCounter <= 0 && global_aggregateClientPoolStatus && !this._databaseOptions.individualProcessClient) {
+                global_aggregateClientPoolStatus.cleanUp();
+                global_aggregateClientPoolStatus = null;
+
+            }
+            if (this._counterClientPoolStatus && this._counterClientPoolStatus.cleanUp && this._databaseOptions.individualProcessClient) {
+                this._counterClientPoolStatus.cleanUp();
+                this._counterClientPoolStatus = null;
+            }
+            if (this._aggregateClientPoolStatus && this._aggregateClientPoolStatus.cleanUp && this._databaseOptions.individualProcessClient) {
+                this._aggregateClientPoolStatus.cleanUp();
+                this._aggregateClientPoolStatus = null;
+            }
+
+            if (mongoProviderCounter <= 0 && global_mongoClient && global_mongoClientAggregate && !this._databaseOptions.individualProcessClient) {
+                await global_mongoClient.close();
+                await global_mongoClientAggregate.close();
+                global_mongoClient = null;
+                global_mongoClientAggregate = null;
+                this.logger.debug('✓ Основное соединение с MongoDB закрыто');
+            }
+
+            if (this._databaseOptions.individualProcessClient && this._counterClient && this._isConnected) {
                 await this._counterClient.close();
                 await this._aggregateClient.close();
                 this.logger.debug('✓ Основное соединение с MongoDB закрыто');
@@ -3279,6 +3389,13 @@ class MongoProvider {
      * @returns {Promise<Object>} результат создания базы данных
      */
     async createDatabase() {
+        if (!config.isDevelopment){
+            this.logger.debug("*** Production mode on.");
+            return {
+                success: true
+            };
+        }
+        this.logger.debug("*** Development mode on.");
         this.checkConnection();
 
         let adminClient = null;

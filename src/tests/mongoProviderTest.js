@@ -70,6 +70,14 @@ class MongoProviderTest {
         ];
         this.mongoCounters = new CounterProducer(this.countersConfig);
 
+        // Для тестов меняем значения по умолчанию для пула подключений
+        this.logger.debug(`BEFORE: config.database.options.minPoolSize: ${config.database.options.minPoolSize}, config.database.options.maxPoolSize: ${config.database.options.maxPoolSize}`);
+        // При маленьком minPoolSize не создаются подключения!
+        config.database.options.minPoolSize = 2;
+        config.database.options.maxPoolSize = 10;
+        config.database.options.maxConnecting = 3;
+        this.logger.debug(`AFTER: config.database.options.minPoolSize: ${config.database.options.minPoolSize}, config.database.options.maxPoolSize: ${config.database.options.maxPoolSize}`);
+
         this.provider = new MongoProvider(
             config.database.connectionString,
             'mongoProviderTestDB',
@@ -257,10 +265,11 @@ class MongoProviderTest {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
             try {
+                this.logger.debug(`Завершение выполнения тестов, закрытие общего соединения`);
                 await this.provider.disconnect();
-                this.logger.debug('✓ Все соединения с MongoDB закрыты');
+                this.logger.debug('✓ TEST Все соединения с MongoDB закрыты');
             } catch (error) {
-                this.logger.error('✗ Ошибка при закрытии соединений:', error.message);
+                this.logger.error('✗ TEST Ошибка при закрытии соединений:', error.message);
             }
 
             this.printResults();

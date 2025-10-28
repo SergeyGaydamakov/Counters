@@ -141,6 +141,238 @@ class WorkerMetricsCollector {
             buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
             registers: [this.register]
         });
+
+        // 14. Gauge для текущего количества checked out соединений в connection pool
+        this.connectionPoolCheckedOut = new client.Gauge({
+            name: 'mongodb_connection_pool_checked_out',
+            help: 'Number of connections currently checked out from the pool',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 15. Counter для количества checkout операций
+        this.connectionPoolCheckoutCounter = new client.Counter({
+            name: 'mongodb_connection_pool_checkout_total',
+            help: 'Total number of connection checkout operations',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 16. Counter для количества checkin операций
+        this.connectionPoolCheckinCounter = new client.Counter({
+            name: 'mongodb_connection_pool_checkin_total',
+            help: 'Total number of connection checkin operations',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 17. Counter для количества checkout попыток (started)
+        this.connectionCheckoutStartedCounter = new client.Counter({
+            name: 'mongodb_connection_checkout_started_total',
+            help: 'Total number of connection checkout attempts',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 18. Counter для количества неудачных checkout операций
+        this.connectionCheckoutFailedCounter = new client.Counter({
+            name: 'mongodb_connection_checkout_failed_total',
+            help: 'Total number of failed connection checkout attempts',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 19. Counter для создания соединений
+        this.connectionCreatedCounter = new client.Counter({
+            name: 'mongodb_connection_created_total',
+            help: 'Total number of connections created',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 20. Counter для закрытия соединений
+        this.connectionClosedCounter = new client.Counter({
+            name: 'mongodb_connection_closed_total',
+            help: 'Total number of connections closed',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 21. Counter для создания пула соединений
+        this.connectionPoolCreatedCounter = new client.Counter({
+            name: 'mongodb_connection_pool_created_total',
+            help: 'Total number of connection pools created',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 22. Counter для готовности пула соединений
+        this.connectionPoolReadyCounter = new client.Counter({
+            name: 'mongodb_connection_pool_ready_total',
+            help: 'Total number of connection pools ready',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 23. Counter для закрытия пула соединений
+        this.connectionPoolClosedCounter = new client.Counter({
+            name: 'mongodb_connection_pool_closed_total',
+            help: 'Total number of connection pools closed',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+
+        // 24. Counter для очистки пула соединений
+        this.connectionPoolClearedCounter = new client.Counter({
+            name: 'mongodb_connection_pool_cleared_total',
+            help: 'Total number of connection pools cleared',
+            labelNames: ['worker_id', 'client_type'],
+            registers: [this.register]
+        });
+    }
+
+    /**
+     * Регистрирует checkout операции из connection pool
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     * @param {number} checkedOutCount - текущее количество checked out соединений
+     */
+    recordConnectionCheckout(clientType, checkedOutCount) {
+        try {
+            this.connectionPoolCheckedOut.set({ worker_id: this.workerId, client_type: clientType }, checkedOutCount);
+            this.connectionPoolCheckoutCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации checkout: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует checkin операции в connection pool
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     * @param {number} checkedOutCount - текущее количество checked out соединений
+     */
+    recordConnectionCheckin(clientType, checkedOutCount) {
+        try {
+            this.connectionPoolCheckedOut.set({ worker_id: this.workerId, client_type: clientType }, checkedOutCount);
+            this.connectionPoolCheckinCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации checkin: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует событие начала попытки checkout
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionCheckoutStarted(clientType) {
+        try {
+            this.connectionCheckoutStartedCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации checkout started: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует неудачную попытку checkout
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionCheckoutFailed(clientType) {
+        try {
+            this.connectionCheckoutFailedCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации checkout failed: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует создание соединения
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionCreated(clientType) {
+        try {
+            this.connectionCreatedCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации connection created: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует закрытие соединения
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionClosed(clientType) {
+        try {
+            this.connectionClosedCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации connection closed: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует создание пула соединений
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionPoolCreated(clientType) {
+        try {
+            this.connectionPoolCreatedCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации pool created: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует готовность пула соединений
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionPoolReady(clientType) {
+        try {
+            this.connectionPoolReadyCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации pool ready: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует закрытие пула соединений
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionPoolClosed(clientType) {
+        try {
+            this.connectionPoolClosedCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации pool closed: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Регистрирует очистку пула соединений
+     * @param {string} clientType - тип клиента ('counter' или 'aggregate')
+     */
+    recordConnectionPoolCleared(clientType) {
+        try {
+            this.connectionPoolClearedCounter.inc({ worker_id: this.workerId, client_type: clientType });
+        } catch (error) {
+            if (logger) {
+                logger.error(`Ошибка при регистрации pool cleared: ${error.message}`);
+            }
+        }
     }
 
     /**

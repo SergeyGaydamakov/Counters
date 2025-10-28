@@ -15,7 +15,7 @@ const {
     responseMetadata 
 } = require('./middleware');
 const Diagnostics = require('../utils/diagnostics');
-const { initializeMetricsCollector, destroyMetricsCollector } = require('../common/metrics');
+const { initializeMetricsCollector, getMetricsCollector, destroyMetricsCollector } = require('../common/metrics');
 
 // Загружаем переменные окружения
 const dotenv = require('dotenv');
@@ -174,6 +174,17 @@ async function initialize() {
         await Promise.race([connectPromise, timeoutPromise]);
         logger.info(`✅ MongoDB подключен в воркере ${process.pid}`);
 
+        // Инициализируем коллектор метрик перед настройкой мониторинга connection pool
+        logger.info(`🔧 Инициализирую коллектор метрик...`);
+        initializeMetricsCollector(`worker-${process.pid}`);
+        const metricsCollector = getMetricsCollector();
+        
+        // Устанавливаем metricsCollector для мониторинга connection pool
+        if (metricsCollector && mongoProvider && typeof mongoProvider.setMetricsCollector === 'function') {
+            mongoProvider.setMetricsCollector(metricsCollector);
+            logger.info(`✅ Мониторинг connection pool настроен в воркере ${process.pid}`);
+        }
+
         // Создаем собственный экземпляр контроллера фактов для этого Worker'а
         logger.info(`🔧 Инициализирую FactController...`);
         factController = new FactController(
@@ -185,11 +196,6 @@ async function initialize() {
             config.facts.maxDepthLimit
         );
         logger.info(`✅ FactController инициализирован в воркере ${process.pid}`);
-
-        // Инициализируем коллектор метрик
-        logger.info(`🔧 Инициализирую коллектор метрик...`);
-        initializeMetricsCollector(`worker-${process.pid}`);
-        logger.info(`✅ Коллектор метрик инициализирован в воркере ${process.pid}`);
 
         // Подключаем API маршруты с инициализированным контроллером
         logger.info(`🔧 Настраиваю API маршруты...`);
