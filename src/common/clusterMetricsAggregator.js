@@ -81,7 +81,9 @@ class ClusterMetricsAggregator {
      */
     getBaseMetricName(metricName) {
         // Стандартные суффиксы Prometheus для гистограмм, summary и других
-        const suffixes = ['_bucket', '_count', '_sum', '_created', '_total'];
+        // ВАЖНО: не удаляем '_total' — это имя счётчиков (Counter) и его
+        // удаление приводит к слиянию разных метрик по общему префиксу.
+        const suffixes = ['_bucket', '_count', '_sum', '_created'];
         for (const suffix of suffixes) {
             if (metricName.endsWith(suffix)) {
                 return metricName.slice(0, -suffix.length);
