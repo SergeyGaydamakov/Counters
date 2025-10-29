@@ -1,5 +1,14 @@
 load("base.js");
 
+// Получение ключа индекса в base64 формате
+// hashIndexValueToBase64(1, "TCS1");
+function hashIndexValueToBase64(indexType, indexValue) {
+  const crypto = require('crypto');
+  const HASH_ALGORITHM = 'sha1';
+  const input = `${indexType}:${indexValue}`;
+  return crypto.createHash(HASH_ALGORITHM).update(input).digest('base64');
+}
+
 function ExtractFirstKeyOfIndex(tag) {
   var res = "";
   for (var key in tag) {

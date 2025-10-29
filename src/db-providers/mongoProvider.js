@@ -108,6 +108,34 @@ class MongoProvider {
     setMetricsCollector(metricsCollector) {
         this._metricsCollector = metricsCollector;
         this.logger.debug('Metrics collector установлен для мониторинга connection pool');
+        
+        // Если клиенты уже подключены, переинициализируем мониторинг с новым коллектором
+        if (this._isConnected && (this._counterClient || this._aggregateClient)) {
+            this.logger.debug('Переинициализация мониторинга connection pool с установленным metricsCollector');
+            
+            // Очищаем старые обработчики перед переинициализацией
+            if (this._databaseOptions.individualProcessClient) {
+                // Для индивидуальных пулов очищаем локальные обработчики
+                if (this._counterClientPoolStatus && typeof this._counterClientPoolStatus.cleanUp === 'function') {
+                    this._counterClientPoolStatus.cleanUp();
+                }
+                if (this._aggregateClientPoolStatus && typeof this._aggregateClientPoolStatus.cleanUp === 'function') {
+                    this._aggregateClientPoolStatus.cleanUp();
+                }
+            } else {
+                // Для глобальных пулов очищаем глобальные обработчики
+                if (global_counterClientPoolStatus && typeof global_counterClientPoolStatus.cleanUp === 'function') {
+                    global_counterClientPoolStatus.cleanUp();
+                    global_counterClientPoolStatus = null;
+                }
+                if (global_aggregateClientPoolStatus && typeof global_aggregateClientPoolStatus.cleanUp === 'function') {
+                    global_aggregateClientPoolStatus.cleanUp();
+                    global_aggregateClientPoolStatus = null;
+                }
+            }
+            
+            this._initConnectionPoolMonitoring();
+        }
     }
 
     /**
