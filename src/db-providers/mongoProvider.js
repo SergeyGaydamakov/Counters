@@ -567,7 +567,7 @@ class MongoProvider {
                     comment: "saveFact - find",
                     projection: { _id: 1 }
                 };
-                const doc = await factsCollection.findOne(filter, findOptions);
+                const doc = await factsCollection.findOne(filter, {}, findOptions);
                 factId = doc?._id;
             }
 
@@ -1270,7 +1270,7 @@ class MongoProvider {
     async _getRelevantFactsByIndex(indexNameQuery, debugMode = false) {
         const factIndexCollection = this._getFactIndexAggregateCollection();
         const startFindFactIndexTime = Date.now();
-        const factIndexResult = await factIndexCollection.find(indexNameQuery.factIndexFindQuery, indexNameQuery.factIndexFindOptions).sort(indexNameQuery.factIndexFindSort).limit(indexNameQuery.depthLimit).toArray();
+        const factIndexResult = await factIndexCollection.find(indexNameQuery.factIndexFindQuery, {}, indexNameQuery.factIndexFindOptions).sort(indexNameQuery.factIndexFindSort).limit(indexNameQuery.depthLimit).toArray();
         const stopFindFactIndexTime = Date.now();
         const relevantFactsQuerySize = debugMode ? JSON.stringify(indexNameQuery.factIndexFindQuery).length : undefined;
         const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
@@ -2339,7 +2339,7 @@ class MongoProvider {
         const factIndexCollection = this._getFactIndexAggregateCollection();
         const factsCollection = this._getFactsAggregateCollection();
 
-        const relevantFactIds = await factIndexCollection.find(findFactMatchQuery, findOptions).sort({ dt: -1 }).limit(depthLimit).toArray();
+        const relevantFactIds = await factIndexCollection.find(findFactMatchQuery, {}, findOptions).sort({ dt: -1 }).limit(depthLimit).toArray();
         // this.logger.info(`Поисковый запрос:\n${JSON.stringify(matchQuery)}`);
 
         // Если нет релевантных индексных значений, возвращаем пустую статистику
@@ -2478,7 +2478,7 @@ class MongoProvider {
         const factsCollection = this._getFactsAggregateCollection();
 
         // this.logger.debug("   matchQuery: "+JSON.stringify(matchQuery));
-        const relevantFactIds = await factIndexCollection.find(matchQuery, findOptions).sort({ dt: -1 }).batchSize(config.database.batchSize).limit(depthLimit).toArray();
+        const relevantFactIds = await factIndexCollection.find(matchQuery, {}, findOptions).sort({ dt: -1 }).batchSize(config.database.batchSize).limit(depthLimit).toArray();
         // Сформировать агрегирующий запрос к коллекции facts,
         const aggregateQuery = [
             {
@@ -2612,7 +2612,7 @@ class MongoProvider {
                 readPreference: this._databaseOptions.aggregateReadPreference,
                 comment: "findFacts"
             };
-            const facts = await factsCollection.find(filter, findOptions).toArray();
+            const facts = await factsCollection.find(filter, {}, findOptions).toArray();
             // this.logger.debug(`Найдено ${facts.length} фактов по фильтру:`, JSON.stringify(filter));
             return facts;
         } catch (error) {
