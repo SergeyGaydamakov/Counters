@@ -1513,9 +1513,10 @@ class MongoProvider {
                     counterIndexCountWithGroup: indexCountersInfo ? Object.keys(indexCountersInfo).length : 0,
                     relevantIndexCount: 0,
                     queryCountersCount: 0,
-                    relevantFactsCount: 0,
+                    relevantFactsQueryTime: 0,
+                    relevantFactsQuerySize: 0,
+                    relevantFactsQueryCount: 0,
                     relevantFactsSize: 0,
-                    relevantFactsTime: 0,
                     prepareCountersQueryTime: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,
@@ -1595,8 +1596,8 @@ class MongoProvider {
         const mergedCounters = {};
         const details = {};
         let relevantFactsQuerySize = 0;
-        let relevantFactsTime = 0;
-        let relevantFactsCount = 0;
+        let relevantFactsQueryTime = 0;
+        let relevantFactsQueryCount = 0;
         let relevantFactsSize = 0;
         let countersQuerySize = 0;
         let countersQueryTime = 0;
@@ -1615,8 +1616,8 @@ class MongoProvider {
                 countersDebug: result.countersDebug,
             };
             relevantFactsQuerySize += result.factsMetrics.relevantFactsQuerySize ?? 0;
-            relevantFactsTime = Math.max(relevantFactsTime, result.factsMetrics.relevantFactsTime ?? 0);
-            relevantFactsCount += result.factsMetrics.relevantFactsCount ?? 0;
+            relevantFactsQueryTime = Math.max(relevantFactsQueryTime, result.factsMetrics.relevantFactsTime ?? 0);
+            relevantFactsQueryCount += result.factsMetrics.relevantFactsCount ?? 0;
             relevantFactsSize += result.factsMetrics.relevantFactsSize ?? 0;
 
             countersQuerySize += result.countersMetrics ? Object.keys(result.countersMetrics).reduce((a, b) => a + (result.countersMetrics[b].countersQuerySize ?? 0), 0) : 0;
@@ -1641,8 +1642,9 @@ class MongoProvider {
          * prepareCountersQueryTime - время подготовки параллельных запросов на вычисление счетчиков
          * processingQueriesTime - время выполнения параллельных запросов на вычисление счетчиков
          * relevantFactsQuerySize - размер запроса по индексам для поиска ИД релевантных фактов
-         * relevantFactsTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
-         * relevantFactsCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
+         * relevantFactsQueryTime - время выполнения запроса по индексам для поиска ИД релевантных фактов
+         * relevantFactsQueryCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
+         * relevantFactsQueryCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
          * relevantFactsSize - размер массива релевантных фактов (факты, которые попали после поиска по индексам)
          * countersQuerySize - размер запросов вычисления счетчиков по релевантным фактам
          * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
@@ -1670,8 +1672,8 @@ class MongoProvider {
                 prepareQueriesTime: startQueriesTime - startPrepareQueriesTime,
                 processingQueriesTime: stopQueriesTime - startQueriesTime,
                 relevantFactsQuerySize: relevantFactsQuerySize,
-                relevantFactsTime: relevantFactsTime,
-                relevantFactsCount: relevantFactsCount,
+                relevantFactsQueryTime: relevantFactsQueryTime,
+                relevantFactsQueryCount: relevantFactsQueryCount,
                 relevantFactsSize: relevantFactsSize,
                 countersQuerySize: countersQuerySize,
                 countersQueryTime: countersQueryTime,
@@ -1819,9 +1821,9 @@ class MongoProvider {
                     queryCountersCount: 0,
                     prepareCountersQueryTime: 0,
                     relevantFactsQuerySize: 0,
-                    relevantFactsQueryCount: 0,
-                    relevantFactsQuerySize: 0,
                     relevantFactsQueryTime: 0,
+                    relevantFactsQueryCount: 0,
+                    relevantFactsSize: 0,
                     countersQuerySize: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,

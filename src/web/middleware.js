@@ -149,6 +149,8 @@ const notFoundHandler = (req, res) => {
         message: `Маршрут ${req.method} ${req.originalUrl} не существует`,
         availableEndpoints: [
             'GET /health',
+            'GET /metrics',
+            'GET /cluster-metrics',
             'GET /api/v1/message/{messageType}/json',
             'GET /api/v1/message/{messageType}/iris',
             'POST /api/v1/message/{messageType}/json',

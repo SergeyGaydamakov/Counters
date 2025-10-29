@@ -107,7 +107,7 @@ class WorkerMetricsCollector {
         });
 
         // 10. Гистограмма длительности запросов релевантных фактов
-        this.relevantFactsTimeHistogram = new client.Histogram({
+        this.relevantFactsQueryTimeHistogram = new client.Histogram({
             name: 'relevant_facts_query_duration_seconds',
             help: 'Relevant facts query duration in msec',
             labelNames: ['message_type', 'worker_id'],
@@ -391,62 +391,62 @@ class WorkerMetricsCollector {
             this.requestCounter.inc({ message_type: messageTypeStr, worker_id:this.workerId, endpoint });
             
             // 2. Общая длительность запроса
-            if (processingTime && processingTime.total) {
+            if (processingTime && typeof processingTime.total === 'number' && processingTime.total) {
                 this.requestDurationHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId, endpoint }, processingTime.total);
             }
             
             // 3. Длительность сохранения факта
-            if (processingTime && processingTime.saveFact) {
+            if (processingTime && typeof processingTime.saveFact === 'number' && processingTime.saveFact) {
                 this.saveFactDurationHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, processingTime.saveFact);
             }
             
             // 4. Длительность сохранения индексных значений
-            if (processingTime && processingTime.saveIndex) {
+            if (processingTime && typeof processingTime.saveIndex === 'number' && processingTime.saveIndex) {
                 this.saveIndexDurationHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, processingTime.saveIndex);
             }
             
             // 5. Длительность вычисления счетчиков
-            if (processingTime && processingTime.counters) {
+            if (processingTime && typeof processingTime.counters === 'number' && processingTime.counters) {
                 this.countersDurationHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, processingTime.counters);
             }
             
             // 6. Общая длительность обработки
-            if (processingTime && processingTime.total) {
+            if (processingTime && typeof processingTime.total === 'number' && processingTime.total) {
                 this.totalProcessingDurationHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, processingTime.total);
             }
             
             // *7. Количество сохраняемых индексов
-            if (metrics && typeof metrics.totalIndexCount === 'number') {
+            if (metrics && typeof metrics.totalIndexCount === 'number' && metrics.totalIndexCount !== undefined) {
                 this.totalIndexCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.totalIndexCount);
             }
 
             // *8. Количество одновременных запросов на получение счетчиков
-            if (metrics && typeof metrics.counterIndexCountWithGroup === 'number') {
-                this.parallelCountersRequestsCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.counterIndexCountWithGroup);
+            if (metrics && typeof metrics.relevantIndexCount === 'number' && metrics.relevantIndexCount !== undefined) {
+                this.parallelCountersRequestsCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.relevantIndexCount);
             }
             
             // 9. Количество вычисляемых счетчиков
-            if (metrics && typeof metrics.factCountersCount === 'number') {
+            if (metrics && typeof metrics.factCountersCount === 'number' && metrics.factCountersCount !== undefined) {
                 this.factCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.factCountersCount);
             }
             
             // 10. Длительность запросов к базе данных для получения ИД фактов
-            if (metrics && typeof metrics.relevantFactsTime === 'number') {
-                this.relevantFactsTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.relevantFactsTime);
+            if (metrics && typeof metrics.relevantFactsQueryTime === 'number' && metrics.relevantFactsQueryTime !== undefined) {
+                this.relevantFactsQueryTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.relevantFactsQueryTime);
             }
             
             // 11. Длительность запросов к базе данных для вычисления значений счетчиков
-            if (metrics && typeof metrics.countersQueryTime === 'number') {
+            if (metrics && typeof metrics.countersQueryTime === 'number' && metrics.countersQueryTime !== undefined) {
                 this.countersQueryTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersQueryTime);
             }
             
             // + 12. Количество запрошенных счетчиков
-            if (metrics && typeof metrics.queryCountersCount === 'number') {
+            if (metrics && typeof metrics.queryCountersCount === 'number' && metrics.queryCountersCount !== undefined) {
                 this.queryCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.queryCountersCount);
             }
             
             // + 13. Количество полученных счетчиков
-            if (metrics && typeof metrics.resultCountersCount === 'number') {
+            if (metrics && typeof metrics.resultCountersCount === 'number' && metrics.resultCountersCount !== undefined) {
                 this.resultCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.resultCountersCount);
             }
         } catch (error) {

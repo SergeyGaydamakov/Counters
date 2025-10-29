@@ -151,7 +151,7 @@ class FactController {
                 saveIndex: indexResult.processingTime,
             },
             metrics: { ...indexResult?.metrics, ...factCountersResult?.metrics },
-            debug: { ...factCountersResult?.debug, ...indexResult?.debug },
+            debug: { ...indexResult?.debug, ...factCountersResult?.debug },
         };
     }
 }
