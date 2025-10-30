@@ -1,14 +1,52 @@
 [
     {
-        "src_condition": {
-            "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "computationConditions": {
+            "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         },
-        "dst_condition": {
-            "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        },
-        "index_type": 1,
-        "merging_condition": {
+        "indexType": 1,
+        "mergingConditions": {
+            "t": {"$in": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]},
             "d.f1": "$$d.f1"
+        },
+        "fromTimeMs": 31536000000,
+        "toTimeMs": 0,
+        "maxMatchingRecords": 1000,
+        "fieldMapping": {
+            "f1": "f1_dst",
+            "f2": "f2_dst",
+            "f3": "f3_dst",
+            "f4": "f4_dst",
+            "f5": "f5_dst",
+            "f6": "f6_dst",
+            "f7": "f7_dst",
+            "f8": "f8_dst",
+            "f9": "f9_dst",
+            "f10": "f10_dst"
         }
-    }
+    },
+    {
+        "computationConditions": {
+            "t": [1, 2, 3, 4, 5]
+        },
+        "indexType": 2,
+        "mergingConditions": {
+            "t": {"$in": [6, 7, 8, 9, 10]},
+            "d.f2": "$$d.f2"
+        },
+        "fromTimeMs": 31536000000,
+        "toTimeMs": 0,
+        "maxMatchingRecords": 1000,
+        "fieldMapping": {
+            "f1": "f1_dst",
+            "f2": "f2_dst",
+            "f3": "f3_dst",
+            "f4": "f4_dst",
+            "f5": "f5_dst",
+            "f6": "f6_dst",
+            "f7": "f7_dst",
+            "f8": "f8_dst",
+            "f9": "f9_dst",
+            "f10": "f10_dst"
+        }
+   }
 ]
