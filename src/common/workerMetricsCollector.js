@@ -106,6 +106,16 @@ class WorkerMetricsCollector {
             registers: [this.register]
         });
 
+
+        // 9.1 Гистограмма количества потенциально изменяемых счетчиков
+        this.evaluationCountersCountHistogram = new client.Histogram({
+            name: 'evaluation_counters_count',
+            help: 'Number of evaluation counters per fact',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
+            registers: [this.register]
+        });
+
         // 10. Гистограмма длительности запросов релевантных фактов
         this.relevantFactsQueryTimeHistogram = new client.Histogram({
             name: 'relevant_facts_query_duration_seconds',
@@ -428,6 +438,11 @@ class WorkerMetricsCollector {
             // 9. Количество вычисляемых счетчиков
             if (metrics && typeof metrics.factCountersCount === 'number' && metrics.factCountersCount !== undefined) {
                 this.factCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.factCountersCount);
+            }
+
+            // 9.1 Количество потенциально изменяемых счетчиков
+            if (metrics && typeof metrics.evaluationCountersCount === 'number' && metrics.evaluationCountersCount !== undefined) {
+                this.evaluationCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.evaluationCountersCount);
             }
             
             // 10. Длительность запросов к базе данных для получения ИД фактов

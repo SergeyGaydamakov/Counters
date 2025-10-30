@@ -214,6 +214,7 @@ class MongoProviderTest {
             await this.testDisconnection('2. Тест отключения от MongoDB...');
             await this.testReconnection('3. Тест переподключения к MongoDB...');
             await this.testCheckConnection('4. Тест проверки подключения...');
+
             // Тесты создания базы данных
             await this.testCreateDatabase('5. Тест создания базы данных...');
             // Тесты работы с фактами

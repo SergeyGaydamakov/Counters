@@ -46,6 +46,8 @@ class CounterProducer {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this._debugMode= config.logging.debugMode;
         this._counterConfig = [];
+        this._counterConfigByType = {};
+        this._EvaluationConditionsByType = {};
         
         if (!configPathOrConfigArray) {
             this.logger.warn('Конфигурация счетчиков не задана. Счетчики не будут создаваться.');
@@ -1033,7 +1035,7 @@ class CounterProducer {
                     return;
                 }
                 // Проверяем только одно условие на MessageTypeId
-                const messageTypeIdValue = counter.computationConditions["d.MessageTypeId"] || counter.computationConditions["t"];
+                const messageTypeIdValue = counter.computationConditions ? (counter.computationConditions["d.MessageTypeId"] || counter.computationConditions["t"]) : null;
                 const condition = { "d.MessageTypeId": messageTypeIdValue };
                 // Создаем временный факт с указанным типом для проверки условия
                 const fact = {
@@ -1056,6 +1058,50 @@ class CounterProducer {
         }
         return this._counterConfigByType[type];
     }
+
+    /**
+     * Получает счетчики по evaluationConditions для указанного типа факта с кешированием ранее вычисленного результата.
+     * Используется только для метрики потенциально изменяемых счетчиков для указанного факта.
+     * @param {integer} type - Тип факта
+     * @returns {Array<Object>} Массив счетчиков для указанного типа факта
+     */
+    getEvaluationConditionsByType(type, allowedCountersNames) {
+        if (!this._EvaluationConditionsByType) {
+            this._EvaluationConditionsByType = {};
+        }
+        if (!this._EvaluationConditionsByType[type]) {
+            // Находим счетчики, у которых в evaluationConditions есть d.MessageTypeId или t (для тестов) и его значение равно type
+            this._EvaluationConditionsByType[type] = [];
+            this._counterConfig.forEach(counter => {
+                // Если задан список разрешенных счетчиков и счетчик не в списке, то пропускаем
+                if (allowedCountersNames && !allowedCountersNames.includes(counter.name)) {
+                    return;
+                }
+                // Проверяем только одно условие на MessageTypeId
+                const messageTypeIdValue = counter.evaluationConditions ? (counter.evaluationConditions["d.MessageTypeId"] || counter.evaluationConditions["t"]) : null;
+                const condition = { "d.MessageTypeId": messageTypeIdValue };
+                // Создаем временный факт с указанным типом для проверки условия
+                const fact = {
+                    "d": {
+                        "MessageTypeId": type,
+                        "t": type
+                    }
+                };
+                if (!messageTypeIdValue || this._matchesCondition(fact, condition)) {
+                    this._EvaluationConditionsByType[type].push(counter);
+                }
+            });
+            // Сортируем счетчики в порядке возрастания fromTimeMs и затем по возрастанию toTimeMs
+            this._EvaluationConditionsByType[type].sort((a, b) => {
+                if (a.fromTimeMs !== b.fromTimeMs) {
+                    return a.fromTimeMs - b.fromTimeMs;
+                }
+                return a.toTimeMs - b.toTimeMs;
+            });
+        }
+        return this._EvaluationConditionsByType[type];
+    }
+
 
     /**
      * Новый метод. Получает счетчики для факта
@@ -1085,15 +1131,35 @@ class CounterProducer {
                 }
             }
         }
+        this.logger.debug(`Для факта ${fact._id} найдено подходящих счетчиков: ${factCounters.length} из ${this._counterConfig.length}`);
+        // Собираем метрику для evaluationConditions
+        let evaluationCountersCount = 0;
+        for (const counter of this.getEvaluationConditionsByType(fact.t, allowedCountersNames)) {
+            if (this._matchesCondition(fact, counter.evaluationConditions)) {
+                if (!counter.attributes) {
+                    this.logger.warn(`Счетчик '${counter.name}' не имеет атрибутов (attributes). Счетчик не будет добавлен.`);
+                    continue;
+                }
+                evaluationCountersCount++;
+                this.logger.debug(`Счетчик '${counter.name}' будет меняться фактом ${fact._id} по условиям оценки ${JSON.stringify(counter.evaluationConditions)}`);
+            } else {
+                if (this._debugMode) {
+                    this.logger.debug(`Счетчик '${counter.name}' не будет меняться фактом ${fact._id} по условиям оценки ${JSON.stringify(counter.evaluationConditions)}`);
+                }
+            }
+        }
+        this.logger.debug(`Факт ${fact._id} влияет на ${evaluationCountersCount} счетчиков из ${this._counterConfig.length}`);
 
-        // this.logger.debug(`Для факта ${fact._id} найдено подходящих счетчиков: ${factCounters.length} из ${this._counterConfig.length}`);
         // this.logger.debug(`facetStages: ${JSON.stringify(factCounters)}`);
 
         if (!factCounters.length) {
             return null;
         }
         
-        return factCounters;
+        return {
+            computationConditionsCounters: factCounters,
+            evaluationCountersCount: evaluationCountersCount
+        };
     }
 
     /**
