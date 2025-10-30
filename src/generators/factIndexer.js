@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const Logger = require('../utils/logger');
+const ConditionEvaluator = require('../common/conditionEvaluator');
 
 /**
  * Формат файла indexConfig.json
@@ -34,6 +35,7 @@ class FactIndexer {
     constructor(configPathOrMapArray = null, includeFactData = false) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.includeFactData = includeFactData; // Включать данные факта в индексное значение
+        this._conditionEvaluator = new ConditionEvaluator(this.logger);
         
         try {
             if (Array.isArray(configPathOrMapArray)) {
@@ -151,10 +153,15 @@ class FactIndexer {
             }
 
             // Проверяем на наличие лишних полей
-            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName', 'limit'];
+            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName', 'limit', 'comment', 'computationConditions'];
             const extraFields = Object.keys(configItem).filter(key => !allowedFields.includes(key));
             if (extraFields.length > 0) {
                 throw new Error(`Элемент конфигурации ${index}: содержит недопустимые поля: ${extraFields.join(', ')}`);
+            }
+
+            // Валидация computationConditions (если указано)
+            if ('computationConditions' in configItem && configItem.computationConditions !== null && typeof configItem.computationConditions !== 'object') {
+                throw new Error(`Элемент конфигурации ${index}: поле 'computationConditions' должно быть объектом или null`);
             }
         });
 
@@ -251,6 +258,11 @@ class FactIndexer {
         this._indexConfig.forEach(configItem => {
             const fieldName = configItem.fieldName;
             const dateName = configItem.dateName;
+            // Проверяем логическое выражение индекса (если указано)
+            if (configItem.computationConditions && !this._conditionEvaluator.matchesCondition(fact, configItem.computationConditions)) {
+                this.logger.debug(`Индекс '${configItem.indexTypeName}' пропущен для факта ${fact._id} по computationConditions`);
+                return;
+            }
             
             // Проверяем, есть ли поле в факте
             if (fieldName in fact.d && fact.d[fieldName] !== null && fact.d[fieldName] !== undefined) {

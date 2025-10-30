@@ -1,10 +1,18 @@
 [
   {
     "fieldName": "f1",
+    "comment": "Тестовый комментарий для поля f1",
     "dateName": "dt",
     "indexTypeName": "idx_f1",
     "indexType": 1,
     "indexValue": 1,
+    "computationConditions": {
+      "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "d.f1": {
+        "$regex": "^(1|2|3|4|5|6|7|8|9|0)$",
+        "$options": "i"
+      }
+    },
     "limit": 1000
   },
   {
@@ -13,6 +21,9 @@
     "indexTypeName": "idx_f2",
     "indexType": 2,
     "indexValue": 1,
+    "computationConditions": {
+      "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    },
     "limit": 500
   },
   {
@@ -21,6 +32,7 @@
     "indexTypeName": "idx_f3",
     "indexType": 3,
     "indexValue": 1,
+    "computationConditions": null,
     "limit": 1000
   },
   {

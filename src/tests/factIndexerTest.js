@@ -129,6 +129,7 @@ class FactIndexerTest {
         this.testStatistics('7. Тест структуры индексных значений...');
         this.testWithGeneratedFacts('8. Тест с сгенерированными фактами...');
         this.testDateNameField('9. Тест с полем dateName...');
+        this.testComputationConditions('10. Тест computationConditions для индексов...');
 
         this.printResults();
     }
@@ -622,6 +623,80 @@ class FactIndexerTest {
         } catch (error) {
             this.testResults.failed++;
             this.testResults.errors.push(`testDateNameField: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест применения computationConditions в конфигурации индексов
+     */
+    testComputationConditions(title) {
+        this.logger.debug(title);
+
+        // Конфигурация: два индекса по f1 и f2, с условиями
+        const indexConfig = [
+            {
+                fieldName: 'f1',
+                dateName: 'dt',
+                indexTypeName: 'idx_f1_when_status_A',
+                indexType: 11,
+                indexValue: 1,
+                computationConditions: { 'd.status': 'A' }
+            },
+            {
+                fieldName: 'f2',
+                dateName: 'dt',
+                indexTypeName: 'idx_f2_when_amount_gte_100',
+                indexType: 12,
+                indexValue: 2,
+                computationConditions: { 'd.amount': { $gte: 100 } }
+            }
+        ];
+
+        const indexer = new FactIndexer(indexConfig, config.facts.includeFactDataToIndex);
+
+        try {
+            // Факт 1: статус A, amount 50 → должен индексировать только f1
+            const fact1 = {
+                _id: 'cmp-1',
+                t: 1,
+                c: new Date('2024-05-01'),
+                d: { dt: new Date('2024-05-02'), status: 'A', amount: 50, f1: 'v1', f2: 'v2' }
+            };
+            const res1 = indexer.index(fact1);
+            if (res1.length !== 1 || res1[0].it !== 11) {
+                throw new Error(`Факт1: ожидался единственный индекс по it=11, получено ${res1.map(r=>r.it).join(',')}`);
+            }
+
+            // Факт 2: статус B, amount 150 → должен индексировать только f2
+            const fact2 = {
+                _id: 'cmp-2',
+                t: 1,
+                c: new Date('2024-05-01'),
+                d: { dt: new Date('2024-05-02'), status: 'B', amount: 150, f1: 'v1', f2: 'v2' }
+            };
+            const res2 = indexer.index(fact2);
+            if (res2.length !== 1 || res2[0].it !== 12) {
+                throw new Error(`Факт2: ожидался единственный индекс по it=12, получено ${res2.map(r=>r.it).join(',')}`);
+            }
+
+            // Факт 3: статус B, amount 50 → не должен индексироваться ни один
+            const fact3 = {
+                _id: 'cmp-3',
+                t: 1,
+                c: new Date('2024-05-01'),
+                d: { dt: new Date('2024-05-02'), status: 'B', amount: 50, f1: 'v1', f2: 'v2' }
+            };
+            const res3 = indexer.index(fact3);
+            if (res3.length !== 0) {
+                throw new Error(`Факт3: ожидалось 0 индексов, получено ${res3.length}`);
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testComputationConditions: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }

@@ -1,4 +1,4 @@
-const CounterProducer = require('../generators/counterProducer');
+const ConditionEvaluator = require('../common/conditionEvaluator');
 
 /**
  * Модуль тестирования для computationConditions в CounterProducer
@@ -834,13 +834,13 @@ class ComputationConditionsTest {
     runTestGroup(groupName, testCases) {
         this.logger.info(`Тестирование: ${groupName}`);
         
-        const counterProducer = new CounterProducer([]);
+        const conditionEvaluator = new ConditionEvaluator(this.logger, false);
         let passed = 0;
         let failed = 0;
 
         for (const testCase of testCases) {
             try {
-                const result = counterProducer._matchesCondition(testCase.fact, testCase.condition);
+                const result = conditionEvaluator.matchesCondition(testCase.fact, testCase.condition);
                 if (result === testCase.expected) {
                     passed++;
                     this.logger.debug(`✅ ${testCase.name}: ${result}`);
@@ -1018,7 +1018,7 @@ class ComputationConditionsTest {
     testNowOperator() {
         this.logger.info('Тестирование оператора $$NOW...');
         
-        const counterProducer = new CounterProducer([]);
+        const conditionEvaluator = new ConditionEvaluator(this.logger, false);
         const testCases = [
             {
                 name: '$$NOW в простом сравнении $eq',
@@ -1166,7 +1166,7 @@ class ComputationConditionsTest {
 
         for (const testCase of testCases) {
             try {
-                const result = counterProducer._matchesCondition(testCase.fact, testCase.condition);
+                const result = conditionEvaluator.matchesCondition(testCase.fact, testCase.condition);
                 if (result === testCase.expected) {
                     passed++;
                     this.logger.debug(`✅ ${testCase.name}: ${result}`);
@@ -1185,7 +1185,7 @@ class ComputationConditionsTest {
         }
 
         this.testResults.push({
-            testName: '$$NOW оператор',
+            group: '$$NOW оператор',
             passed,
             failed,
             total: passed + failed
@@ -1233,8 +1233,8 @@ class ComputationConditionsTest {
         this.logger.info(`Условие: ${JSON.stringify(condition)}`);
         this.logger.info(`Ожидаемый результат: ${expected}`);
         
-        const counterProducer = new CounterProducer([]);
-        const result = counterProducer._matchesCondition(fact, condition);
+        const conditionEvaluator = new ConditionEvaluator(this.logger, false);
+        const result = conditionEvaluator.matchesCondition(fact, condition);
         
         this.logger.info(`Полученный результат: ${result}`);
         this.logger.info(`Тест ${result === expected ? 'ПРОШЕЛ' : 'НЕ ПРОШЕЛ'}`);
