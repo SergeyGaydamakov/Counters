@@ -16,7 +16,7 @@
     "limit": 1000
   },
   {
-    "fieldName": "f2",
+    "fieldName": ["f2", "f2_dst"],
     "dateName": "dt",
     "indexTypeName": "idx_f2",
     "indexType": 2,
@@ -27,7 +27,7 @@
     "limit": 500
   },
   {
-    "fieldName": "f3",
+    "fieldName": ["f3", "f3_dst"],
     "dateName": "dt",
     "indexTypeName": "idx_f3",
     "indexType": 3,

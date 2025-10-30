@@ -116,9 +116,11 @@ class FactIndexer {
                 }
             }
 
-            // Проверяем тип поля fieldName
-            if (typeof configItem.fieldName !== 'string') {
-                throw new Error(`Элемент конфигурации ${index}: поле 'fieldName' должно быть строкой`);
+            // Проверяем тип поля fieldName (строка или массив строк)
+            const isFieldNameString = typeof configItem.fieldName === 'string';
+            const isFieldNameArray = Array.isArray(configItem.fieldName) && configItem.fieldName.every(v => typeof v === 'string');
+            if (!isFieldNameString && !isFieldNameArray) {
+                throw new Error(`Элемент конфигурации ${index}: поле 'fieldName' должно быть строкой или массивом строк`);
             }
 
             // Проверяем тип поля indexTypeName
@@ -165,14 +167,17 @@ class FactIndexer {
             }
         });
 
-        // Проверяем уникальность комбинаций fieldName + indexTypeName
+        // Проверяем уникальность комбинаций fieldName + indexTypeName (для массива проверяем каждое имя)
         const usedCombinations = new Set();
         indexConfig.forEach((configItem, index) => {
-            const combination = `${configItem.fieldName}:${configItem.indexTypeName}`;
-            if (usedCombinations.has(combination)) {
-                throw new Error(`Элемент конфигурации ${index}: дублирующаяся комбинация fieldName и indexTypeName: '${combination}'`);
-            }
-            usedCombinations.add(combination);
+            const fieldNames = Array.isArray(configItem.fieldName) ? configItem.fieldName : [configItem.fieldName];
+            fieldNames.forEach((fn) => {
+                const combination = `${fn}:${configItem.indexTypeName}`;
+                if (usedCombinations.has(combination)) {
+                    throw new Error(`Элемент конфигурации ${index}: дублирующаяся комбинация fieldName и indexTypeName: '${combination}'`);
+                }
+                usedCombinations.add(combination);
+            });
         });
 
         // Проверяем уникальность indexType
@@ -256,16 +261,19 @@ class FactIndexer {
 
         // Проходим по конфигурации индексов
         this._indexConfig.forEach(configItem => {
-            const fieldName = configItem.fieldName;
+            const fieldNames = Array.isArray(configItem.fieldName) ? configItem.fieldName : [configItem.fieldName];
             const dateName = configItem.dateName;
-            // Проверяем логическое выражение индекса (если указано)
-            if (configItem.computationConditions && !this._conditionEvaluator.matchesCondition(fact, configItem.computationConditions)) {
-                this.logger.debug(`Индекс '${configItem.indexTypeName}' пропущен для факта ${fact._id} по computationConditions`);
-                return;
-            }
             
-            // Проверяем, есть ли поле в факте
-            if (fieldName in fact.d && fact.d[fieldName] !== null && fact.d[fieldName] !== undefined) {
+            // Для каждого возможного имени поля формируем индекс
+            fieldNames.forEach((fieldName) => {
+                if (!(fieldName in fact.d) || fact.d[fieldName] === null || fact.d[fieldName] === undefined) {
+                    return;
+                }
+                // Проверяем логическое выражение индекса (если указано)
+                if (configItem.computationConditions && !this._conditionEvaluator.matchesCondition(fact, configItem.computationConditions)) {
+                    this.logger.debug(`Индекс '${configItem.indexTypeName}' пропущен для факта ${fact._id} по computationConditions`);
+                    return;
+                }
                 this.logger.debug(`Поле ${fieldName} найдено в факте ${fact._id}`);
                 let indexValue;
                 
@@ -315,7 +323,7 @@ class FactIndexer {
                     indexData["d"] = fact.d;       // JSON объект с данными факта
                 }
                 indexValues.push(indexData);
-            }
+            });
         });
 
         this.logger.debug(`Создано ${indexValues.length} индексных значений`);

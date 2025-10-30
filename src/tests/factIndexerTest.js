@@ -130,6 +130,7 @@ class FactIndexerTest {
         this.testWithGeneratedFacts('8. Тест с сгенерированными фактами...');
         this.testDateNameField('9. Тест с полем dateName...');
         this.testComputationConditions('10. Тест computationConditions для индексов...');
+        this.testArrayFieldNames('11. Тест массива имен полей в индексе...');
 
         this.printResults();
     }
@@ -208,6 +209,92 @@ class FactIndexerTest {
         } catch (error) {
             this.testResults.failed++;
             this.testResults.errors.push(`testBasicIndexing: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест: fieldName как массив имен полей
+     */
+    testArrayFieldNames(title) {
+        this.logger.debug(title);
+
+        // Конфигурация с массивами имен полей
+        const indexConfig = [
+            {
+                fieldName: ["f2", "f2_dst"],
+                dateName: "dt",
+                indexTypeName: "idx_f2",
+                indexType: 2,
+                indexValue: 2
+            },
+            {
+                fieldName: ["f3", "f3_dst"],
+                dateName: "dt",
+                indexTypeName: "idx_f3",
+                indexType: 3,
+                indexValue: 1
+            }
+        ];
+
+        const indexer = new FactIndexer(indexConfig, config.facts.includeFactDataToIndex);
+
+        // Факт с разными наборами значений для массивных полей
+        const fact = {
+            _id: 'array-field-test',
+            t: 1,
+            c: new Date('2024-06-01'),
+            d: {
+                dt: new Date('2024-06-15'),
+                f2: 'val2_main',
+                f2_dst: 'val2_alt',
+                f3_dst: 'val3_alt'
+            }
+        };
+
+        try {
+            const indexValues = indexer.index(fact);
+
+            // Ожидаем 3 индексных значения: 2 по it=2 (f2 и f2_dst) и 1 по it=3 (f3_dst)
+            if (indexValues.length !== 3) {
+                throw new Error(`Ожидалось 3 индексных значения, получено ${indexValues.length}`);
+            }
+
+            // Проверяем, что присутствуют оба значения для it=2
+            const it2 = indexValues.filter(iv => iv.it === 2);
+            if (it2.length !== 2) {
+                throw new Error(`Для it=2 ожидалось 2 значения, получено ${it2.length}`);
+            }
+            const it2Values = it2.map(iv => iv.v).sort();
+            const expectedIt2 = ['val2_alt', 'val2_main'].sort();
+            if (JSON.stringify(it2Values) !== JSON.stringify(expectedIt2)) {
+                throw new Error(`Неверные значения для it=2: ${it2Values.join(', ')}`);
+            }
+
+            // Проверяем, что присутствует 1 значение для it=3 и хеш в Base64 (длина 28)
+            const it3 = indexValues.filter(iv => iv.it === 3);
+            if (it3.length !== 1) {
+                throw new Error(`Для it=3 ожидалось 1 значение, получено ${it3.length}`);
+            }
+            if (it3[0]._id.h.length !== 28) {
+                throw new Error(`Для it=3 ожидался хеш длиной 28 символов, получено ${it3[0]._id.h.length}`);
+            }
+
+            // Проверяем корректность даты dt
+            indexValues.forEach(iv => {
+                if (!(iv.dt instanceof Date)) {
+                    throw new Error('Поле dt должно быть датой');
+                }
+                if (iv.dt.getTime() !== fact.d.dt.getTime()) {
+                    throw new Error('Неверное значение dt в индексном значении');
+                }
+            });
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testArrayFieldNames: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }
