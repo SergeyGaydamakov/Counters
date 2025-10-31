@@ -121,7 +121,10 @@ const config = {
             null,
         
         // Коэффициент уменьшения трафика IRIS запросов (по умолчанию 1 - обрабатывать все)
-        irisTrafficReductionFactor: parseInt(process.env.IRIS_TRAFFIC_REDUCTION_FACTOR) || 1
+        irisTrafficReductionFactor: parseInt(process.env.IRIS_TRAFFIC_REDUCTION_FACTOR) || 1,
+        // Значение по модулю IRIS_TRAFFIC_REDUCTION_FACTOR, которое используется для проверки
+        irisTrafficReductionValue: parseInt(process.env.IRIS_TRAFFIC_REDUCTION_VALUE) || 0,
+
     },
 };
 

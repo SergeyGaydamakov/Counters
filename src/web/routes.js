@@ -460,19 +460,20 @@ function createRoutes(factController) {
             // Проверяем, нужно ли обрабатывать этот запрос (уменьшение трафика)
             if (config.messageTypes.irisTrafficReductionFactor > 1) {
                 const messageIdCRC32 = crc32(messageId);
-                const shouldProcess = (messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor) === 0;
+                const shouldProcess = (messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor) === config.messageTypes.irisTrafficReductionValue;
                 
                 if (!shouldProcess) {
                     logger.debug(`IRIS запрос с MessageId ${messageId} пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor}`, {
                         messageId,
                         messageIdCRC32,
-                        remainder: messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor
+                        remainder: messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor,
+                        irisTrafficReductionValue: config.messageTypes.irisTrafficReductionValue
                     });
                     
                     // Возвращаем пустой ответ для пропущенных запросов
                     const emptyResponse = {
                         IRIS: {
-                            status: `Запрос пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor}`
+                            status: `Запрос пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor} и значения ${config.messageTypes.irisTrafficReductionValue}`
                         },
                         _attributes: {
                             Version: '1',
