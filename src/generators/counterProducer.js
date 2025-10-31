@@ -46,6 +46,7 @@ class CounterProducer {
     constructor(configPathOrConfigArray = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this._debugMode= config.logging.debugMode;
+        this._undefinedFieldIsTrue = config.undefinedFieldIsTrue;
         this._counterConfig = [];
         this._counterConfigByType = {};
         this._EvaluationConditionsByType = {};
@@ -309,7 +310,7 @@ class CounterProducer {
         // Собираем метрику для evaluationConditions
         let evaluationCountersCount = 0;
         for (const counter of this.getEvaluationConditionsByType(fact.t, allowedCountersNames)) {
-            if (this._conditionEvaluator.matchesCondition(fact, counter.evaluationConditions)) {
+            if (this._conditionEvaluator.matchesCondition(fact, counter.evaluationConditions, this._undefinedFieldIsTrue)) {
                 if (!counter.attributes) {
                     this.logger.warn(`Счетчик '${counter.name}' не имеет атрибутов (attributes). Счетчик не будет добавлен.`);
                     continue;

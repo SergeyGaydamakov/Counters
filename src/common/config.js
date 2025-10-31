@@ -34,6 +34,8 @@ function safeJsonParse(envVar, defaultValue, varName) {
  * Конфигурация Web сервиса
  */
 const config = {
+    // true, если поле undefined считается true при вычислении условия счетчика
+    undefinedFieldIsTrue: process.env.UNDEFINED_FIELD_IS_TRUE === 'true' || false,
     //
     isDevelopment: process.env.NODE_ENV === "development",
     // Порт сервера

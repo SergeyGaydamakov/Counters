@@ -22,9 +22,10 @@ class ConditionEvaluator {
      * Проверяет, подходит ли факт под условие счетчика
      * @param {Object} fact - Факт для проверки
      * @param {Object} condition - Условие счетчика
+     * @param {boolean} undefinedFieldIsTrue - true, если поле undefined
      * @returns {boolean} true, если факт подходит под условие
      */
-    matchesCondition(fact, condition) {
+    matchesCondition(fact, condition, undefinedFieldIsTrue = false) {
         if (!fact || !fact.d) {
             return false;
         }
@@ -48,7 +49,8 @@ class ConditionEvaluator {
                     return false;
                 }
             } else {
-                if (actualValue !== expectedValue) {
+                // Делаем нечеткое сравнение, если напутали с типами данных
+                if (actualValue != expectedValue && (!undefinedFieldIsTrue || actualValue !== undefined)) {
                     return false;
                 }
             }
