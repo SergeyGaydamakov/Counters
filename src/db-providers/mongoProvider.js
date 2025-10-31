@@ -835,6 +835,10 @@ class MongoProvider {
         }
         // Получение счетчиков, которые подходят для факта по условию computationConditions
         const countersInfo = this._counterProducer.getFactCounters(fact, config.facts.allowedCountersNames);
+        if (!countersInfo) {
+            this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
+            return null;
+        }
         const factCounters = countersInfo.computationConditionsCounters;
         if (!factCounters) {
             this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
