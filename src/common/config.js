@@ -31,6 +31,43 @@ function safeJsonParse(envVar, defaultValue, varName) {
 }
 
 /**
+ * Безопасный парсинг массива строк из переменной окружения
+ * @param {string} envVar - значение переменной окружения (строка с элементами через запятую)
+ * @param {string[]} defaultValue - массив строк по умолчанию
+ * @param {string} varName - имя переменной для логирования ошибок
+ * @returns {string[]} - массив строк или значение по умолчанию
+ */
+function safeArrayParse(envVar, defaultValue, varName) {
+    if (!envVar) {
+        return defaultValue;
+    }
+    
+    try {
+        const trimmed = envVar.trim();
+        if (trimmed === '') {
+            return defaultValue;
+        }
+        
+        // Разбиваем строку по запятой, убираем пробелы и фильтруем пустые значения
+        const result = trimmed.split(',')
+            .map(item => item.trim())
+            .filter(item => item !== '');
+        
+        if (result.length === 0) {
+            console.warn(`Пустой массив для переменной ${varName}, используется значение по умолчанию`);
+            return defaultValue;
+        }
+        
+        return result;
+    } catch (error) {
+        console.error(`Ошибка парсинга массива строк для переменной ${varName}:`, error.message);
+        console.error(`Некорректное значение: ${envVar}`);
+        console.error(`Используется значение по умолчанию:`, defaultValue);
+        return defaultValue;
+    }
+}
+
+/**
  * Конфигурация Web сервиса
  */
 const config = {
@@ -105,6 +142,8 @@ const config = {
             minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE) || 10,
             maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE) || 100,
             maxConnecting: parseInt(process.env.MONGODB_MAX_CONNECTING) || 10,
+            compressor: safeArrayParse(process.env.MONGODB_COMPRESSOR, null, 'MONGODB_COMPRESSOR'),
+            compressionLevel: parseInt(process.env.MONGODB_COMPRESSION_LEVEL) || 6,
         },
         batchSize: parseInt(process.env.MONGODB_BATCH_SIZE) || 5000,
     },

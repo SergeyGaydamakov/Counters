@@ -236,6 +236,12 @@ class MongoProvider {
             maxConnecting: databaseOptions.maxConnecting,
             serverSelectionTimeoutMS: 60000,
         };
+        if (databaseOptions.compressor) {
+            options.compressors = databaseOptions.compressor;
+        }
+        if (databaseOptions.compressionLevel !== undefined && databaseOptions.compressionLevel !== null) {
+            options.zlibCompressionLevel = databaseOptions.compressionLevel;
+        }
         try {
             if (databaseOptions.individualProcessClient) {
                 return new MongoClient(connectionString, options);
@@ -266,6 +272,12 @@ class MongoProvider {
             maxConnecting: databaseOptions.maxConnecting,
             serverSelectionTimeoutMS: 60000,
         };
+        if (databaseOptions.compressor) {
+            options.compressors = databaseOptions.compressor;
+        }
+        if (databaseOptions.compressionLevel !== undefined && databaseOptions.compressionLevel !== null) {
+            options.zlibCompressionLevel = databaseOptions.compressionLevel;
+        }
         try {
             if (databaseOptions.individualProcessClient) {
                 return new MongoClient(connectionString, options);
@@ -454,7 +466,7 @@ class MongoProvider {
             return this._factsCollection;
         }
         if (this._databaseOptions.individualCollectionObject) {
-            return this._counterDb.collection(this.FACT_COLLECTION_NAME);
+            return this._counterClient.db(this._databaseName).collection(this.FACT_COLLECTION_NAME);
         }
         this._factsCollection = this._counterDb.collection(this.FACT_COLLECTION_NAME);
         return this._factsCollection;
@@ -471,7 +483,7 @@ class MongoProvider {
             return this._factsAggregateCollection;
         }
         if (this._databaseOptions.individualCollectionObject) {
-            return this._aggregateDb.collection(this.FACT_COLLECTION_NAME);
+            return this._aggregateClient.db(this._databaseName).collection(this.FACT_COLLECTION_NAME);
         }
         this._factsAggregateCollection = this._aggregateDb.collection(this.FACT_COLLECTION_NAME);
         return this._factsAggregateCollection;
@@ -488,7 +500,7 @@ class MongoProvider {
             return this._factIndexCollection;
         }
         if (this._databaseOptions.individualCollectionObject) {
-            return this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            return this._counterClient.db(this._databaseName).collection(this.FACT_INDEX_COLLECTION_NAME);
         }
         this._factIndexCollection = this._counterDb.collection(this.FACT_INDEX_COLLECTION_NAME);
         return this._factIndexCollection;
@@ -505,7 +517,7 @@ class MongoProvider {
             return this._factIndexAggregateCollection;
         }
         if (this._databaseOptions.individualCollectionObject) {
-            return this._aggregateDb.collection(this.FACT_INDEX_COLLECTION_NAME);
+            return this._aggregateClient.db(this._databaseName).collection(this.FACT_INDEX_COLLECTION_NAME);
         }
         this._factIndexAggregateCollection = this._aggregateDb.collection(this.FACT_INDEX_COLLECTION_NAME);
         return this._factIndexAggregateCollection;
@@ -517,9 +529,13 @@ class MongoProvider {
      * @returns {Object} объект Collection для выполнения запросов
      */
     _getLogCollection() {
-        if (!this._logCollection) {
-            this._logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
+        if (this._logCollection && !this._databaseOptions.individualCollectionObject) {
+            return this._logCollection;
         }
+        if (this._databaseOptions.individualCollectionObject) {
+            return this._counterClient.db(this._databaseName).collection(this.LOG_COLLECTION_NAME);
+        }
+        this._logCollection = this._counterDb.collection(this.LOG_COLLECTION_NAME);
         return this._logCollection;
     }
 
