@@ -147,27 +147,25 @@ class ProcessPoolManagerTest {
         try {
             // 1. Инициализация пула
             // Сначала тестируем синхронный режим (проще и быстрее)
-            await this.testSyncModeInitialization('1. Тест инициализации в синхронном режиме (parallelsRequestProcesses === 1)...');
-            await this.testPoolInitialization('2. Тест инициализации пула с заданным количеством процессов...');
-            await this.testPoolModeInitialization('3. Тест инициализации в режиме пула (parallelsRequestProcesses > 1)...');
-            await this.testInitializationErrors('4. Тест обработки ошибок создания процессов...');
+            await this.testPoolInitialization('1. Тест инициализации пула с заданным количеством процессов...');
+            await this.testPoolModeInitialization('2. Тест инициализации в режиме пула (parallelsRequestProcesses > 1)...');
+            await this.testInitializationErrors('3. Тест обработки ошибок создания процессов...');
             
             // 2. Управление процессами (только если пул создан успешно)
-            await this.testWorkerMonitoring('5. Тест мониторинга состояния процессов...');
-            await this.testQueryDistribution('6. Тест распределения запросов по процессам (round-robin)...');
-            await this.testWorkerRestart('7. Тест перезапуска упавших процессов...');
-            await this.testGracefulShutdown('8. Тест graceful shutdown всех процессов...');
+            await this.testWorkerMonitoring('4. Тест мониторинга состояния процессов...');
+            await this.testQueryDistribution('5. Тест распределения запросов по процессам (round-robin)...');
+            await this.testWorkerRestart('6. Тест перезапуска упавших процессов...');
+            await this.testGracefulShutdown('7. Тест graceful shutdown всех процессов...');
             
             // 3. Выполнение запросов
-            await this.testQueryExecutionSync('9. Тест выполнения запросов в синхронном режиме...');
-            await this.testQueryExecutionViaPool('10. Тест выполнения запросов через пул процессов...');
-            await this.testQueryResultsHandling('11. Тест обработки результатов от процессов...');
-            await this.testQueryErrorHandling('12. Тест обработки ошибок выполнения запросов...');
+            await this.testQueryExecutionViaPool('8. Тест выполнения запросов через пул процессов...');
+            await this.testQueryResultsHandling('9. Тест обработки результатов от процессов...');
+            await this.testQueryErrorHandling('10. Тест обработки ошибок выполнения запросов...');
             
             // 4. Статистика
-            await this.testPoolStats('13. Тест получения статистики пула...');
-            await this.testWorkerStats('14. Тест статистики по каждому процессу...');
-            await this.testActiveWorkersCount('15. Тест подсчета активных и неактивных процессов...');
+            await this.testPoolStats('11. Тест получения статистики пула...');
+            await this.testWorkerStats('12. Тест статистики по каждому процессу...');
+            await this.testActiveWorkersCount('13. Тест подсчета активных и неактивных процессов...');
             
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
@@ -214,46 +212,6 @@ class ProcessPoolManagerTest {
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             this.testResults.failed++;
             this.testResults.errors.push(`testPoolInitialization: ${error.message}`);
-            if (poolManager) {
-                await poolManager.shutdown();
-            }
-        }
-    }
-
-    /**
-     * Тест 2: Инициализация в синхронном режиме
-     */
-    async testSyncModeInitialization(title) {
-        this.logger.debug(title);
-        
-        let poolManager = null;
-        try {
-            poolManager = new ProcessPoolManager({
-                workerCount: 1,
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions,
-                workerInitTimeoutMs: 6000
-            });
-            
-            const stats = poolManager.getStats();
-            
-            if (stats.useProcessPool) {
-                throw new Error('Не должно использоваться пула процессов при workerCount === 1');
-            }
-            
-            if (stats.workerCount !== 0) {
-                throw new Error(`При синхронном режиме не должно быть процессов, получено: ${stats.workerCount}`);
-            }
-            
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-            
-            await poolManager.shutdown();
-        } catch (error) {
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-            this.testResults.failed++;
-            this.testResults.errors.push(`testSyncModeInitialization: ${error.message}`);
             if (poolManager) {
                 await poolManager.shutdown();
             }
@@ -616,55 +574,6 @@ class ProcessPoolManagerTest {
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             this.testResults.failed++;
             this.testResults.errors.push(`testQueryExecutionViaPool: ${error.message}`);
-            if (poolManager) {
-                await poolManager.shutdown();
-            }
-        }
-    }
-
-    /**
-     * Тест 10: Выполнение запросов в синхронном режиме
-     */
-    async testQueryExecutionSync(title) {
-        this.logger.debug(title);
-        
-        let poolManager = null;
-        try {
-            poolManager = new ProcessPoolManager({
-                workerCount: 1,
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions
-            });
-            
-            const result = await poolManager.executeQuery({
-                query: [{ $match: {} }, { $limit: 10 }],
-                collectionName: 'facts',
-                options: {}
-            });
-            
-            if (!Array.isArray(result)) {
-                throw new Error('Результат должен быть массивом');
-            }
-            
-            const stats = poolManager.getStats();
-            if (!stats.useProcessPool) {
-                // Проверяем, что используется синхронный режим
-                if (stats.totalQueries !== 1) {
-                    throw new Error(`Ожидалось 1 запрос, получено: ${stats.totalQueries}`);
-                }
-            } else {
-                throw new Error('Должен использоваться синхронный режим при workerCount === 1');
-            }
-            
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-            
-            await poolManager.shutdown();
-        } catch (error) {
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-            this.testResults.failed++;
-            this.testResults.errors.push(`testQueryExecutionSync: ${error.message}`);
             if (poolManager) {
                 await poolManager.shutdown();
             }

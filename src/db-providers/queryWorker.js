@@ -16,6 +16,45 @@ const config = require('../common/config');
 const DEBUG_METRICS_ENABLED = config.logging?.debugMode === true;
 
 /**
+ * Проверяет, является ли строка ISO 8601 датой
+ * @param {string} str - Строка для проверки
+ * @returns {boolean} true, если строка является ISO 8601 датой
+ */
+function isISODateString(str) {
+    if (typeof str !== 'string') {
+        return false;
+    }
+    // ISO 8601 формат: YYYY-MM-DDTHH:mm:ss.sssZ или YYYY-MM-DDTHH:mm:ssZ
+    return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/.test(str);
+}
+
+function reviveIsoDates(value) {
+    if (value === null || value === undefined) {
+        return value;
+    }
+
+    if (typeof value === 'string') {
+        return isISODateString(value) ? new Date(value) : value;
+    }
+
+    if (Array.isArray(value)) {
+        return value.map(item => reviveIsoDates(item));
+    }
+
+    if (typeof value === 'object') {
+        const result = {};
+        for (const key in value) {
+            if (Object.prototype.hasOwnProperty.call(value, key)) {
+                result[key] = reviveIsoDates(value[key]);
+            }
+        }
+        return result;
+    }
+
+    return value;
+}
+
+/**
  * Создает MongoDB клиент для агрегационных запросов
  * Аналогично _getMongoClientAggregate в mongoProvider.js
  * Клиент создается один раз при инициализации и переиспользуется для всех запросов
@@ -142,13 +181,14 @@ async function startQueryWorker() {
         
         const startTime = Date.now();
         const querySize = DEBUG_METRICS_ENABLED ? JSON.stringify(query).length : 0;
+        const normalizedQuery = reviveIsoDates(query);
         
         try {
             logger.debug(`QueryWorker: Выполнение запроса ${queryId} для коллекции ${collectionName}`);
             
             // Используем переиспользуемый объект базы данных и коллекции
             const collection = mongoDb.collection(collectionName);
-            const result = await collection.aggregate(query, options).toArray();
+            const result = await collection.aggregate(normalizedQuery, options).toArray();
             
             const queryTime = Date.now() - startTime;
             const resultSize = DEBUG_METRICS_ENABLED ? JSON.stringify(result).length : 0;

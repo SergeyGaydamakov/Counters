@@ -6,10 +6,8 @@
  */
 
 const { fork } = require('child_process');
-const { MongoClient } = require('mongodb');
 const path = require('path');
 const Logger = require('../utils/logger');
-const config = require('../common/config');
 
 /**
  * Проверяет, является ли строка ISO 8601 датой
@@ -70,21 +68,17 @@ class ProcessPoolManager {
      */
     constructor(options) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
-        
+
         this.workerCount = options.workerCount || 1;
+        if (this.workerCount <= 1) {
+            throw new Error('ProcessPoolManager requires workerCount > 1');
+        }
         this.connectionString = options.connectionString;
         this.databaseName = options.databaseName;
         this.databaseOptions = options.databaseOptions || {};
         
         // Таймаут инициализации worker-процесса (мс). Позволяет ускорить тесты
         this.workerInitTimeoutMs = options.workerInitTimeoutMs || 10000;
-        
-        // Если workerCount === 1, используем синхронное выполнение без пула
-        this.useProcessPool = this.workerCount > 1;
-        
-        // Для синхронного выполнения нужен MongoDB клиент
-        this.syncMongoClient = null;
-        this.syncMongoDb = null;
         
         // Для пула процессов
         this.workers = [];
@@ -99,73 +93,14 @@ class ProcessPoolManager {
         };
         
         this.isShuttingDown = false;
+        this._initializationPromise = null;
+        this._initializationError = null;
         
         // Инициализация
-        if (this.useProcessPool) {
-            this._initializeProcessPool();
-        } else {
-            this._initializeSyncMode();
-        }
-    }
-    
-    /**
-     * Инициализация синхронного режима (без пула процессов)
-     * Подключение создается лениво при первом запросе
-     */
-    async _initializeSyncMode() {
-        this.logger.debug('ProcessPoolManager: Инициализация синхронного режима (без пула процессов)');
-        // Подключение будет установлено при первом запросе (_ensureSyncConnection)
-    }
-    
-    /**
-     * Обеспечивает наличие синхронного подключения к MongoDB
-     * @returns {Promise<void>}
-     */
-    async _ensureSyncConnection() {
-        if (this.syncMongoDb && this.syncMongoClient) {
-            return;
-        }
-        
-        try {
-            this.syncMongoClient = this._createMongoClient(this.connectionString, this.databaseOptions);
-            await this.syncMongoClient.connect();
-            this.syncMongoDb = this.syncMongoClient.db(this.databaseName);
-            
-            this.logger.debug('ProcessPoolManager: ✓ Синхронное подключение установлено');
-        } catch (error) {
-            this.logger.error(`ProcessPoolManager: ✗ Ошибка подключения в синхронном режиме: ${error.message}`);
-            throw error;
-        }
-    }
-    
-    /**
-     * Создает MongoDB клиент для синхронного выполнения
-     * @param {string} connectionString - Строка подключения
-     * @param {Object} databaseOptions - Опции подключения
-     * @returns {MongoClient} MongoDB клиент
-     */
-    _createMongoClient(connectionString, databaseOptions) {
-        const options = {
-            readConcern: databaseOptions.readConcern,
-            readPreference: databaseOptions.aggregateReadPreference,
-            writeConcern: databaseOptions.writeConcern,
-            appName: "ProcessPoolManager-Sync",
-            minPoolSize: databaseOptions.minPoolSize || 10,
-            maxPoolSize: databaseOptions.maxPoolSize || 100,
-            maxIdleTimeMS: databaseOptions.maxIdleTimeMS || 0,
-            noDelay: databaseOptions.noDelay,
-            maxConnecting: databaseOptions.maxConnecting || 10,
-            serverSelectionTimeoutMS: 60000,
-        };
-        
-        if (databaseOptions.compressor) {
-            options.compressors = databaseOptions.compressor;
-        }
-        if (databaseOptions.compressionLevel !== undefined && databaseOptions.compressionLevel !== null) {
-            options.zlibCompressionLevel = databaseOptions.compressionLevel;
-        }
-        
-        return new MongoClient(connectionString, options);
+        this._initializationPromise = this._initializeProcessPool().catch((error) => {
+            this._initializationError = error;
+            return false;
+        });
     }
     
     /**
@@ -194,7 +129,10 @@ class ProcessPoolManager {
         
         if (this.workers.length === 0) {
             this.logger.warn('ProcessPoolManager: ⚠ Ни один worker процесс не был успешно инициализирован');
+            throw new Error('ProcessPoolManager initialization failed');
         }
+
+        return true;
     }
     
     /**
@@ -472,36 +410,15 @@ class ProcessPoolManager {
             throw new Error('ProcessPoolManager is shutting down');
         }
         
-        if (this.useProcessPool) {
-            return await this._executeQueryViaPool(query, collectionName, options);
-        } else {
-            return await this._executeQuerySync(query, collectionName, options);
+        if (this._initializationPromise) {
+            await this._initializationPromise;
         }
-    }
-    
-    /**
-     * Синхронное выполнение запроса (без пула процессов)
-     * @param {Array} query - Агрегационный пайплайн
-     * @param {string} collectionName - Имя коллекции
-     * @param {Object} options - Опции aggregate()
-     * @returns {Promise<Array>} Результат запроса
-     */
-    async _executeQuerySync(query, collectionName, options) {
-        await this._ensureSyncConnection();
-        
-        try {
-            const collection = this.syncMongoDb.collection(collectionName);
-            const result = await collection.aggregate(query, options).toArray();
-            
-            this.stats.totalQueries++;
-            this.stats.successfulQueries++;
-            
-            return result;
-        } catch (error) {
-            this.stats.totalQueries++;
-            this.stats.failedQueries++;
-            throw error;
+
+        if (this._initializationError) {
+            throw this._initializationError;
         }
+
+        return await this._executeQueryViaPool(query, collectionName, options);
     }
     
     /**
@@ -571,28 +488,19 @@ class ProcessPoolManager {
         this.isShuttingDown = true;
         this.logger.debug('ProcessPoolManager: Начало graceful shutdown');
         
+        if (this._initializationPromise) {
+            try {
+                await this._initializationPromise;
+            } catch (error) {
+                // Игнорируем ошибки и продолжаем завершение
+            }
+        }
+
         // Отменяем все ожидающие запросы
         for (const [queryId, pendingQuery] of this.pendingQueries.entries()) {
             clearTimeout(pendingQuery.timeout);
             pendingQuery.reject(new Error('ProcessPoolManager shutdown'));
             this.pendingQueries.delete(queryId);
-        }
-        
-        // Закрываем синхронное подключение
-        if (this.syncMongoClient) {
-            try {
-                await this.syncMongoClient.close();
-                this.logger.debug('ProcessPoolManager: Синхронное MongoDB подключение закрыто');
-            } catch (error) {
-                // Игнорируем ошибки закрытия (подключение может быть уже закрыто)
-                if (error.name !== 'MongoTopologyClosedError' && 
-                    (!error.message || (!error.message.includes('closed') && !error.message.includes('Topology')))) {
-                    this.logger.error(`ProcessPoolManager: Ошибка закрытия синхронного подключения: ${error.message}`);
-                }
-            } finally {
-                this.syncMongoClient = null;
-                this.syncMongoDb = null;
-            }
         }
         
         // Закрываем все worker процессы
@@ -654,7 +562,7 @@ class ProcessPoolManager {
      */
     getStats() {
         return {
-            useProcessPool: this.useProcessPool,
+            useProcessPool: true,
             workerCount: this.workers.length,
             activeWorkers: this.stats.activeWorkers,
             totalQueries: this.stats.totalQueries,

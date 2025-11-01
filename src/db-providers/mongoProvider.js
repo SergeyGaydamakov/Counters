@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../common/config');
 const connectionPoolStatus = require('./connectionPool');
+const QueryDispatcher = require('./queryDispatcher');
 
 
 /**
@@ -85,6 +86,10 @@ class MongoProvider {
         this._counterClientPoolStatus = null;
         this._aggregateClientPoolStatus = null;
         this._metricsCollector = null;
+
+        // Диспетчер запросов для агрегаций через пул процессов
+        this._queryDispatcher = null;
+        this._queryDispatcherDisabled = false;
 
         //
         this.logger.debug("*** Создан новый MongoProvider");
@@ -320,10 +325,63 @@ class MongoProvider {
     }
 
     /**
+     * Возвращает (инициализируя при необходимости) диспетчер запросов
+     * для выполнения агрегаций через пул процессов
+     * @returns {QueryDispatcher|null}
+     */
+    _getQueryDispatcher() {
+        if (this._queryDispatcher) {
+            return this._queryDispatcher;
+        }
+
+        if (this._queryDispatcherDisabled) {
+            return null;
+        }
+
+        const workerCount = Math.max(1, parseInt(config.parallelsRequestProcesses, 10) || 1);
+
+        if (workerCount <= 1) {
+            this.logger.debug('QueryDispatcher не используется: parallelsRequestProcesses <= 1');
+            return null;
+        }
+
+        try {
+            this._queryDispatcher = new QueryDispatcher({
+                workerCount,
+                connectionString: this._connectionString,
+                databaseName: this._databaseName,
+                databaseOptions: this._databaseOptions,
+                logger: this.logger
+            });
+            this._queryDispatcherDisabled = false;
+            this.logger.debug(`✓ QueryDispatcher инициализирован (workerCount=${workerCount})`);
+        } catch (error) {
+            this._queryDispatcherDisabled = true;
+            this.logger.error(`✗ Ошибка инициализации QueryDispatcher: ${error.message}`);
+            this._writeToLogFile(`Ошибка инициализации QueryDispatcher: ${error.message}`);
+            return null;
+        }
+
+        return this._queryDispatcher;
+    }
+
+    /**
      * Отключение от MongoDB
      */
     async disconnect() {
         try {
+            if (this._queryDispatcher) {
+                try {
+                    await this._queryDispatcher.shutdown();
+                    this.logger.debug('✓ QueryDispatcher остановлен');
+                } catch (dispatcherError) {
+                    this.logger.error(`✗ Ошибка при остановке QueryDispatcher: ${dispatcherError.message}`);
+                } finally {
+                    this._queryDispatcher = null;
+                }
+            }
+            this._queryDispatcherDisabled = false;
+
             // Очищаем мониторинг connection pool
             if (this._counterClientPoolStatus && typeof this._counterClientPoolStatus.cleanUp === 'function') {
                 this._counterClientPoolStatus.cleanUp();
@@ -1848,6 +1906,8 @@ class MongoProvider {
             };
         }
 
+        const queryDispatcher = this._getQueryDispatcher();
+
         // Создаем массив промисов для параллельного выполнения запросов
         const startPrepareQueriesTime = Date.now();
         const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeNameWithGroupNumber) => {
@@ -1863,47 +1923,143 @@ class MongoProvider {
                 comment: "getRelevantFactCounters - aggregate",
             };
             // this.logger.info(`Агрегационный запрос на счетчики по фактам: ${JSON.stringify(indexNameQuery)}`);
-            const factIndexCollection = this._getFactIndexAggregateCollection();
             const startCountersQueryTime = Date.now();
             const countersQuerySize = debugMode ? JSON.stringify(indexNameQuery).length : undefined;
-            try {
-                if (this._debugMode) {
-                    this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(indexNameQuery)}`);
+            if (queryDispatcher) {
+                const executeWithDispatcher = async () => {
+                    if (!queryDispatcher || this._queryDispatcherDisabled) {
+                        return null;
+                    }
+    
+                    try {
+                        if (this._debugMode) {
+                            this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(indexNameQuery)}`);
+                        }
+    
+                        const dispatcherResponse = await queryDispatcher.executeQuery({
+                            query: indexNameQuery,
+                            collectionName: this.FACT_INDEX_COLLECTION_NAME,
+                            options: aggregateOptions,
+                        });
+    
+                        const dispatcherMetrics = dispatcherResponse?.metrics || {};
+                        const dispatcherError = dispatcherResponse?.error;
+                        const countersQueryTime = dispatcherMetrics.queryTime ?? (Date.now() - startCountersQueryTime);
+                        const responseQuerySize = dispatcherMetrics.querySize && dispatcherMetrics.querySize > 0 ? dispatcherMetrics.querySize : countersQuerySize;
+    
+                        if (dispatcherError) {
+                            const errorMessage = dispatcherError.message || 'Unknown error';
+                            this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
+                            this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
+                            this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
+                            this._queryDispatcher = null;
+                            this._queryDispatcherDisabled = true;
+    
+                            return {
+                                indexTypeName: indexTypeNameWithGroupNumber,
+                                counters: null,
+                                error: errorMessage,
+                                processingTime: Date.now() - startQuery,
+                                metrics: {
+                                    countersQueryTime,
+                                    countersQueryCount: 1,
+                                    countersQuerySize: responseQuerySize,
+                                    countersSize: dispatcherMetrics.resultSize ?? 0,
+                                    dispatcherMetrics,
+                                },
+                                debug: {
+                                    countersQuery: indexNameQuery,
+                                }
+                            };
+                        }
+    
+                        const countersResultArray = Array.isArray(dispatcherResponse?.result) ? dispatcherResponse.result : [];
+                        const countersSize = debugMode ? JSON.stringify(countersResultArray[0] ?? null).length : (dispatcherMetrics.resultSize ?? undefined);
+    
+                        return {
+                            indexTypeName: indexTypeNameWithGroupNumber,
+                            counters: countersResultArray[0],
+                            processingTime: Date.now() - startQuery,
+                            metrics: {
+                                countersQuerySize: responseQuerySize,
+                                countersQueryTime,
+                                countersQueryCount: 1,
+                                countersSize: dispatcherMetrics.resultSize ?? countersSize,
+                                dispatcherMetrics,
+                            },
+                            debug: {
+                                countersQuery: indexNameQuery,
+                            }
+                        };
+                    } catch (error) {
+                        this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber} через QueryDispatcher: ${error.message}`);
+                        this._writeToLogFile(`Ошибка QueryDispatcher для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
+                        this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
+                        this._queryDispatcher = null;
+                        this._queryDispatcherDisabled = true;
+                        return {
+                            indexTypeName: indexTypeNameWithGroupNumber,
+                            counters: null,
+                            error: error.message,
+                            processingTime: Date.now() - startQuery,
+                            metrics: {
+                                countersQueryTime: Date.now() - startCountersQueryTime,
+                                countersQueryCount: 1,
+                                countersQuerySize: countersQuerySize,
+                                countersSize: 0,
+                            },
+                            debug: {
+                                countersQuery: indexNameQuery,
+                            }
+                        };
+                    }
+                };
+    
+                return await executeWithDispatcher();
+            } else {
+
+                // Fallback на локальное выполнение, если QueryDispatcher недоступен
+                const factIndexCollection = this._getFactIndexAggregateCollection();
+                try {
+                    if (this._debugMode) {
+                        this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(indexNameQuery)}`);
+                    }
+                    const countersResult = await factIndexCollection.aggregate(indexNameQuery, aggregateOptions).toArray();
+                    const countersSize = debugMode ? JSON.stringify(countersResult[0] ?? null).length : undefined;
+                    return {
+                        indexTypeName: indexTypeNameWithGroupNumber,
+                        counters: countersResult[0],
+                        processingTime: Date.now() - startQuery,
+                        metrics: {
+                            countersQuerySize: countersQuerySize,
+                            countersQueryTime: Date.now() - startCountersQueryTime,
+                            countersQueryCount: 1,
+                            countersSize: countersSize,
+                        },
+                        debug: {
+                            countersQuery: indexNameQuery,
+                        }
+                    };
+                } catch (error) {
+                    this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
+                    this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
+                    this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
+                    return {
+                        indexTypeName: indexTypeNameWithGroupNumber,
+                        counters: null,
+                        error: error.message,
+                        processingTime: Date.now() - startQuery,
+                        metrics: {
+                            countersQueryTime: Date.now() - startCountersQueryTime,
+                            countersQueryCount: 1,
+                            countersQuerySize: countersQuerySize,
+                            countersSize: 0,
+                        },
+                        debug: {
+                            countersQuery: indexNameQuery,
+                        }
+                    };
                 }
-                const countersResult = await factIndexCollection.aggregate(indexNameQuery, aggregateOptions).toArray();
-                const countersSize = debugMode ? JSON.stringify(countersResult[0]).length : undefined;
-                return {
-                    indexTypeName: indexTypeNameWithGroupNumber,
-                    counters: countersResult[0],
-                    metrics: {
-                        countersQuerySize: countersQuerySize,
-                        countersQueryTime: Date.now() - startCountersQueryTime,
-                        countersQueryCount: 1,
-                        countersSize: countersSize,
-                    },
-                    debug: {
-                        countersQuery: indexNameQuery,
-                    }
-                };
-            } catch (error) {
-                this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
-                this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
-                this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
-                return {
-                    indexTypeName: indexTypeNameWithGroupNumber,
-                    counters: null,
-                    error: error.message,
-                    processingTime: Date.now() - startQuery,
-                    metrics: {
-                        countersQueryTime: Date.now() - startCountersQueryTime,
-                        countersQueryCount: 1,
-                        countersQuerySize: countersQuerySize,
-                        countersSize: 0,
-                    },
-                    debug: {
-                        countersQuery: indexNameQuery,
-                    }
-                };
             }
         });
 
