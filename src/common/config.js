@@ -81,6 +81,9 @@ const config = {
     // Количество воркеров в кластере
     workers: parseInt(process.env.CLUSTER_WORKERS) || require('os').cpus().length,
     
+    // Число параллельных процессов для обработки запросов на агрегацию данных
+    parallelsRequestProcesses: parseInt(process.env.PARALLELS_REQUEST_PROCESSES) || 1,
+
     // Настройки фактов
     facts: {
         fieldConfigPath: process.env.MESSAGE_CONFIG_PATH || null,
@@ -133,9 +136,7 @@ const config = {
         connectionString: process.env.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017',
         databaseName: process.env.MONGODB_DATABASE_NAME || 'counters',
         options: {
-            individualProcessClient: process.env.INDIVIDUAL_PROCESS_CLIENT === 'true' || false,
             individualCollectionObject: process.env.INDIVIDUAL_COLLECTION_OBJECT === 'true' || false,
-            unionClientObject: process.env.UNION_CLIENT_OBJECT === 'true' || false,
             disableSave: process.env.DISABLE_SAVE === 'true' || false,
             writeConcern: safeJsonParse(process.env.MONGODB_WRITE_CONCERN, { w: 1, j: false, wtimeout: 5000 }, 'MONGODB_WRITE_CONCERN'),
             readConcern: safeJsonParse(process.env.MONGODB_READ_CONCERN, { level: "local" }, 'MONGODB_READ_CONCERN'),
