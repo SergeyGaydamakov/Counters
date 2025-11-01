@@ -25,6 +25,10 @@ function generateRequestId(prefix = 'dispatch') {
  * @returns {number}
  */
 function estimateSize(value) {
+    if (!config.logging?.debugMode) {
+        return 0;
+    }
+
     try {
         const json = JSON.stringify(value);
         return Buffer.byteLength(json || '');

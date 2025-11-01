@@ -11,6 +11,9 @@
 
 const { MongoClient } = require('mongodb');
 const Logger = require('../utils/logger');
+const config = require('../common/config');
+
+const DEBUG_METRICS_ENABLED = config.logging?.debugMode === true;
 
 /**
  * Создает MongoDB клиент для агрегационных запросов
@@ -138,7 +141,7 @@ async function startQueryWorker() {
         }
         
         const startTime = Date.now();
-        const querySize = JSON.stringify(query).length;
+        const querySize = DEBUG_METRICS_ENABLED ? JSON.stringify(query).length : 0;
         
         try {
             logger.debug(`QueryWorker: Выполнение запроса ${queryId} для коллекции ${collectionName}`);
@@ -148,7 +151,7 @@ async function startQueryWorker() {
             const result = await collection.aggregate(query, options).toArray();
             
             const queryTime = Date.now() - startTime;
-            const resultSize = JSON.stringify(result).length;
+            const resultSize = DEBUG_METRICS_ENABLED ? JSON.stringify(result).length : 0;
             
             logger.debug(`QueryWorker: Запрос ${queryId} выполнен за ${queryTime}ms, размер результата: ${resultSize} байт`);
             
