@@ -15,6 +15,7 @@
     "test:controller": "set LOG_LEVEL=DEBUG && node src/tests/factControllerTest.js",
     "test:query-worker": "set LOG_LEVEL=DEBUG && node src/tests/queryWorkerTest.js",
     "test:query-pool": "set LOG_LEVEL=DEBUG && node src/tests/processPoolManagerTest.js",
+    "test:query-dispatcher": "set LOG_LEVEL=DEBUG && node src/tests/queryDispatcherTest.js",
     "test:api": "set LOG_LEVEL=INFO && node src/tests/webTest.js",
     "start": "set LOG_LEVEL=INFO && node src/start.js",
     "start:service": "set LOG_LEVEL=INFO && node src/web/cluster.js",
