@@ -135,6 +135,7 @@ const config = {
         options: {
             individualProcessClient: process.env.INDIVIDUAL_PROCESS_CLIENT === 'true' || false,
             individualCollectionObject: process.env.INDIVIDUAL_COLLECTION_OBJECT === 'true' || false,
+            unionClientObject: process.env.UNION_CLIENT_OBJECT === 'true' || false,
             disableSave: process.env.DISABLE_SAVE === 'true' || false,
             writeConcern: safeJsonParse(process.env.MONGODB_WRITE_CONCERN, { w: 1, j: false, wtimeout: 5000 }, 'MONGODB_WRITE_CONCERN'),
             readConcern: safeJsonParse(process.env.MONGODB_READ_CONCERN, { level: "local" }, 'MONGODB_READ_CONCERN'),
@@ -144,6 +145,8 @@ const config = {
             maxConnecting: parseInt(process.env.MONGODB_MAX_CONNECTING) || 10,
             compressor: safeArrayParse(process.env.MONGODB_COMPRESSOR, null, 'MONGODB_COMPRESSOR'),
             compressionLevel: parseInt(process.env.MONGODB_COMPRESSION_LEVEL) || 6,
+            maxIdleTimeMS: parseInt(process.env.MONGODB_MAX_IDLE_TIME_MS) || 0,
+            noDelay: process.env.MONGODB_NO_DELAY === 'true' || null,
         },
         batchSize: parseInt(process.env.MONGODB_BATCH_SIZE) || 5000,
     },

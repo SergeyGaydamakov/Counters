@@ -43,7 +43,8 @@ class MongoProvider {
         writeConcern: { "w": 1, "j": false, "wtimeout": 5000 },
         minPoolSize: 100,
         maxPoolSize: 200,
-        maxIdleTimeMS: 60000,
+        maxIdleTimeMS: 0,
+        noDelay: true,
         maxConnecting: 10,
         serverSelectionTimeoutMS: 60000,
     };
@@ -232,7 +233,8 @@ class MongoProvider {
             // monitorCommands: true,
             minPoolSize: databaseOptions.minPoolSize,
             maxPoolSize: databaseOptions.maxPoolSize,
-            maxIdleTimeMS: 60000,
+            maxIdleTimeMS: databaseOptions.maxIdleTimeMS,
+            noDelay: databaseOptions.noDelay,
             maxConnecting: databaseOptions.maxConnecting,
             serverSelectionTimeoutMS: 60000,
         };
@@ -268,7 +270,8 @@ class MongoProvider {
             // monitorCommands: true,
             minPoolSize: databaseOptions.minPoolSize,
             maxPoolSize: databaseOptions.maxPoolSize,
-            maxIdleTimeMS: 60000,
+            maxIdleTimeMS: databaseOptions.maxIdleTimeMS,
+            noDelay: databaseOptions.noDelay,
             maxConnecting: databaseOptions.maxConnecting,
             serverSelectionTimeoutMS: 60000,
         };
