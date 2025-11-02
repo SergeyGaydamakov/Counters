@@ -281,7 +281,7 @@ class QueryDispatcherTest {
                 logger: this.logger
             });
 
-            const response = await dispatcher.executeQuery({
+            const { results } = await dispatcher.executeQueries([{
                 id: 'single-query-test',
                 query: [
                     { $match: { '_id.f': { $in: [dataset.factIds[0], dataset.factIds[2]] } } },
@@ -289,7 +289,13 @@ class QueryDispatcherTest {
                 ],
                 collectionName: 'factIndex',
                 options: {}
-            });
+            }]);
+
+            if (results.length !== 1) {
+                throw new Error('Должен быть возвращен один результат');
+            }
+
+            const response = results[0];
 
             if (response.error) {
                 throw new Error(`Запрос завершился с ошибкой: ${response.error.message}`);
@@ -354,7 +360,7 @@ class QueryDispatcherTest {
                 options: {}
             }));
 
-            const batchResponse = await dispatcher.executeQuery(requests, {
+            const batchResponse = await dispatcher.executeQueries(requests, {
                 timeoutMs: 30000
             });
 
@@ -393,14 +399,6 @@ class QueryDispatcherTest {
                 throw new Error('Все запросы должны завершиться успешно');
             }
 
-            if (!Array.isArray(batchResponse.result) || batchResponse.result.length < requests.length) {
-                throw new Error('Совокупный результат должен содержать документы всех запросов');
-            }
-
-            if (Array.isArray(batchResponse.errors) && batchResponse.errors.length > 0) {
-                throw new Error('Не должно быть ошибок при выполнении батч-запроса');
-            }
-
             this.testResults.passed++;
             this.logger.debug('   ✓ Успешно');
         } catch (error) {
@@ -430,14 +428,20 @@ class QueryDispatcherTest {
                 logger: this.logger
             });
 
-            const response = await dispatcher.executeQuery({
+            const { results } = await dispatcher.executeQueries([{
                 id: 'invalid-query-test',
                 query: [
                     { $invalidOperator: {} }
                 ],
                 collectionName: 'factIndex',
                 options: {}
-            });
+            }]);
+
+            if (results.length !== 1) {
+                throw new Error('Должен быть возвращен один результат');
+            }
+
+            const response = results[0];
 
             if (!response.error) {
                 throw new Error('Ожидалась ошибка для некорректного запроса');
@@ -547,25 +551,26 @@ class QueryDispatcherTest {
                 logger: this.logger
             });
 
-            await dispatcher.executeQuery({
-                id: 'stats-query-1',
-                query: [
-                    { $match: { '_id.f': dataset.factIds[0] } },
-                    { $limit: 10 }
-                ],
-                collectionName: 'factIndex',
-                options: {}
-            });
-
-            await dispatcher.executeQuery({
-                id: 'stats-query-2',
-                query: [
-                    { $match: { '_id.f': dataset.factIds[1] } },
-                    { $limit: 5 }
-                ],
-                collectionName: 'factIndex',
-                options: {}
-            });
+            await dispatcher.executeQueries([
+                {
+                    id: 'stats-query-1',
+                    query: [
+                        { $match: { '_id.f': dataset.factIds[0] } },
+                        { $limit: 10 }
+                    ],
+                    collectionName: 'factIndex',
+                    options: {}
+                },
+                {
+                    id: 'stats-query-2',
+                    query: [
+                        { $match: { '_id.f': dataset.factIds[1] } },
+                        { $limit: 5 }
+                    ],
+                    collectionName: 'factIndex',
+                    options: {}
+                }
+            ]);
 
             const stats = dispatcher.getStats();
 

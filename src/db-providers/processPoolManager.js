@@ -462,278 +462,6 @@ class ProcessPoolManager {
         return worker;
     }
     
-    async executeBatch(requests, options = {}) {
-        if (this.isShuttingDown) {
-            throw new Error('ProcessPoolManager is shutting down');
-        }
-
-        if (this._initializationPromise) {
-            await this._initializationPromise;
-        }
-
-        if (this._initializationError) {
-            throw this._initializationError;
-        }
-
-        if (!Array.isArray(requests)) {
-            throw new Error('executeBatch expects an array of query requests');
-        }
-
-        if (requests.length === 0) {
-            return [];
-        }
-
-        const readyWorkers = this.workers.filter(w => w.isReady);
-        if (readyWorkers.length === 0) {
-            throw new Error(`No available workers in process pool (total: ${this.workers.length}, ready: ${readyWorkers.length})`);
-        }
-
-        const normalizedRequests = requests.map((request, index) => {
-            if (!request || !Array.isArray(request.query)) {
-                throw new Error(`Invalid batch request at index ${index}: query must be an array`);
-            }
-
-            if (typeof request.collectionName !== 'string' || request.collectionName.trim() === '') {
-                throw new Error(`Invalid batch request at index ${index}: collectionName must be a non-empty string`);
-            }
-
-            return {
-                id: request.id || `batch_query_${Date.now()}_${Math.random().toString(36).slice(2, 9)}_${index}`,
-                query: request.query,
-                collectionName: request.collectionName,
-                options: request.options || {}
-            };
-        });
-
-        const timeoutMs = typeof options.timeoutMs === 'number' && options.timeoutMs > 0 ? options.timeoutMs : 60000;
-
-        const chunkCount = Math.min(readyWorkers.length, normalizedRequests.length);
-        const workersForBatch = [];
-        let safetyCounter = 0;
-        while (workersForBatch.length < chunkCount && safetyCounter < this.workers.length * 2) {
-            const workerCandidate = this._getNextWorker();
-            safetyCounter++;
-
-            if (workerCandidate && workerCandidate.isReady && !workersForBatch.includes(workerCandidate)) {
-                workersForBatch.push(workerCandidate);
-            }
-        }
-
-        if (workersForBatch.length === 0) {
-            throw new Error('No ready workers available to execute batch queries');
-        }
-
-        const assignments = workersForBatch.map(worker => ({ worker, requests: [] }));
-        normalizedRequests.forEach((request, index) => {
-            const slot = assignments[index % assignments.length];
-            slot.requests.push({ request, originalIndex: index });
-        });
-
-        const perRequestPromises = new Array(normalizedRequests.length);
-
-        assignments.forEach((assignment, assignmentIdx) => {
-            const { worker, requests: workerRequests } = assignment;
-            if (!worker || workerRequests.length === 0) {
-                return;
-            }
-
-            workerRequests.forEach(({ request, originalIndex }) => {
-                perRequestPromises[originalIndex] = new Promise((resolve) => {
-                    const timeoutHandle = setTimeout(() => {
-                        if (this.pendingQueries.has(request.id)) {
-                            this.pendingQueries.delete(request.id);
-                        }
-                        worker.errorCount = (worker.errorCount || 0) + 1;
-                        this.stats.failedQueries++;
-                        resolve({
-                            id: request.id,
-                            result: null,
-                            error: new Error(`Query timeout after ${timeoutMs}ms: ${request.id}`),
-                            metrics: {
-                                queryTime: timeoutMs,
-                                querySize: 0,
-                                resultSize: 0
-                            }
-                        });
-                    }, timeoutMs);
-
-                    this.pendingQueries.set(request.id, {
-                        mode: 'batch',
-                        timeout: timeoutHandle,
-                        resolve: (payload) => {
-                            clearTimeout(timeoutHandle);
-                            const metrics = payload?.metrics && typeof payload.metrics === 'object' ? payload.metrics : {};
-                            resolve({
-                                id: request.id,
-                                result: payload?.result ?? null,
-                                error: payload?.error ?? null,
-                                metrics
-                            });
-                        },
-                        reject: (payload) => {
-                            clearTimeout(timeoutHandle);
-                            const errorObj = payload?.error instanceof Error
-                                ? payload.error
-                                : createErrorFromSerialized(payload?.error) || new Error('Unknown error');
-                            const metrics = payload?.metrics && typeof payload.metrics === 'object' ? payload.metrics : {};
-                            resolve({
-                                id: request.id,
-                                result: null,
-                                error: errorObj,
-                                metrics
-                            });
-                        }
-                    });
-                });
-            });
-
-            const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${assignmentIdx}`;
-            this.stats.totalQueries += workerRequests.length;
-            worker.queryCount += workerRequests.length;
-
-            const payload = workerRequests.map(({ request }) => ({
-                id: request.id,
-                query: request.query,
-                collectionName: request.collectionName,
-                options: request.options
-            }));
-
-            try {
-                worker.process.send({
-                    type: 'QUERY_BATCH',
-                    batchId,
-                    requests: payload
-                });
-            } catch (error) {
-                this.logger.error(`ProcessPoolManager: Не удалось отправить батч ${batchId} worker ${worker.index}: ${error.message}`);
-                worker.errorCount = (worker.errorCount || 0) + workerRequests.length;
-                workerRequests.forEach(({ request }) => {
-                    const pendingQuery = this.pendingQueries.get(request.id);
-                    if (!pendingQuery) {
-                        return;
-                    }
-
-                    this.pendingQueries.delete(request.id);
-                    if (pendingQuery.timeout) {
-                        clearTimeout(pendingQuery.timeout);
-                    }
-
-                    this.stats.failedQueries++;
-                    pendingQuery.reject({
-                        error: new Error(`Failed to send request ${request.id} to worker ${worker.index}: ${error.message}`),
-                        metrics: {
-                            queryTime: 0,
-                            querySize: 0,
-                            resultSize: 0
-                        }
-                    });
-                });
-            }
-        });
-
-        const results = await Promise.all(perRequestPromises.map((promise, index) => {
-            if (promise) {
-                return promise;
-            }
-
-            const request = normalizedRequests[index];
-            return Promise.resolve({
-                id: request.id,
-                result: null,
-                error: new Error('Batch query promise was not initialized'),
-                metrics: {
-                    queryTime: 0,
-                    querySize: 0,
-                    resultSize: 0
-                }
-            });
-        }));
-
-        return results;
-    }
-
-    /**
-     * Выполнение запроса через пул процессов или синхронно
-     * @param {Object} queryData - Данные запроса
-     * @param {Array} queryData.query - Агрегационный пайплайн MongoDB
-     * @param {string} queryData.collectionName - Имя коллекции
-     * @param {Object} queryData.options - Опции aggregate()
-     * @returns {Promise<Array>} Результат запроса (массив документов)
-     */
-    async executeQuery(queryData) {
-        const { query, collectionName, options } = queryData;
-        
-        if (this.isShuttingDown) {
-            throw new Error('ProcessPoolManager is shutting down');
-        }
-        
-        if (this._initializationPromise) {
-            await this._initializationPromise;
-        }
-
-        if (this._initializationError) {
-            throw this._initializationError;
-        }
-
-        return await this._executeQueryViaPool(query, collectionName, options);
-    }
-    
-    /**
-     * Выполнение запроса через пул процессов
-     * @param {Array} query - Агрегационный пайплайн
-     * @param {string} collectionName - Имя коллекции
-     * @param {Object} options - Опции aggregate()
-     * @returns {Promise<Array>} Результат запроса
-     */
-    async _executeQueryViaPool(query, collectionName, options) {
-        // Проверяем наличие доступных worker'ов
-        const availableWorkers = this.workers.filter(w => w.isReady);
-        if (availableWorkers.length === 0) {
-            throw new Error(`No available workers in process pool (total: ${this.workers.length}, ready: ${availableWorkers.length})`);
-        }
-        
-        const worker = this._getNextWorker();
-        if (!worker || !worker.isReady) {
-            // Если текущий worker не готов, попробуем найти другой
-            const readyWorker = this.workers.find(w => w.isReady);
-            if (!readyWorker) {
-                throw new Error('No available workers in process pool');
-            }
-            this.currentWorkerIndex = this.workers.indexOf(readyWorker);
-            return await this._executeQueryViaPool(query, collectionName, options);
-        }
-        
-        const queryId = `query_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        this.stats.totalQueries++;
-        worker.queryCount++;
-        
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                this.pendingQueries.delete(queryId);
-                this.stats.failedQueries++;
-                worker.errorCount++;
-                reject(new Error(`Query timeout after 60000ms: ${queryId}`));
-            }, 60000); // 60 секунд таймаут
-            
-            this.pendingQueries.set(queryId, {
-                mode: 'single',
-                resolve,
-                reject,
-                timeout
-            });
-            
-            worker.process.send({
-                type: 'QUERY',
-                id: queryId,
-                query: query,
-                collectionName: collectionName,
-                options: options || {}
-            });
-        }).then(({ result }) => {
-            return result;
-        });
-    }
-    
     /**
      * Graceful shutdown пула процессов
      * @returns {Promise<void>}
@@ -815,9 +543,157 @@ class ProcessPoolManager {
     }
     
     /**
-     * Получение статистики пула процессов
-     * @returns {Object} Статистика пула
+     * Получение списка свободных (готовых) воркеров
+     * @returns {Array<Object>} Массив готовых воркеров
      */
+    getReadyWorkers() {
+        return this.workers.filter(w => w.isReady);
+    }
+
+    /**
+     * Отправка батча запросов конкретному воркеру
+     * @param {Object} worker - Воркер для выполнения батча
+     * @param {Array<Object>} requests - Массив запросов
+     * @param {Object} [options] - Опции выполнения
+     * @param {number} [options.timeoutMs] - Таймаут для каждого запроса
+     * @returns {Promise<Array>} Массив результатов запросов
+     */
+    async executeBatchOnWorker(worker, requests, options = {}) {
+        if (this.isShuttingDown) {
+            throw new Error('ProcessPoolManager is shutting down');
+        }
+
+        if (this._initializationPromise) {
+            await this._initializationPromise;
+        }
+
+        if (this._initializationError) {
+            throw this._initializationError;
+        }
+
+        if (!worker || !worker.isReady) {
+            throw new Error('Worker is not ready');
+        }
+
+        if (!Array.isArray(requests) || requests.length === 0) {
+            return [];
+        }
+
+        const normalizedRequests = requests.map((request, index) => {
+            if (!request || !Array.isArray(request.query)) {
+                throw new Error(`Invalid batch request at index ${index}: query must be an array`);
+            }
+
+            if (typeof request.collectionName !== 'string' || request.collectionName.trim() === '') {
+                throw new Error(`Invalid batch request at index ${index}: collectionName must be a non-empty string`);
+            }
+
+            return {
+                id: request.id || `batch_query_${Date.now()}_${Math.random().toString(36).slice(2, 9)}_${index}`,
+                query: request.query,
+                collectionName: request.collectionName,
+                options: request.options || {}
+            };
+        });
+
+        const timeoutMs = typeof options.timeoutMs === 'number' && options.timeoutMs > 0 ? options.timeoutMs : 60000;
+
+        const perRequestPromises = normalizedRequests.map((request) => {
+            return new Promise((resolve) => {
+                const timeoutHandle = setTimeout(() => {
+                    if (this.pendingQueries.has(request.id)) {
+                        this.pendingQueries.delete(request.id);
+                    }
+                    worker.errorCount = (worker.errorCount || 0) + 1;
+                    this.stats.failedQueries++;
+                    resolve({
+                        id: request.id,
+                        result: null,
+                        error: new Error(`Query timeout after ${timeoutMs}ms: ${request.id}`),
+                        metrics: {
+                            queryTime: timeoutMs,
+                            querySize: 0,
+                            resultSize: 0
+                        }
+                    });
+                }, timeoutMs);
+
+                this.pendingQueries.set(request.id, {
+                    mode: 'batch',
+                    timeout: timeoutHandle,
+                    resolve: (payload) => {
+                        clearTimeout(timeoutHandle);
+                        const metrics = payload?.metrics && typeof payload.metrics === 'object' ? payload.metrics : {};
+                        resolve({
+                            id: request.id,
+                            result: payload?.result ?? null,
+                            error: payload?.error ?? null,
+                            metrics
+                        });
+                    },
+                    reject: (payload) => {
+                        clearTimeout(timeoutHandle);
+                        const errorObj = payload?.error instanceof Error
+                            ? payload.error
+                            : createErrorFromSerialized(payload?.error) || new Error('Unknown error');
+                        const metrics = payload?.metrics && typeof payload.metrics === 'object' ? payload.metrics : {};
+                        resolve({
+                            id: request.id,
+                            result: null,
+                            error: errorObj,
+                            metrics
+                        });
+                    }
+                });
+            });
+        });
+
+        const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${worker.index}`;
+        this.stats.totalQueries += normalizedRequests.length;
+        worker.queryCount += normalizedRequests.length;
+
+        const payload = normalizedRequests.map((request) => ({
+            id: request.id,
+            query: request.query,
+            collectionName: request.collectionName,
+            options: request.options
+        }));
+
+        try {
+            worker.process.send({
+                type: 'QUERY_BATCH',
+                batchId,
+                requests: payload
+            });
+        } catch (error) {
+            this.logger.error(`ProcessPoolManager: Не удалось отправить батч ${batchId} worker ${worker.index}: ${error.message}`);
+            worker.errorCount = (worker.errorCount || 0) + normalizedRequests.length;
+            normalizedRequests.forEach((request) => {
+                const pendingQuery = this.pendingQueries.get(request.id);
+                if (!pendingQuery) {
+                    return;
+                }
+
+                this.pendingQueries.delete(request.id);
+                if (pendingQuery.timeout) {
+                    clearTimeout(pendingQuery.timeout);
+                }
+
+                this.stats.failedQueries++;
+                pendingQuery.reject({
+                    error: new Error(`Failed to send request ${request.id} to worker ${worker.index}: ${error.message}`),
+                    metrics: {
+                        queryTime: 0,
+                        querySize: 0,
+                        resultSize: 0
+                    }
+                });
+            });
+        }
+
+        return Promise.all(perRequestPromises);
+    }
+
     getStats() {
         return {
             useProcessPool: true,
