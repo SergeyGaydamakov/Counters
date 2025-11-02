@@ -341,6 +341,7 @@ class MongoProvider {
         const workerCount = Math.max(1, parseInt(config.parallelsRequestProcesses, 10) || 1);
 
         if (workerCount <= 1) {
+            this._queryDispatcherDisabled = true;
             this.logger.debug('QueryDispatcher не используется: parallelsRequestProcesses <= 1');
             return null;
         }

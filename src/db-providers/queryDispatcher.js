@@ -92,27 +92,32 @@ class QueryDispatcher {
     }
 
     /**
-     * Выполнение одиночного запроса
-     * @param {Object} request
-     * @param {Array} request.query
-     * @param {string} request.collectionName
-     * @param {Object} [request.options]
-     * @param {string} [request.id]
+     * Выполнение одного или нескольких запросов
+     * @param {Object|Array<Object>} requestOrRequests
+     * @param {Array} requestOrRequests[].query
+     * @param {string} requestOrRequests[].collectionName
+     * @param {Object} [requestOrRequests[].options]
+     * @param {string} [requestOrRequests[].id]
      * @param {Object} [options]
      * @param {number} [options.timeoutMs]
-     * @returns {Promise<{id: string, result: Array|null, error: Error|null, metrics: Object}>}
+     * @returns {Promise<Object>|Promise<{result: Array, results: Array, summary: Object, errors: Array}>}
      */
-    async executeQuery(request, options = {}) {
-        const preparedRequest = this._normalizeRequest(request);
+    async executeQuery(requestOrRequests, options = {}) {
+        if (Array.isArray(requestOrRequests)) {
+            const preparedRequests = requestOrRequests.map((request) => this._normalizeRequest(request));
+            return this._executePreparedBatch(preparedRequests, options);
+        }
+
+        const preparedRequest = this._normalizeRequest(requestOrRequests);
         return this._executePreparedQuery(preparedRequest, options);
     }
 
     /**
      * Выполнение массива запросов с возможностью ограничения параллелизма
+     * Запросы распределяются по процессам в пуле через batch API
      * @param {Array<Object>} requests
      * @param {Object} [options]
      * @param {number} [options.timeoutMs]
-     * @param {boolean} [options.stopOnError]
      * @param {number} [options.maxConcurrency]
      * @returns {Promise<{results: Array, summary: Object}>}
      */
@@ -126,72 +131,76 @@ class QueryDispatcher {
         }
 
         const timeoutMs = this._resolveTimeout(options.timeoutMs);
-        const stopOnError = options.stopOnError === true;
+        
+        // Получаем количество доступных процессов из пула
+        const poolStats = this.processPoolManager?.getStats();
+        const availableWorkers = poolStats?.activeWorkers || poolStats?.workerCount || 1;
         const requestedConcurrency = this._resolveConcurrency(options.maxConcurrency, requests.length);
-        const effectiveConcurrency = stopOnError ? 1 : requestedConcurrency;
-
+        
         const preparedRequests = requests.map((request) => this._normalizeRequest(request));
-        const results = new Array(preparedRequests.length);
-        let nextIndex = 0;
-        let stopRequested = false;
-
-        const acquireNext = () => {
-            if (stopOnError && stopRequested) {
-                return null;
-            }
-
-            if (nextIndex >= preparedRequests.length) {
-                return null;
-            }
-
-            const current = {
-                preparedRequest: preparedRequests[nextIndex],
-                index: nextIndex
-            };
-            nextIndex += 1;
-            return current;
-        };
-
-        const runWorker = async () => {
-            while (true) {
-                const item = acquireNext();
-                if (!item) {
-                    break;
-                }
-
-                const result = await this._executePreparedQuery(item.preparedRequest, { timeoutMs });
-                results[item.index] = result;
-
-                if (stopOnError && result.error) {
-                    stopRequested = true;
-                }
-            }
-        };
-
-        const workerCount = Math.min(effectiveConcurrency, Math.max(1, preparedRequests.length));
-        const workers = Array.from({ length: workerCount }, () => runWorker());
-        await Promise.all(workers);
-
-        for (let i = 0; i < results.length; i++) {
-            if (!results[i]) {
-                const prepared = preparedRequests[i];
-                const skipped = stopOnError && stopRequested;
-                results[i] = {
-                    id: prepared.id,
-                    result: null,
-                    error: skipped ? new Error('Query skipped due to previous error') : null,
-                    metrics: {
-                        queryTime: 0,
-                        querySize: estimateSize(prepared.query),
-                        resultSize: 0
-                    },
-                    skipped
-                };
-            }
+        
+        // Разделяем запросы на батчи для распределения по процессам
+        const batches = [];
+        const batchCount = Math.min(availableWorkers, requestedConcurrency, preparedRequests.length);
+        const requestsPerBatch = Math.ceil(preparedRequests.length / batchCount);
+        
+        for (let i = 0; i < preparedRequests.length; i += requestsPerBatch) {
+            batches.push(preparedRequests.slice(i, i + requestsPerBatch));
         }
 
-        const summary = this._buildSummary(results);
-        return { results, summary };
+        // Параллельное выполнение всех батчей
+        const batchPromises = batches.map(async (batch) => {
+            try {
+                const batchResponse = await this._executePreparedBatch(batch, { timeoutMs });
+                return batchResponse.results;
+            } catch (error) {
+                // При ошибке батча возвращаем ошибки для всех запросов в батче
+                return batch.map((prepared) => ({
+                    id: prepared.id,
+                    result: null,
+                    error: error instanceof Error ? error : new Error(error?.message || 'Batch execution failed'),
+                    metrics: {
+                        queryTime: timeoutMs || 0,
+                        querySize: estimateSize(prepared.query),
+                        resultSize: 0
+                    }
+                }));
+            }
+        });
+
+        const batchResultsArray = await Promise.all(batchPromises);
+        const allResults = batchResultsArray.flat();
+
+        // Создаем Map для быстрого доступа к результатам по ID
+        const resultsById = new Map();
+        allResults.forEach((result) => {
+            if (result && result.id) {
+                resultsById.set(result.id, result);
+            }
+        });
+
+        // Восстанавливаем порядок результатов согласно исходному порядку запросов
+        const orderedResults = preparedRequests.map((prepared) => {
+            const result = resultsById.get(prepared.id);
+            if (result) {
+                return result;
+            }
+
+            // Если результат не найден, создаем ошибку
+            return {
+                id: prepared.id,
+                result: null,
+                error: new Error('Missing result from batch execution'),
+                metrics: {
+                    queryTime: 0,
+                    querySize: estimateSize(prepared.query),
+                    resultSize: 0
+                }
+            };
+        });
+
+        const summary = this._buildSummary(orderedResults);
+        return { results: orderedResults, summary };
     }
 
     /**
@@ -251,6 +260,156 @@ class QueryDispatcher {
                 resultSize
             }
         };
+    }
+
+    async _executePreparedBatch(preparedRequests, options = {}) {
+        if (!Array.isArray(preparedRequests) || preparedRequests.length === 0) {
+            return {
+                result: [],
+                results: [],
+                errors: [],
+                summary: this._buildSummary([]),
+                metrics: {
+                    totalQueryTime: 0,
+                    totalResultSize: 0,
+                    totalQuerySize: 0
+                }
+            };
+        }
+
+        const timeoutMs = this._resolveTimeout(options.timeoutMs);
+        let rawResults;
+
+        try {
+            rawResults = await this._executeBatchWithTimeout(preparedRequests, timeoutMs);
+        } catch (error) {
+            preparedRequests.forEach((prepared) => {
+                this._updateMetrics({
+                    success: false,
+                    queryTime: timeoutMs || 0,
+                    resultSize: 0,
+                    querySize: estimateSize(prepared.query),
+                    error
+                });
+            });
+            throw error;
+        }
+
+        const resultsById = new Map();
+        if (Array.isArray(rawResults)) {
+            rawResults.forEach((item) => {
+                if (item && item.id) {
+                    resultsById.set(item.id, item);
+                }
+            });
+        }
+
+        const orderedResults = preparedRequests.map((prepared) => {
+            let raw = resultsById.get(prepared.id);
+            if (!raw) {
+                raw = {
+                    result: null,
+                    error: new Error('Missing result from worker process'),
+                    metrics: null
+                };
+            }
+
+            const error = raw.error instanceof Error
+                ? raw.error
+                : raw.error
+                    ? new Error(raw.error.message || 'Unknown error')
+                    : null;
+
+            const metricsFromWorker = raw.metrics && typeof raw.metrics === 'object' ? raw.metrics : {};
+            const querySize = typeof metricsFromWorker.querySize === 'number'
+                ? metricsFromWorker.querySize
+                : estimateSize(prepared.query);
+            const resultSize = typeof metricsFromWorker.resultSize === 'number'
+                ? metricsFromWorker.resultSize
+                : estimateSize(raw.result ?? null);
+            const queryTime = typeof metricsFromWorker.queryTime === 'number'
+                ? metricsFromWorker.queryTime
+                : 0;
+
+            this._updateMetrics({
+                success: !error,
+                queryTime,
+                resultSize,
+                querySize,
+                error
+            });
+
+            return {
+                id: prepared.id,
+                request: prepared,
+                result: raw.result ?? null,
+                error,
+                metrics: {
+                    queryTime,
+                    querySize,
+                    resultSize
+                }
+            };
+        });
+
+        const aggregatedResult = orderedResults.reduce((acc, item) => {
+            if (Array.isArray(item.result)) {
+                acc.push(...item.result);
+            } else if (item.result !== null && item.result !== undefined) {
+                acc.push(item.result);
+            }
+            return acc;
+        }, []);
+
+        const summary = this._buildSummary(orderedResults);
+        const errors = orderedResults.filter(item => item.error);
+
+        return {
+            result: aggregatedResult,
+            results: orderedResults,
+            errors,
+            summary,
+            metrics: {
+                totalQueryTime: summary.totalQueryTime,
+                totalResultSize: summary.totalResultSize,
+                totalQuerySize: summary.totalQuerySize
+            }
+        };
+    }
+
+    async _executeBatchWithTimeout(preparedRequests, timeoutMs) {
+        if (!this.processPoolManager || typeof this.processPoolManager.executeBatch !== 'function') {
+            throw new Error('ProcessPoolManager does not support batch execution');
+        }
+
+        const execPromise = this.processPoolManager.executeBatch(
+            preparedRequests.map((prepared) => ({
+                id: prepared.id,
+                query: prepared.query,
+                collectionName: prepared.collectionName,
+                options: prepared.options
+            })),
+            { timeoutMs }
+        );
+
+        if (!timeoutMs || timeoutMs <= 0) {
+            return execPromise;
+        }
+
+        let timeoutHandle;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutHandle = setTimeout(() => {
+                reject(new Error(`Batch query timeout after ${timeoutMs}ms`));
+            }, timeoutMs);
+        });
+
+        try {
+            return await Promise.race([execPromise, timeoutPromise]);
+        } finally {
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+            }
+        }
     }
 
     /**

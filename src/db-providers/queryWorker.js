@@ -165,7 +165,7 @@ async function startQueryWorker() {
      * @param {object} options - Опции aggregate()
      * @returns {Promise<Object>} Результат выполнения запроса {result, error, metrics}
      */
-    async function executeQuery(queryId, query, collectionName, options) {
+    async function executeQuery(queryId, query, collectionName, options = {}) {
         if (!isConnected || !mongoDb || !mongoClient) {
             const error = new Error('MongoDB connection not established');
             return {
@@ -186,9 +186,15 @@ async function startQueryWorker() {
         try {
             logger.debug(`QueryWorker: Выполнение запроса ${queryId} для коллекции ${collectionName}`);
             
-            // Используем переиспользуемый объект базы данных и коллекции
+            const aggregateOptions = Object.assign({
+                batchSize: config.database.batchSize,
+                readConcern: this._databaseOptions?.readConcern,
+                readPreference: this._databaseOptions?.readPreference,
+                comment: "queryWorker - aggregate"
+            }, options || {});
+            
             const collection = mongoDb.collection(collectionName);
-            const result = await collection.aggregate(normalizedQuery, options).toArray();
+            const result = await collection.aggregate(normalizedQuery, aggregateOptions).toArray();
             
             const queryTime = Date.now() - startTime;
             const resultSize = DEBUG_METRICS_ENABLED ? JSON.stringify(result).length : 0;
@@ -234,6 +240,66 @@ async function startQueryWorker() {
             error: queryResult.error,
             metrics: queryResult.metrics
         });
+    }
+    
+    function sendBatchResult(batchId, batchResults) {
+        process.send({
+            type: 'RESULT_BATCH',
+            batchId,
+            results: batchResults
+        });
+    }
+    
+    async function executeQueryBatch(batchId, requests) {
+        if (!Array.isArray(requests) || requests.length === 0) {
+            return [];
+        }
+    
+        const executions = requests.map(async (request, index) => {
+            const requestId = request?.id || `${batchId}_${index}`;
+    
+            if (!request || !Array.isArray(request.query) || typeof request.collectionName !== 'string') {
+                return {
+                    id: requestId,
+                    result: null,
+                    error: serializeError(new Error('Invalid batch query structure')),
+                    metrics: {
+                        queryTime: 0,
+                        querySize: 0,
+                        resultSize: 0
+                    }
+                };
+            }
+    
+            try {
+                const queryResult = await executeQuery(
+                    requestId,
+                    request.query,
+                    request.collectionName,
+                    request.options || {}
+                );
+    
+                return {
+                    id: requestId,
+                    result: queryResult.result,
+                    error: queryResult.error,
+                    metrics: queryResult.metrics
+                };
+            } catch (error) {
+                return {
+                    id: requestId,
+                    result: null,
+                    error: serializeError(error),
+                    metrics: {
+                        queryTime: 0,
+                        querySize: 0,
+                        resultSize: 0
+                    }
+                };
+            }
+        });
+    
+        return Promise.all(executions);
     }
     
     /**
@@ -344,9 +410,31 @@ async function startQueryWorker() {
                     return;
                 }
                 
-                // Выполняем запрос и отправляем результат
                 const queryResult = await executeQuery(id, query, collectionName, options || {});
                 sendQueryResult(id, queryResult);
+            } else if (message.type === 'QUERY_BATCH') {
+                const { batchId, requests } = message;
+
+                if (!batchId) {
+                    logger.warn('QueryWorker: Получен QUERY_BATCH без batchId');
+                    return;
+                }
+
+                try {
+                    const batchResults = await executeQueryBatch(batchId, requests);
+                    sendBatchResult(batchId, batchResults);
+                } catch (error) {
+                    logger.error(`QueryWorker: Ошибка выполнения батча ${batchId}: ${error.message}`);
+                    const fallbackResults = Array.isArray(requests)
+                        ? requests.map((request, index) => ({
+                            id: request?.id || `${batchId}_${index}`,
+                            result: null,
+                            error: serializeError(error),
+                            metrics: { queryTime: 0, querySize: 0, resultSize: 0 }
+                        }))
+                        : [];
+                    sendBatchResult(batchId, fallbackResults);
+                }
             } else if (message.type === 'SHUTDOWN') {
                 await shutdown();
             } else if (message.type !== 'INIT') {

@@ -35,7 +35,7 @@ class QueryDispatcherTest {
             await this.testSingleQueryExecution('1. Тест одиночного запроса в синхронном режиме...');
             await this.testExecuteQueriesWithPool('2. Тест выполнения нескольких запросов через пул процессов...');
             await this.testErrorHandling('3. Тест обработки ошибок запроса...');
-            await this.testExecuteQueriesStopOnError('4. Тест режима stopOnError в executeQueries...');
+            await this.testParallelExecutionWithErrors('4. Тест параллельного выполнения запросов с ошибками...');
             await this.testDispatcherStats('5. Тест получения статистики диспетчера...');
         } catch (error) {
             this.logger.error(`Критическая ошибка выполнения тестов: ${error.message}`);
@@ -273,7 +273,7 @@ class QueryDispatcherTest {
 
             dispatcher = new QueryDispatcher({
                 processPoolManager: null,
-                workerCount: 1,
+                workerCount: 2,
                 connectionString: this.connectionString,
                 databaseName: this.databaseName,
                 databaseOptions: this.databaseOptions,
@@ -354,10 +354,12 @@ class QueryDispatcherTest {
                 options: {}
             }));
 
-            const { results, summary } = await dispatcher.executeQueries(requests, {
-                timeoutMs: 30000,
-                maxConcurrency: 2
+            const batchResponse = await dispatcher.executeQuery(requests, {
+                timeoutMs: 30000
             });
+
+            const results = batchResponse.results;
+            const summary = batchResponse.summary;
 
             if (!Array.isArray(results) || results.length !== requests.length) {
                 throw new Error('Количество результатов должно совпадать с количеством запросов');
@@ -391,6 +393,14 @@ class QueryDispatcherTest {
                 throw new Error('Все запросы должны завершиться успешно');
             }
 
+            if (!Array.isArray(batchResponse.result) || batchResponse.result.length < requests.length) {
+                throw new Error('Совокупный результат должен содержать документы всех запросов');
+            }
+
+            if (Array.isArray(batchResponse.errors) && batchResponse.errors.length > 0) {
+                throw new Error('Не должно быть ошибок при выполнении батч-запроса');
+            }
+
             this.testResults.passed++;
             this.logger.debug('   ✓ Успешно');
         } catch (error) {
@@ -412,7 +422,7 @@ class QueryDispatcherTest {
             await this.prepareFactIndexData();
 
             dispatcher = new QueryDispatcher({
-                workerCount: 1,
+                workerCount: 2,
                 connectionString: this.connectionString,
                 databaseName: this.databaseName,
                 databaseOptions: this.databaseOptions,
@@ -450,7 +460,7 @@ class QueryDispatcherTest {
         }
     }
 
-    async testExecuteQueriesStopOnError(title) {
+    async testParallelExecutionWithErrors(title) {
         this.logger.debug(title);
 
         let dispatcher = null;
@@ -458,7 +468,7 @@ class QueryDispatcherTest {
             const dataset = await this.prepareFactIndexData();
 
             dispatcher = new QueryDispatcher({
-                workerCount: 1,
+                workerCount: 2,
                 connectionString: this.connectionString,
                 databaseName: this.databaseName,
                 databaseOptions: this.databaseOptions,
@@ -468,13 +478,13 @@ class QueryDispatcherTest {
 
             const requests = [
                 {
-                    id: 'stop-error-invalid',
+                    id: 'parallel-error-invalid',
                     query: [{ $invalidOperator: {} }],
                     collectionName: 'factIndex',
                     options: {}
                 },
                 {
-                    id: 'stop-error-valid',
+                    id: 'parallel-error-valid',
                     query: [
                         { $match: { '_id.f': dataset.factIds[0] } },
                         { $limit: 5 }
@@ -485,8 +495,7 @@ class QueryDispatcherTest {
             ];
 
             const { results } = await dispatcher.executeQueries(requests, {
-                timeoutMs: 20000,
-                stopOnError: true
+                timeoutMs: 20000
             });
 
             if (results.length !== requests.length) {
@@ -500,12 +509,13 @@ class QueryDispatcherTest {
                 throw new Error('Первый запрос должен завершиться ошибкой');
             }
 
-            if (!secondResult.error || !secondResult.skipped) {
-                throw new Error('Второй запрос должен быть помечен как пропущенный после ошибки');
+            // При параллельном выполнении второй запрос должен выполниться несмотря на ошибку первого
+            if (secondResult.error) {
+                throw new Error('Второй запрос должен выполниться успешно даже если первый завершился с ошибкой');
             }
 
-            if (secondResult.result !== null) {
-                throw new Error('Пропущенный запрос не должен возвращать данные');
+            if (!Array.isArray(secondResult.result)) {
+                throw new Error('Второй запрос должен вернуть массив результатов');
             }
 
             this.testResults.passed++;
@@ -513,7 +523,7 @@ class QueryDispatcherTest {
         } catch (error) {
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             this.testResults.failed++;
-            this.testResults.errors.push(`testExecuteQueriesStopOnError: ${error.message}`);
+            this.testResults.errors.push(`testParallelExecutionWithErrors: ${error.message}`);
         } finally {
             if (dispatcher) {
                 await dispatcher.shutdown();
@@ -529,7 +539,7 @@ class QueryDispatcherTest {
             const dataset = await this.prepareFactIndexData();
 
             dispatcher = new QueryDispatcher({
-                workerCount: 1,
+                workerCount: 2,
                 connectionString: this.connectionString,
                 databaseName: this.databaseName,
                 databaseOptions: this.databaseOptions,
