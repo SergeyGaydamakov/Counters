@@ -101,6 +101,7 @@ class ProcessPoolManager {
         this.workers = [];
         this.currentWorkerIndex = 0;
         this.pendingQueries = new Map(); // Map<queryId, {resolve, reject, timeout}>
+        this.timedOutQueries = new Set(); // Set<queryId> - для отслеживания таймаутированных запросов (чтобы игнорировать поздние результаты без предупреждений)
         this.stats = {
             totalQueries: 0,
             successfulQueries: 0,
@@ -380,6 +381,14 @@ class ProcessPoolManager {
 
         const pendingQuery = this.pendingQueries.get(id);
         if (!pendingQuery) {
+            // Проверяем, не был ли это запрос с таймаутом
+            // Если был, то это нормально - результат пришел позже, просто игнорируем его
+            if (this.timedOutQueries.has(id)) {
+                // Это ожидаемое поведение для таймаутированных запросов - просто удаляем из Set
+                this.timedOutQueries.delete(id);
+                return;
+            }
+            // Для других случаев (неожиданных) оставляем предупреждение
             this.logger.warn(`ProcessPoolManager: Получен результат для неизвестного запроса: ${id}`);
             return;
         }
@@ -488,6 +497,9 @@ class ProcessPoolManager {
             pendingQuery.reject(new Error('ProcessPoolManager shutdown'));
             this.pendingQueries.delete(queryId);
         }
+        
+        // Очищаем Set таймаутированных запросов
+        this.timedOutQueries.clear();
         
         // Закрываем все worker процессы
         const shutdownPromises = this.workers.map(async (worker) => {
@@ -602,7 +614,18 @@ class ProcessPoolManager {
             return new Promise((resolve) => {
                 const timeoutHandle = setTimeout(() => {
                     if (this.pendingQueries.has(request.id)) {
+                        // Помечаем запрос как таймаутированный перед удалением
+                        this.timedOutQueries.add(request.id);
                         this.pendingQueries.delete(request.id);
+                        
+                        // Очищаем Set таймаутированных запросов от старых записей (старше 5 минут)
+                        // чтобы не накапливать память при длительной работе
+                        if (this.timedOutQueries.size > 1000) {
+                            // Если слишком много записей, очищаем половину (простой способ)
+                            // В реальности можно использовать более сложную логику с timestamps
+                            const toDelete = Array.from(this.timedOutQueries).slice(0, 500);
+                            toDelete.forEach(queryId => this.timedOutQueries.delete(queryId));
+                        }
                     }
                     worker.errorCount = (worker.errorCount || 0) + 1;
                     this.stats.failedQueries++;

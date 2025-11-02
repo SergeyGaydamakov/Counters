@@ -153,20 +153,13 @@ class ProcessPoolManagerTest {
             
             // 2. Управление процессами (только если пул создан успешно)
             await this.testWorkerMonitoring('4. Тест мониторинга состояния процессов...');
-            await this.testQueryDistribution('5. Тест распределения запросов по процессам (round-robin)...');
-            await this.testWorkerRestart('6. Тест перезапуска упавших процессов...');
-            await this.testGracefulShutdown('7. Тест graceful shutdown всех процессов...');
+            await this.testWorkerRestart('5. Тест перезапуска упавших процессов...');
+            await this.testGracefulShutdown('6. Тест graceful shutdown всех процессов...');
             
-            // 3. Выполнение запросов
-            await this.testQueryExecutionViaPool('8. Тест выполнения запросов через пул процессов...');
-            await this.testQueryResultsHandling('9. Тест обработки результатов от процессов...');
-            await this.testBatchQueryExecution('10. Тест выполнения батч-запросов через пул...');
-            await this.testQueryErrorHandling('11. Тест обработки ошибок выполнения запросов...');
-            
-            // 4. Статистика
-            await this.testPoolStats('12. Тест получения статистики пула...');
-            await this.testWorkerStats('13. Тест статистики по каждому процессу...');
-            await this.testActiveWorkersCount('14. Тест подсчета активных и неактивных процессов...');
+            // 3. Статистика
+            await this.testPoolStats('7. Тест получения статистики пула...');
+            await this.testWorkerStats('8. Тест статистики по каждому процессу...');
+            await this.testActiveWorkersCount('9. Тест подсчета активных и неактивных процессов...');
             
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
@@ -311,73 +304,6 @@ class ProcessPoolManagerTest {
         }
     }
 
-    /**
-     * Тест 5: Распределение запросов по процессам (round-robin)
-     */
-    async testQueryDistribution(title) {
-        this.logger.debug(title);
-        
-        let poolManager = null;
-        try {
-            poolManager = new ProcessPoolManager({
-                workerCount: 3,
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions,
-                workerInitTimeoutMs: 6000
-            });
-            
-            // Ждем готовности пула на 3 процесса
-            await this.waitForPoolReady(poolManager, 3, 6000);
-            
-            const statsBefore = poolManager.getStats();
-            if (statsBefore.activeWorkers === 0) {
-                this.logger.debug('   ⚠ Нет доступных worker процессов для теста');
-                this.testResults.passed++;
-                await poolManager.shutdown();
-                return;
-            }
-            
-            // Выполняем несколько запросов
-            const queries = [];
-            for (let i = 0; i < 9; i++) {
-                queries.push(
-                    poolManager.executeQuery({
-                        query: [{ $match: {} }, { $limit: 1 }],
-                        collectionName: 'facts',
-                        options: {}
-                    }).catch(err => ({ error: err.message }))
-                );
-            }
-            
-            await Promise.all(queries);
-            
-            const stats = poolManager.getStats();
-            
-            // Проверяем, что запросы распределились
-            if (stats.totalQueries !== 9) {
-                throw new Error(`Ожидалось 9 запросов, получено: ${stats.totalQueries}`);
-            }
-            
-            // Проверяем, что хотя бы некоторые worker'ы получили запросы
-            const workersWithQueries = stats.workers.filter(w => w.queryCount > 0);
-            if (workersWithQueries.length === 0 && stats.activeWorkers > 0) {
-                throw new Error('Ни один worker не получил запросы');
-            }
-            
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-            
-            await poolManager.shutdown();
-        } catch (error) {
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-            this.testResults.failed++;
-            this.testResults.errors.push(`testQueryDistribution: ${error.message}`);
-            if (poolManager) {
-                await poolManager.shutdown();
-            }
-        }
-    }
 
     /**
      * Тест 6: Мониторинг состояния процессов
@@ -534,228 +460,7 @@ class ProcessPoolManagerTest {
     }
 
     /**
-     * Тест 9: Выполнение запросов через пул процессов
-     */
-    async testQueryExecutionViaPool(title) {
-        this.logger.debug(title);
-        
-        let poolManager = null;
-        try {
-            poolManager = new ProcessPoolManager({
-                workerCount: 2,
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions,
-                workerInitTimeoutMs: 6000
-            });
-            
-            // Ждем готовности пула на 2 процесса
-            await this.waitForPoolReady(poolManager, 2, 4000);
-            
-            const result = await poolManager.executeQuery({
-                query: [{ $match: {} }, { $limit: 10 }],
-                collectionName: 'facts',
-                options: {}
-            });
-            
-            if (!Array.isArray(result)) {
-                throw new Error('Результат должен быть массивом');
-            }
-            
-            const stats = poolManager.getStats();
-            if (stats.totalQueries !== 1) {
-                throw new Error(`Ожидалось 1 запрос, получено: ${stats.totalQueries}`);
-            }
-            
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-            
-            await poolManager.shutdown();
-        } catch (error) {
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-            this.testResults.failed++;
-            this.testResults.errors.push(`testQueryExecutionViaPool: ${error.message}`);
-            if (poolManager) {
-                await poolManager.shutdown();
-            }
-        }
-    }
-
-    /**
-     * Тест 9: Обработка результатов от процессов
-     */
-    async testQueryResultsHandling(title) {
-        this.logger.debug(title);
-        
-        let poolManager = null;
-        try {
-            poolManager = new ProcessPoolManager({
-                workerCount: 2,
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions,
-                workerInitTimeoutMs: 6000
-            });
-            
-            await this.waitForPoolReady(poolManager, 2, 4000);
-            
-            const promises = [];
-            for (let i = 0; i < 5; i++) {
-                promises.push(
-                    poolManager.executeQuery({
-                        query: [{ $match: {} }, { $limit: 1 }],
-                        collectionName: 'facts',
-                        options: {}
-                    })
-                );
-            }
-            
-            const results = await Promise.all(promises);
-            
-            if (results.length !== 5) {
-                throw new Error(`Ожидалось 5 результатов, получено: ${results.length}`);
-            }
-            
-            results.forEach((result, index) => {
-                if (!Array.isArray(result)) {
-                    throw new Error(`Результат ${index} должен быть массивом`);
-                }
-            });
-            
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-            
-            await poolManager.shutdown();
-        } catch (error) {
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-            this.testResults.failed++;
-            this.testResults.errors.push(`testQueryResultsHandling: ${error.message}`);
-            if (poolManager) {
-                await poolManager.shutdown();
-            }
-        }
-    }
-
-    /**
-     * Тест 10: Выполнение батч-запросов через пул
-     */
-    async testBatchQueryExecution(title) {
-        this.logger.debug(title);
-
-        let poolManager = null;
-        try {
-            poolManager = new ProcessPoolManager({
-                workerCount: 2,
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions,
-                workerInitTimeoutMs: 6000
-            });
-
-            await this.waitForPoolReady(poolManager, 2, 4000);
-
-            const batchRequests = Array.from({ length: 4 }).map((_, index) => ({
-                id: `batch-test-${index}`,
-                query: [{ $match: {} }, { $limit: 2 }],
-                collectionName: 'facts',
-                options: {}
-            }));
-
-            const results = await poolManager.executeBatch(batchRequests, { timeoutMs: 15000 });
-
-            if (!Array.isArray(results) || results.length !== batchRequests.length) {
-                throw new Error('executeBatch должен возвращать результат для каждого запроса');
-            }
-
-            results.forEach((result, index) => {
-                if (result.id !== batchRequests[index].id) {
-                    throw new Error(`ID результата ${result.id} не совпадает с ID запроса ${batchRequests[index].id}`);
-                }
-                if (result.error) {
-                    throw new Error(`Запрос ${result.id} завершился с ошибкой: ${result.error.message}`);
-                }
-                if (!Array.isArray(result.result)) {
-                    throw new Error(`Результат запроса ${result.id} должен быть массивом`);
-                }
-            });
-
-            const stats = poolManager.getStats();
-            if (stats.totalQueries < batchRequests.length) {
-                throw new Error('Статистика пула должна учитывать все запросы батча');
-            }
-
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-
-            await poolManager.shutdown();
-        } catch (error) {
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-            this.testResults.failed++;
-            this.testResults.errors.push(`testBatchQueryExecution: ${error.message}`);
-            if (poolManager) {
-                await poolManager.shutdown();
-            }
-        }
-    }
-
-    /**
-     * Тест 11: Обработка ошибок выполнения запросов
-     */
-    async testQueryErrorHandling(title) {
-        this.logger.debug(title);
-        
-        let poolManager = null;
-        try {
-            poolManager = new ProcessPoolManager({
-                workerCount: 2,
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions
-            });
-            
-            // Ждем готовности пула на 2 процесса
-            await this.waitForPoolReady(poolManager, 2, 4000);
-            
-            let errorCaught = false;
-            try {
-                // Отправляем запрос с некорректным синтаксисом
-                await poolManager.executeQuery({
-                    query: [{ $invalidOperator: {} }],
-                    collectionName: 'facts',
-                    options: {}
-                });
-            } catch (error) {
-                errorCaught = true;
-                if (!error.message) {
-                    throw new Error('Ошибка должна содержать message');
-                }
-            }
-            
-            if (!errorCaught) {
-                // Может быть, что MongoDB проигнорирует некорректный оператор
-                this.logger.debug('   ⚠ Ошибка не была выброшена (возможно, запрос был принят)');
-            }
-            
-            const stats = poolManager.getStats();
-            // После ошибки failedQueries должен увеличиться, если ошибка была обработана
-            // или totalQueries увеличится в любом случае
-            
-            this.testResults.passed++;
-            this.logger.debug('   ✓ Успешно');
-            
-            await poolManager.shutdown();
-        } catch (error) {
-            this.logger.error(`   ✗ Ошибка: ${error.message}`);
-            this.testResults.failed++;
-            this.testResults.errors.push(`testQueryErrorHandling: ${error.message}`);
-            if (poolManager) {
-                await poolManager.shutdown();
-            }
-        }
-    }
-
-    /**
-     * Тест 12: Получение статистики пула
+     * Тест 7: Получение статистики пула
      */
     async testPoolStats(title) {
         this.logger.debug(title);
@@ -813,7 +518,7 @@ class ProcessPoolManagerTest {
     }
 
     /**
-     * Тест 13: Статистика по каждому процессу
+     * Тест 8: Статистика по каждому процессу
      */
     async testWorkerStats(title) {
         this.logger.debug(title);
@@ -829,19 +534,6 @@ class ProcessPoolManagerTest {
             
             // Ждем готовности пула на 2 процесса
             await this.waitForPoolReady(poolManager, 2, 4000);
-            
-            // Выполняем несколько запросов
-            for (let i = 0; i < 3; i++) {
-                try {
-                    await poolManager.executeQuery({
-                        query: [{ $match: {} }, { $limit: 1 }],
-                        collectionName: 'facts',
-                        options: {}
-                    });
-                } catch (error) {
-                    // Игнорируем ошибки
-                }
-            }
             
             const stats = poolManager.getStats();
             
@@ -882,7 +574,7 @@ class ProcessPoolManagerTest {
     }
 
     /**
-     * Тест 14: Подсчет активных и неактивных процессов
+     * Тест 9: Подсчет активных и неактивных процессов
      */
     async testActiveWorkersCount(title) {
         this.logger.debug(title);

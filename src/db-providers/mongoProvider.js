@@ -338,11 +338,11 @@ class MongoProvider {
             return null;
         }
 
-        const workerCount = Math.max(1, parseInt(config.parallelsRequestProcesses, 10) || 1);
+        const workerCount = Math.max(1, parseInt(config.queryDispatcher?.workerCount, 10) || 1);
 
         if (workerCount <= 1) {
             this._queryDispatcherDisabled = true;
-            this.logger.debug('QueryDispatcher не используется: parallelsRequestProcesses <= 1');
+            this.logger.debug('QueryDispatcher не используется: workerCount <= 1');
             return null;
         }
 
@@ -1921,11 +1921,23 @@ class MongoProvider {
         let queryResults;
         
         if (queryDispatcher) {
+            // Создаем маппинг уникальных ID запросов к indexTypeNameWithGroupNumber
+            // Это необходимо для избежания конфликтов при параллельных запросах с одинаковыми индексами
+            const queryIdToIndexMap = new Map();
+            
             // Подготовка массива запросов для выполнения через QueryDispatcher
+            let queryCounter = 0;
             const preparedQueries = Object.keys(queriesByIndexName).map(indexTypeNameWithGroupNumber => {
                 const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber].query;
+                // Генерируем уникальный ID для каждого запроса, чтобы избежать конфликтов при параллельных запросах
+                // Используем высокоточное время и счетчик для гарантированной уникальности
+                const uniqueId = process.hrtime.bigint ? process.hrtime.bigint().toString() : `${Date.now()}_${++queryCounter}`;
+                const uniqueQueryId = `${indexTypeNameWithGroupNumber}_${uniqueId}_${Math.random().toString(36).slice(2, 9)}`;
+                // Сохраняем маппинг для последующего восстановления indexTypeNameWithGroupNumber
+                queryIdToIndexMap.set(uniqueQueryId, indexTypeNameWithGroupNumber);
+                
                 return {
-                    id: indexTypeNameWithGroupNumber,
+                    id: uniqueQueryId,
                     query: indexNameQuery,
                     collectionName: this.FACT_INDEX_COLLECTION_NAME,
                     options: aggregateOptions,
@@ -1937,10 +1949,38 @@ class MongoProvider {
             
             // Преобразуем результаты QueryDispatcher в формат, совместимый с локальным кодом
             queryResults = queryDispatcherResults.results.map((dispatcherResult) => {
-                const indexTypeNameWithGroupNumber = dispatcherResult.id;
-                const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber].query;
+                // Восстанавливаем indexTypeNameWithGroupNumber из маппинга
+                let indexTypeNameWithGroupNumber = queryIdToIndexMap.get(dispatcherResult.id);
+                if (!indexTypeNameWithGroupNumber) {
+                    // Если маппинг не найден, пытаемся извлечь из ID (для обратной совместимости)
+                    // Формат ID: ${indexTypeNameWithGroupNumber}_${timestamp}_${random}
+                    const extractedIndex = dispatcherResult.id.split('_')[0];
+                    this.logger.warn(`Не найден маппинг для запроса ${dispatcherResult.id}, используем извлеченное значение: ${extractedIndex}`);
+                    indexTypeNameWithGroupNumber = extractedIndex || dispatcherResult.id;
+                }
+                
+                const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber];
+                if (!indexNameQuery || !indexNameQuery.query) {
+                    this.logger.error(`Не удалось найти запрос для indexTypeNameWithGroupNumber: ${indexTypeNameWithGroupNumber} (ID запроса: ${dispatcherResult.id})`);
+                    return {
+                        indexTypeName: indexTypeNameWithGroupNumber,
+                        counters: null,
+                        error: `Не удалось найти запрос для indexTypeNameWithGroupNumber: ${indexTypeNameWithGroupNumber}`,
+                        processingTime: 0,
+                        metrics: {
+                            countersQuerySize: 0,
+                            countersQueryTime: 0,
+                            countersQueryCount: 1,
+                            countersSize: 0,
+                        },
+                        debug: {
+                            countersQuery: null,
+                        }
+                    };
+                }
+                const query = indexNameQuery.query;
                 const startQuery = startQueriesTime; // Используем общее время начала запросов
-                const countersQuerySize = debugMode ? JSON.stringify(indexNameQuery).length : undefined;
+                const countersQuerySize = debugMode ? JSON.stringify(query).length : undefined;
                 
                 // Определяем результат: если result - массив, берем первый элемент, иначе null
                 // В локальном коде используется countersResult[0], где countersResult - результат .toArray()
@@ -1975,7 +2015,7 @@ class MongoProvider {
                 if (dispatcherResult.error) {
                     this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
                     this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
-                    this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
+                    this._writeToLogFile(JSON.stringify(query, null, 2));
                 }
                 
                 return {
@@ -1990,7 +2030,7 @@ class MongoProvider {
                         countersSize: countersSize,
                     },
                     debug: {
-                        countersQuery: indexNameQuery,
+                        countersQuery: query,
                     }
                 };
             });
@@ -2071,7 +2111,8 @@ class MongoProvider {
             }
             countersMetrics[result.indexTypeName] = {
                 processingTime: result.processingTime,
-                metrics: result.metrics
+                metrics: result.metrics,
+                error: result.error || null // Добавляем информацию об ошибке для мониторинга таймаутов
             };
             countersQuerySize += result.metrics.countersQuerySize ?? 0;
             countersQueryTime = Math.max(countersQueryTime, result.metrics.countersQueryTime ?? 0);

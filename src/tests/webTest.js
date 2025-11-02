@@ -891,6 +891,279 @@ class ApiTester {
         this.logger.info(`   Запросов с debug: ${successfulRequests.filter(r => r.hasDebug).length}`);
     }
 
+    /**
+     * Тест для выявления проблемы с идентификаторами запросов при параллельных запросах
+     * Отправляет множество параллельных запросов с одинаковыми индексами, чтобы спровоцировать
+     * конфликты ID в ProcessPoolManager.pendingQueries
+     * 
+     * @param {number} requests - Количество запросов (рекомендуется >= 50 для надежности)
+     * @param {number} concurrency - Параллельность (рекомендуется >= 10)
+     * @param {string} messageType - Тип сообщения (по умолчанию '1')
+     * @returns {Promise<Object>} Результаты теста
+     */
+    async testQueryIdCollisions(requests = 100, concurrency = 20, messageType = '1') {
+        this.logger.info(`🔍 Тест проверки конфликтов идентификаторов запросов:`);
+        this.logger.info(`   Запросов: ${requests}, Параллельность: ${concurrency}, Тип сообщения: ${messageType}`);
+
+        // Получаем структуру сообщения
+        let baseTestData;
+        try {
+            const generateResponse = await this.makeRequest('GET', `/api/v1/message/${messageType}/json`);
+            if (generateResponse.statusCode !== 200) {
+                throw new Error('Не удалось получить структуру сообщения');
+            }
+            baseTestData = generateResponse.data;
+        } catch (error) {
+            this.logger.error(`❌ Ошибка получения структуры сообщения: ${error.message}`);
+            return {
+                success: false,
+                error: error.message,
+                metrics: {}
+            };
+        }
+
+        const startTime = Date.now();
+        const results = [];
+        const errors = [];
+        const factIds = new Set(); // Для проверки уникальности результатов
+        const duplicateFactIds = []; // Для отслеживания дубликатов
+
+        // Создаем массив всех промисов для максимальной параллельности
+        const allPromises = [];
+        
+        for (let i = 0; i < requests; i++) {
+            // Используем одинаковые поля для максимальной вероятности одинаковых индексов
+            // Это создаст максимальное давление на систему идентификаторов
+            const testData = { ...baseTestData };
+            testData.id = `collision_test_${i}_${Date.now()}`;
+            testData.amount = 100.00; // Одинаковая сумма для одинаковых индексов
+            testData.dt = new Date().toISOString();
+            
+            // Небольшая вариация для разных запросов, но с одинаковыми индексами
+            if (baseTestData.f1) testData.f1 = 'test_collision';
+            if (baseTestData.f2) testData.f2 = 'collision_value';
+            
+            const promise = this.makeRequest('POST', `/api/v1/message/${messageType}/json`, testData)
+                .then(response => {
+                    // Проверяем метрики на наличие таймаутов в деталях
+                    const metrics = response.data?.metrics || {};
+                    const countersMetrics = metrics.countersMetrics || {};
+                    const details = metrics.details || {};
+                    const debug = response.data?.debug || {};
+                    
+                    // Собираем информацию о таймаутах из метрик
+                    const timeouts = [];
+                    
+                    // Проверяем countersMetrics на ошибки таймаутов
+                    // Ошибки могут быть в разных местах структуры, проверяем все возможные варианты
+                    Object.keys(countersMetrics).forEach(indexName => {
+                        const indexMetrics = countersMetrics[indexName];
+                        // Проверяем error в метриках индекса (если он там есть)
+                        if (indexMetrics && indexMetrics.error) {
+                            const errorMsg = typeof indexMetrics.error === 'string' ? indexMetrics.error : 
+                                           (indexMetrics.error?.message || String(indexMetrics.error));
+                            if (errorMsg && (errorMsg.includes('timeout') || errorMsg.includes('Timeout'))) {
+                                timeouts.push({ index: indexName, error: errorMsg });
+                            }
+                        }
+                        // Проверяем error в metrics внутри indexMetrics
+                        if (indexMetrics && indexMetrics.metrics && indexMetrics.metrics.error) {
+                            const errorMsg = typeof indexMetrics.metrics.error === 'string' ? indexMetrics.metrics.error : 
+                                           (indexMetrics.metrics.error?.message || String(indexMetrics.metrics.error));
+                            if (errorMsg && (errorMsg.includes('timeout') || errorMsg.includes('Timeout'))) {
+                                timeouts.push({ index: `${indexName}`, error: errorMsg });
+                            }
+                        }
+                    });
+                    
+                    // Проверяем details на ошибки счетчиков (используется в getRelevantFactCountersFromFact)
+                    Object.keys(details).forEach(indexName => {
+                        const indexDetails = details[indexName];
+                        if (indexDetails && indexDetails.countersErrors) {
+                            Object.keys(indexDetails.countersErrors).forEach(groupNumber => {
+                                const error = indexDetails.countersErrors[groupNumber];
+                                if (error) {
+                                    const errorMsg = typeof error === 'string' ? error : (error?.message || String(error));
+                                    if (errorMsg && (errorMsg.includes('timeout') || errorMsg.includes('Timeout'))) {
+                                        timeouts.push({ index: `${indexName}#${groupNumber}`, error: errorMsg });
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    
+                    const result = {
+                        requestId: i,
+                        statusCode: response.statusCode,
+                        factId: response.data?.factId || null,
+                        hasError: !!response.data?.error,
+                        error: response.data?.error || null,
+                        processingTime: response.data?.processingTime?.total || 0,
+                        countersCount: response.data?.counters ? Object.keys(response.data.counters).length : 0,
+                        timeouts: timeouts,
+                        hasTimeouts: timeouts.length > 0
+                    };
+                    
+                    // Проверяем на дубликаты factId
+                    if (result.factId) {
+                        if (factIds.has(result.factId)) {
+                            duplicateFactIds.push({
+                                requestId: i,
+                                factId: result.factId
+                            });
+                        } else {
+                            factIds.add(result.factId);
+                        }
+                    }
+                    
+                    return result;
+                })
+                .catch(error => {
+                    return {
+                        requestId: i,
+                        statusCode: 0,
+                        factId: null,
+                        hasError: true,
+                        error: error.message,
+                        processingTime: 0,
+                        countersCount: 0
+                    };
+                });
+            
+            allPromises.push(promise);
+        }
+
+        // Выполняем все запросы с контролем параллельности
+        const batchSize = concurrency;
+        for (let i = 0; i < allPromises.length; i += batchSize) {
+            const batch = allPromises.slice(i, Math.min(i + batchSize, allPromises.length));
+            const batchResults = await Promise.all(batch);
+            results.push(...batchResults);
+        }
+
+        const endTime = Date.now();
+        const totalTime = endTime - startTime;
+
+        // Анализ результатов
+        const successfulRequests = results.filter(r => r.statusCode === 200 && !r.hasError);
+        const failedRequests = results.filter(r => r.statusCode !== 200 || r.hasError);
+        
+        // Собираем таймауты из всех запросов (как из ошибок HTTP, так и из метрик)
+        const timeoutErrors = [];
+        results.forEach(r => {
+            // Таймауты из HTTP ошибок
+            if (r.error && typeof r.error === 'string' && (r.error.includes('timeout') || r.error.includes('Timeout'))) {
+                timeoutErrors.push({ requestId: r.requestId, source: 'http_error', error: r.error });
+            }
+            // Таймауты из метрик (внутренние запросы к MongoDB)
+            if (r.timeouts && r.timeouts.length > 0) {
+                r.timeouts.forEach(timeout => {
+                    timeoutErrors.push({ requestId: r.requestId, source: 'query_timeout', index: timeout.index, error: timeout.error });
+                });
+            }
+        });
+        
+        const requestsWithTimeouts = results.filter(r => r.hasTimeouts || (r.error && typeof r.error === 'string' && (r.error.includes('timeout') || r.error.includes('Timeout'))));
+        const uniqueFactIds = factIds.size;
+        const totalFactIds = results.filter(r => r.factId).length;
+
+        // Проверка на проблему с идентификаторами
+        const hasDuplicateFactIds = duplicateFactIds.length > 0;
+        const allRequestsProcessed = results.length === requests;
+        // Таймауты - это отдельная метрика производительности, они не влияют на проверку конфликтов идентификаторов
+        // Таймауты могут быть частыми под нагрузкой - это нормально, главное что нет конфликтов идентификаторов
+        const uniqueFactIdsMatch = uniqueFactIds === totalFactIds || totalFactIds === 0;
+
+        const avgProcessingTime = successfulRequests.length > 0
+            ? Math.round(successfulRequests.reduce((sum, r) => sum + (r.processingTime || 0), 0) / successfulRequests.length)
+            : 0;
+
+        const testResult = {
+            // Успешным считается тест, если все запросы обработаны и нет дубликатов идентификаторов
+            // Таймауты - это отдельная метрика производительности, не влияющая на успешность проверки конфликтов ID
+            success: allRequestsProcessed && uniqueFactIdsMatch && !hasDuplicateFactIds,
+            metrics: {
+                totalRequests: requests,
+                processedRequests: results.length,
+                successfulRequests: successfulRequests.length,
+                failedRequests: failedRequests.length,
+                timeoutErrors: timeoutErrors.length,
+                requestsWithTimeouts: requestsWithTimeouts.length,
+                timeoutRate: requests > 0 ? `${Math.round((requestsWithTimeouts.length / requests) * 100)}%` : '0%',
+                totalTimeoutQueries: timeoutErrors.length, // Общее количество таймаутированных запросов к MongoDB
+                totalTime: totalTime,
+                requestsPerSecond: Math.round((results.length / totalTime) * 1000),
+                avgProcessingTime: avgProcessingTime,
+                uniqueFactIds: uniqueFactIds,
+                totalFactIds: totalFactIds,
+                duplicateFactIds: duplicateFactIds.length,
+                hasDuplicateFactIds: hasDuplicateFactIds
+            },
+            errors: failedRequests.map(r => ({
+                requestId: r.requestId,
+                error: r.error
+            })).slice(0, 10), // Ограничиваем вывод ошибок
+            duplicateFactIds: duplicateFactIds.slice(0, 10) // Ограничиваем вывод дубликатов
+        };
+
+        // Вывод результатов
+        this.logger.info(`\n📊 Результаты теста конфликтов идентификаторов:`);
+        this.logger.info(`   Обработано запросов: ${testResult.metrics.processedRequests}/${testResult.metrics.totalRequests}`);
+        this.logger.info(`   Успешных: ${testResult.metrics.successfulRequests}`);
+        this.logger.info(`   Ошибок: ${testResult.metrics.failedRequests}`);
+        if (testResult.metrics.timeoutErrors > 0 || testResult.metrics.requestsWithTimeouts > 0) {
+            this.logger.info(`   Запросов с таймаутами: ${testResult.metrics.requestsWithTimeouts}/${requests} (${testResult.metrics.timeoutRate})`);
+            this.logger.info(`   Всего таймаутов запросов к MongoDB: ${testResult.metrics.totalTimeoutQueries} - допустимы под нагрузкой`);
+        }
+        this.logger.info(`   Время выполнения: ${testResult.metrics.totalTime}ms`);
+        this.logger.info(`   Запросов в секунду: ${testResult.metrics.requestsPerSecond}`);
+        this.logger.info(`   Среднее время обработки: ${testResult.metrics.avgProcessingTime}ms`);
+        this.logger.info(`   Уникальных factId: ${testResult.metrics.uniqueFactIds}/${testResult.metrics.totalFactIds}`);
+        
+        if (testResult.success) {
+            this.logger.info(`\n✅ Тест пройден успешно: конфликтов идентификаторов не обнаружено`);
+            // Таймауты - это информационная метрика, не влияющая на результат проверки конфликтов ID
+            if (testResult.metrics.requestsWithTimeouts > 0 || testResult.metrics.timeoutErrors > 0) {
+                this.logger.info(`   ℹ️  Метрика производительности: Запросов с таймаутами: ${testResult.metrics.requestsWithTimeouts}/${requests} (${testResult.metrics.timeoutRate})`);
+                this.logger.info(`   ℹ️  Всего таймаутов запросов к MongoDB: ${testResult.metrics.totalTimeoutQueries} - это нормально под нагрузкой`);
+                this.logger.info(`   ℹ️  Предупреждения "Получен результат для неизвестного запроса" для таймаутированных запросов теперь игнорируются`);
+            }
+        } else {
+            this.logger.error(`\n❌ Тест провален (конфликты идентификаторов):`);
+            if (!allRequestsProcessed) {
+                this.logger.error(`   - Не все запросы обработаны`);
+            }
+            if (hasDuplicateFactIds) {
+                this.logger.error(`   - Обнаружены дубликаты factId (возможная проблема с идентификаторами запросов)`);
+            }
+            if (!uniqueFactIdsMatch) {
+                this.logger.error(`   - Несоответствие количества уникальных и общих factId`);
+            }
+            
+            // Выводим метрику таймаутов отдельно, как информацию
+            if (testResult.metrics.requestsWithTimeouts > 0 || testResult.metrics.timeoutErrors > 0) {
+                this.logger.info(`   ℹ️  Метрика производительности: Запросов с таймаутами: ${testResult.metrics.requestsWithTimeouts}/${requests} (${testResult.metrics.timeoutRate})`);
+                this.logger.info(`   ℹ️  Всего таймаутов запросов к MongoDB: ${testResult.metrics.totalTimeoutQueries}`);
+            }
+        }
+        
+        if (testResult.metrics.hasDuplicateFactIds) {
+            this.logger.error(`   ⚠️  ОБНАРУЖЕНЫ ДУБЛИКАТЫ factId: ${testResult.metrics.duplicateFactIds}`);
+            testResult.duplicateFactIds.forEach(dup => {
+                this.logger.error(`      Request ${dup.requestId}: ${dup.factId}`);
+            });
+        }
+        
+        if (testResult.metrics.failedRequests > 0) {
+            this.logger.warn(`   ⚠️  Ошибки в запросах:`);
+            testResult.errors.slice(0, 5).forEach(err => {
+                this.logger.warn(`      Request ${err.requestId}: ${err.error}`);
+            });
+        }
+
+        return testResult;
+    }
+
 }
 
 // Запуск тестов если файл выполняется напрямую
@@ -901,6 +1174,17 @@ if (require.main === module) {
         try {
             // Проверяем аргументы командной строки
             const args = process.argv.slice(2);
+            
+            // Проверяем, не запущен ли специальный тест конфликтов ID
+            if (args.includes('--test-query-id-collisions') || args.includes('--collision-test')) {
+                const requests = parseInt(args.find(a => a.startsWith('--requests='))?.split('=')[1]) || 100;
+                const concurrency = parseInt(args.find(a => a.startsWith('--concurrency='))?.split('=')[1]) || 20;
+                const messageType = args.find(a => a.startsWith('--message-type='))?.split('=')[1] || '1';
+                
+                tester.logger.info('🔍 Запуск теста конфликтов идентификаторов запросов...');
+                await tester.testQueryIdCollisions(requests, concurrency, messageType);
+                return;
+            }
 
             // Запускаем все тесты
             await tester.runAllTests();

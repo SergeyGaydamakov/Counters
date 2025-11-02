@@ -57,9 +57,22 @@ class QueryDispatcher {
         this.databaseName = options.databaseName || config.database.databaseName;
         this.databaseOptions = options.databaseOptions || config.database.options;
 
+        // Параметры из конфигурации с возможностью переопределения через options
         this.defaultTimeoutMs = typeof options.defaultTimeoutMs === 'number'
             ? options.defaultTimeoutMs
-            : 60000;
+            : (config.queryDispatcher?.timeoutMs || 60000);
+        
+        this.minWorkers = typeof options.minWorkers === 'number' && options.minWorkers > 0
+            ? options.minWorkers
+            : (config.queryDispatcher?.minWorkers || 2);
+        
+        this.maxWaitForWorkersMs = typeof options.maxWaitForWorkersMs === 'number' && options.maxWaitForWorkersMs > 0
+            ? options.maxWaitForWorkersMs
+            : (config.queryDispatcher?.maxWaitForWorkersMs || 500);
+        
+        this.checkIntervalMs = typeof options.checkIntervalMs === 'number' && options.checkIntervalMs > 0
+            ? options.checkIntervalMs
+            : (config.queryDispatcher?.checkIntervalMs || 20);
 
         this.maxConcurrency = typeof options.maxConcurrency === 'number' && options.maxConcurrency > 0
             ? options.maxConcurrency
@@ -69,7 +82,7 @@ class QueryDispatcher {
         this._ownsProcessPool = false;
 
         if (!this.processPoolManager) {
-            const workerCount = options.workerCount || config.parallelsRequestProcesses || 1;
+            const workerCount = options.workerCount || config.queryDispatcher?.workerCount || 1;
             this.processPoolManager = new ProcessPoolManager({
                 workerCount,
                 connectionString: this.connectionString,
@@ -92,12 +105,80 @@ class QueryDispatcher {
     }
 
     /**
+     * Ожидание освобождения воркеров с таймаутом
+     * В кластерном режиме каждый HTTP worker процесс имеет свои queryWorkers,
+     * поэтому ожидание помогает, когда все воркеры текущего процесса заняты
+     * @param {number} [minWorkers] - Минимальное количество воркеров (по умолчанию из config)
+     * @param {number} [maxWaitMs] - Максимальное время ожидания в миллисекундах (по умолчанию из config)
+     * @param {number} [checkIntervalMs] - Интервал проверки в миллисекундах (по умолчанию из config)
+     * @returns {Promise<Array>} Массив готовых воркеров
+     */
+    async _waitForReadyWorkers(minWorkers = null, maxWaitMs = null, checkIntervalMs = null) {
+        const effectiveMinWorkers = minWorkers !== null ? minWorkers : this.minWorkers;
+        const effectiveMaxWaitMs = maxWaitMs !== null ? maxWaitMs : this.maxWaitForWorkersMs;
+        const effectiveCheckIntervalMs = checkIntervalMs !== null ? checkIntervalMs : this.checkIntervalMs;
+        const startTime = Date.now();
+        
+        while (Date.now() - startTime < effectiveMaxWaitMs) {
+            const readyWorkers = this.processPoolManager?.getReadyWorkers() || [];
+            
+            // Проверяем не только количество готовых воркеров, но и наличие pending запросов
+            // Если есть воркеры, но все заняты, ждем их освобождения
+            const pendingQueries = this.processPoolManager?.pendingQueries?.size || 0;
+            const totalWorkers = this.processPoolManager?.workers?.length || 0;
+            
+            // Если есть готовые воркеры и не все заняты (или вообще нет активных запросов)
+            if (readyWorkers.length >= effectiveMinWorkers && (pendingQueries === 0 || readyWorkers.length > effectiveMinWorkers)) {
+                return readyWorkers;
+            }
+            
+            // Если все воркеры заняты, логируем для отладки
+            if (readyWorkers.length > 0 && pendingQueries > 0 && readyWorkers.length <= effectiveMinWorkers) {
+                const waitTime = Date.now() - startTime;
+                if (waitTime > 1000 && waitTime % 2000 < effectiveCheckIntervalMs) {
+                    // Логируем каждые ~2 секунды ожидания
+                    this.logger.debug(
+                        `QueryDispatcher: Ожидание освобождения воркеров (${readyWorkers.length} готовых, ` +
+                        `${pendingQueries} активных запросов, ожидание ${Math.round(waitTime)}мс)`
+                    );
+                }
+            }
+            
+            // Ждем перед следующей проверкой
+            await new Promise(resolve => setTimeout(resolve, effectiveCheckIntervalMs));
+        }
+        
+        // Если не удалось дождаться, возвращаем то, что есть
+        const readyWorkers = this.processPoolManager?.getReadyWorkers() || [];
+        if (readyWorkers.length === 0) {
+            const stats = this.processPoolManager?.getStats();
+            throw new Error(
+                `No ready workers available after waiting ${effectiveMaxWaitMs}ms. ` +
+                `Total workers: ${stats?.workerCount || 0}, Active: ${stats?.activeWorkers || 0}, ` +
+                `Pending queries: ${stats?.pendingQueries || 0}`
+            );
+        }
+        
+        // Логируем предупреждение, если пришлось использовать меньше воркеров, чем запрошено
+        if (readyWorkers.length < effectiveMinWorkers) {
+            this.logger.warn(
+                `QueryDispatcher: Используется ${readyWorkers.length} воркеров вместо запрошенных ${effectiveMinWorkers} ` +
+                `(ожидание ${effectiveMaxWaitMs}мс завершено)`
+            );
+        }
+        
+        return readyWorkers;
+    }
+
+    /**
      * Выполнение массива запросов с возможностью ограничения параллелизма
      * Запросы распределяются по процессам в пуле через batch API
+     * Поддерживает ожидание освобождения воркеров в кластерном режиме
      * @param {Array<Object>} requests
      * @param {Object} [options]
      * @param {number} [options.timeoutMs]
      * @param {number} [options.maxConcurrency]
+     * @param {number} [options.maxWaitForWorkersMs] - Максимальное время ожидания освобождения воркеров (по умолчанию 500мс)
      * @returns {Promise<{results: Array, summary: Object}>}
      */
     async executeQueries(requests, options = {}) {
@@ -110,19 +191,34 @@ class QueryDispatcher {
         }
 
         const timeoutMs = this._resolveTimeout(options.timeoutMs);
+        const maxWaitForWorkersMs = typeof options.maxWaitForWorkersMs === 'number' && options.maxWaitForWorkersMs > 0
+            ? options.maxWaitForWorkersMs
+            : this.maxWaitForWorkersMs;
         
         // Убеждаемся, что пул инициализирован
         if (this.processPoolManager?._initializationPromise) {
             await this.processPoolManager._initializationPromise;
         }
         
-        // Получаем список свободных воркеров
-        const readyWorkers = this.processPoolManager?.getReadyWorkers() || [];
+        // Получаем список свободных воркеров с ожиданием освобождения
+        const requestedConcurrency = this._resolveConcurrency(options.maxConcurrency, requests.length);
+        let readyWorkers;
+        
+        try {
+            readyWorkers = await this._waitForReadyWorkers(
+                Math.min(requestedConcurrency, this.minWorkers),
+                maxWaitForWorkersMs,
+                this.checkIntervalMs
+            );
+        } catch (error) {
+            this.logger.warn(`QueryDispatcher: Не удалось получить готовых воркеров: ${error.message}`);
+            throw error;
+        }
+        
         if (readyWorkers.length === 0) {
             throw new Error('No ready workers available');
         }
         
-        const requestedConcurrency = this._resolveConcurrency(options.maxConcurrency, requests.length);
         const effectiveWorkerCount = Math.min(readyWorkers.length, requestedConcurrency);
         
         const preparedRequests = requests.map((request) => this._normalizeRequest(request));

@@ -80,9 +80,20 @@ const config = {
     
     // Количество воркеров в кластере
     workers: parseInt(process.env.CLUSTER_WORKERS) || require('os').cpus().length,
-    
-    // Число параллельных процессов для обработки запросов на агрегацию данных
-    parallelsRequestProcesses: parseInt(process.env.PARALLELS_REQUEST_PROCESSES) || 1,
+
+    // Настройки QueryDispatcher для управления пулом процессов запросов
+    queryDispatcher: {
+        // Число параллельных процессов для обработки запросов на агрегацию данных
+        workerCount: parseInt(process.env.QUERY_DISPATCHER_WORKER_COUNT) || 1,
+        // Минимальное количество готовых воркеров для выполнения запросов
+        minWorkers: parseInt(process.env.QUERY_DISPATCHER_MIN_WORKERS) || 2,
+        // Таймаут выполнения запроса по умолчанию (мс)
+        timeoutMs: parseInt(process.env.QUERY_DISPATCHER_TIMEOUT_MS) || 60000,
+        // Максимальное время ожидания освобождения воркеров (мс)
+        maxWaitForWorkersMs: parseInt(process.env.QUERY_DISPATCHER_MAX_WAIT_FOR_WORKERS_MS) || 500,
+        // Интервал проверки готовности воркеров (мс)
+        checkIntervalMs: parseInt(process.env.QUERY_DISPATCHER_CHECK_INTERVAL_MS) || 20,
+    },
 
     // Настройки фактов
     facts: {

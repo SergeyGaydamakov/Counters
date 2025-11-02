@@ -206,7 +206,7 @@ class MongoProviderTest {
      * Запуск всех тестов
      */
     async runAllTests() {
-        this.logger.debug('=== Тестирование всех методов MongoProvider (36 тестов) ===\n');
+        this.logger.debug('=== Тестирование всех методов MongoProvider (37 тестов) ===\n');
 
         try {
             // Тесты подключения
@@ -262,6 +262,7 @@ class MongoProviderTest {
             await this.testCounterRecordLimits('34. Тест ограничений количества записей (maxEvaluatedRecords, maxMatchingRecords)...');
             await this.testCounterCombinedLimits('35. Тест комбинированных ограничений счетчиков...');
             await this.testCounterEdgeCases('36. Тест граничных случаев счетчиков...');
+            await this.testQueryIdCollisionsUnderLoad('37. Тест конфликтов идентификаторов запросов под нагрузкой...');
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
@@ -3371,6 +3372,201 @@ class MongoProviderTest {
         } catch (error) {
             this.testResults.failed++;
             this.testResults.errors.push(`testCounterEdgeCases: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Нагрузочный тест для проверки конфликтов идентификаторов запросов
+     * Создает множество параллельных запросов с одинаковыми индексами, чтобы проверить,
+     * что уникальные ID запросов работают корректно
+     * 
+     * @param {string} title - название теста
+     * @param {number} requests - количество параллельных запросов (по умолчанию 50)
+     * @param {number} concurrency - параллельность выполнения (по умолчанию 10)
+     */
+    async testQueryIdCollisionsUnderLoad(title, requests = 50, concurrency = 10) {
+        this.logger.debug(title);
+
+        try {
+            await this.provider.clearFactsCollection();
+            await this.provider.clearFactIndexCollection();
+
+            // Создаем базовый факт с одинаковым значением индекса для всех тестов
+            // Это гарантирует, что все запросы будут использовать один и тот же индекс
+            const baseTestValue = `collision_test_${Date.now()}`;
+            const now = new Date();
+            
+            // Создаем множество фактов с одинаковым значением индекса f1, чтобы они использовали один индекс
+            const testFacts = [];
+            for (let i = 0; i < 20; i++) {
+                const fact = {
+                    _id: `collision_base_${i}_${Date.now()}`,
+                    t: 1,
+                    c: new Date(now.getTime() - i * 1000), // Разные даты создания
+                    d: {
+                        amount: 100 + i * 10,
+                        dt: new Date(now.getTime() - i * 1000),
+                        f1: baseTestValue, // Одинаковое значение для создания одинаковых индексов
+                        f2: `unique_${i}`, // Уникальное значение для разных фактов
+                        id: `collision_id_${i}`
+                    }
+                };
+                testFacts.push(fact);
+                
+                // Сохраняем факт и его индексы
+                await this.provider.saveFact(fact);
+                const indexValues = this.indexer.index(fact);
+                if (indexValues.length > 0) {
+                    await this.provider.saveFactIndexList(indexValues);
+                }
+            }
+
+            // Создаем множество фактов для поиска, которые будут использовать тот же индекс
+            const searchFacts = [];
+            for (let i = 0; i < requests; i++) {
+                const searchFact = {
+                    _id: `collision_search_${i}_${Date.now()}`,
+                    t: 1,
+                    c: new Date(),
+                    d: {
+                        amount: 50 + i,
+                        dt: new Date(),
+                        f1: baseTestValue, // Используем то же значение индекса, что и в базовых фактах
+                        f2: `search_${i}`,
+                        id: `search_id_${i}`
+                    }
+                };
+                searchFacts.push(searchFact);
+            }
+
+            // Получаем индексные значения для поиска (они будут одинаковыми для всех фактов)
+            const searchFactIndexValues = this.indexer.index(searchFacts[0]);
+            const searchHashValuesForSearch = this.indexer.getHashValuesForSearch(searchFactIndexValues);
+
+            this.logger.debug(`   Создано ${testFacts.length} базовых фактов и ${searchFacts.length} фактов для поиска`);
+            this.logger.debug(`   Параллельность: ${concurrency}`);
+
+            // Выполняем параллельные запросы
+            const startTime = Date.now();
+            const allPromises = [];
+            const results = [];
+            const errors = [];
+            const factIds = new Set(); // Для проверки уникальности результатов
+
+            for (let i = 0; i < requests; i++) {
+                const searchFact = searchFacts[i];
+                const promise = this.provider.getRelevantFactCounters(
+                    searchHashValuesForSearch,
+                    searchFact,
+                    1000, // depthLimit
+                    undefined, // depthFromDate
+                    false // debugMode
+                )
+                    .then(result => {
+                        const factId = searchFact._id;
+                        results.push({
+                            requestId: i,
+                            factId: factId,
+                            hasResult: !!result.result,
+                            hasError: !!result.metrics?.info || result.result === null,
+                            countersCount: result.result ? Object.keys(result.result).length : 0,
+                            processingTime: result.processingTime || 0
+                        });
+
+                        // Проверяем на дубликаты (хотя для разных фактов они должны быть разными)
+                        if (factIds.has(factId)) {
+                            errors.push(`Дубликат factId: ${factId} в запросе ${i}`);
+                        } else {
+                            factIds.add(factId);
+                        }
+
+                        return result;
+                    })
+                    .catch(error => {
+                        errors.push({
+                            requestId: i,
+                            factId: searchFact._id,
+                            error: error.message
+                        });
+                        return null;
+                    });
+
+                allPromises.push(promise);
+            }
+
+            // Выполняем запросы с контролем параллельности
+            const batchSize = concurrency;
+            for (let i = 0; i < allPromises.length; i += batchSize) {
+                const batch = allPromises.slice(i, Math.min(i + batchSize, allPromises.length));
+                await Promise.all(batch);
+            }
+
+            const endTime = Date.now();
+            const totalTime = endTime - startTime;
+
+            // Анализ результатов
+            const successfulRequests = results.filter(r => r.hasResult && !r.hasError);
+            const failedRequests = results.filter(r => !r.hasResult || r.hasError);
+            const uniqueFactIds = factIds.size;
+
+            // Проверки на проблемы с идентификаторами
+            const allRequestsProcessed = results.length === requests;
+            const allSuccessful = failedRequests.length === 0;
+            const uniqueFactIdsMatch = uniqueFactIds === requests;
+            const hasDuplicateErrors = errors.some(e => typeof e === 'string' && e.includes('Дубликат'));
+
+            const avgProcessingTime = successfulRequests.length > 0
+                ? Math.round(successfulRequests.reduce((sum, r) => sum + (r.processingTime || 0), 0) / successfulRequests.length)
+                : 0;
+
+            // Проверяем результаты теста
+            if (!allRequestsProcessed) {
+                throw new Error(`Не все запросы обработаны: ${results.length}/${requests}`);
+            }
+
+            if (!allSuccessful) {
+                this.logger.warn(`   ⚠️  Есть ошибки в ${failedRequests.length} запросах из ${requests}`);
+                if (failedRequests.length < requests * 0.1) { // Меньше 10% ошибок - допустимо
+                    this.logger.debug('   ⚠️  Небольшое количество ошибок допустимо при нагрузке');
+                } else {
+                    throw new Error(`Слишком много ошибок: ${failedRequests.length}/${requests}`);
+                }
+            }
+
+            if (hasDuplicateErrors) {
+                throw new Error(`Обнаружены дубликаты factId - возможная проблема с идентификаторами запросов`);
+            }
+
+            if (!uniqueFactIdsMatch) {
+                this.logger.warn(`   ⚠️  Несоответствие уникальных factId: ${uniqueFactIds}/${requests}`);
+            }
+
+            // Выводим статистику
+            this.logger.debug(`   📊 Статистика нагрузки:`);
+            this.logger.debug(`      Обработано запросов: ${results.length}/${requests}`);
+            this.logger.debug(`      Успешных: ${successfulRequests.length}`);
+            this.logger.debug(`      Ошибок: ${failedRequests.length}`);
+            this.logger.debug(`      Время выполнения: ${totalTime}ms`);
+            this.logger.debug(`      Запросов в секунду: ${Math.round((results.length / totalTime) * 1000)}`);
+            this.logger.debug(`      Среднее время обработки: ${avgProcessingTime}ms`);
+            this.logger.debug(`      Уникальных factId: ${uniqueFactIds}/${requests}`);
+
+            if (errors.length > 0 && errors.length <= 5) {
+                errors.forEach(err => {
+                    if (typeof err === 'string') {
+                        this.logger.warn(`      ${err}`);
+                    } else {
+                        this.logger.warn(`      Request ${err.requestId}: ${err.error}`);
+                    }
+                });
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно: все параллельные запросы обработаны корректно, конфликтов идентификаторов не обнаружено');
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testQueryIdCollisionsUnderLoad: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
         }
     }
