@@ -1908,116 +1908,104 @@ class MongoProvider {
         }
 
         const queryDispatcher = this._getQueryDispatcher();
+        const aggregateOptions = {
+            batchSize: config.database.batchSize,
+            readConcern: this._databaseOptions.readConcern,
+            readPreference: this._databaseOptions.aggregateReadPreference,
+            comment: "getRelevantFactCounters - aggregate",
+        };
 
         // Создаем массив промисов для параллельного выполнения запросов
         const startPrepareQueriesTime = Date.now();
-        const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeNameWithGroupNumber) => {
-            // const indexTypeName = indexTypeNameWithGroupNumber.split('#')[0];
-            // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
-            const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber].query;
-            const startQuery = Date.now();
-
-            const aggregateOptions = {
-                batchSize: config.database.batchSize,
-                readConcern: this._databaseOptions.readConcern,
-                readPreference: this._databaseOptions.aggregateReadPreference,
-                comment: "getRelevantFactCounters - aggregate",
-            };
-            // this.logger.info(`Агрегационный запрос на счетчики по фактам: ${JSON.stringify(indexNameQuery)}`);
-            const startCountersQueryTime = Date.now();
-            const countersQuerySize = debugMode ? JSON.stringify(indexNameQuery).length : undefined;
-            if (queryDispatcher) {
-                const executeWithDispatcher = async () => {
-                    if (!queryDispatcher || this._queryDispatcherDisabled) {
-                        return null;
-                    }
-    
-                    try {
-                        if (this._debugMode) {
-                            this.logger.debug(`Агрегационный запрос для индекса ${indexTypeNameWithGroupNumber}: ${JSON.stringify(indexNameQuery)}`);
-                        }
-    
-                        const dispatcherResponse = await queryDispatcher.executeQuery({
-                            query: indexNameQuery,
-                            collectionName: this.FACT_INDEX_COLLECTION_NAME,
-                            options: aggregateOptions,
-                        });
-    
-                        const dispatcherMetrics = dispatcherResponse?.metrics || {};
-                        const dispatcherError = dispatcherResponse?.error;
-                        const countersQueryTime = dispatcherMetrics.queryTime ?? (Date.now() - startCountersQueryTime);
-                        const responseQuerySize = dispatcherMetrics.querySize && dispatcherMetrics.querySize > 0 ? dispatcherMetrics.querySize : countersQuerySize;
-    
-                        if (dispatcherError) {
-                            const errorMessage = dispatcherError.message || 'Unknown error';
-                            this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
-                            this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
-                            this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
-                            this._queryDispatcher = null;
-                            this._queryDispatcherDisabled = true;
-    
-                            return {
-                                indexTypeName: indexTypeNameWithGroupNumber,
-                                counters: null,
-                                error: errorMessage,
-                                processingTime: Date.now() - startQuery,
-                                metrics: {
-                                    countersQueryTime,
-                                    countersQueryCount: 1,
-                                    countersQuerySize: responseQuerySize,
-                                    countersSize: dispatcherMetrics.resultSize ?? 0,
-                                    dispatcherMetrics,
-                                },
-                                debug: {
-                                    countersQuery: indexNameQuery,
-                                }
-                            };
-                        }
-    
-                        const countersResultArray = Array.isArray(dispatcherResponse?.result) ? dispatcherResponse.result : [];
-                        const countersSize = debugMode ? JSON.stringify(countersResultArray[0] ?? null).length : (dispatcherMetrics.resultSize ?? undefined);
-    
-                        return {
-                            indexTypeName: indexTypeNameWithGroupNumber,
-                            counters: countersResultArray[0],
-                            processingTime: Date.now() - startQuery,
-                            metrics: {
-                                countersQuerySize: responseQuerySize,
-                                countersQueryTime,
-                                countersQueryCount: 1,
-                                countersSize: dispatcherMetrics.resultSize ?? countersSize,
-                                dispatcherMetrics,
-                            },
-                            debug: {
-                                countersQuery: indexNameQuery,
-                            }
-                        };
-                    } catch (error) {
-                        this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber} через QueryDispatcher: ${error.message}`);
-                        this._writeToLogFile(`Ошибка QueryDispatcher для индекса ${indexTypeNameWithGroupNumber}: ${error.message}`);
-                        this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
-                        this._queryDispatcher = null;
-                        this._queryDispatcherDisabled = true;
-                        return {
-                            indexTypeName: indexTypeNameWithGroupNumber,
-                            counters: null,
-                            error: error.message,
-                            processingTime: Date.now() - startQuery,
-                            metrics: {
-                                countersQueryTime: Date.now() - startCountersQueryTime,
-                                countersQueryCount: 1,
-                                countersQuerySize: countersQuerySize,
-                                countersSize: 0,
-                            },
-                            debug: {
-                                countersQuery: indexNameQuery,
-                            }
-                        };
+        const startQueriesTime = Date.now();
+        let queryResults;
+        
+        if (queryDispatcher) {
+            // Подготовка массива запросов для выполнения через QueryDispatcher
+            const preparedQueries = Object.keys(queriesByIndexName).map(indexTypeNameWithGroupNumber => {
+                const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber].query;
+                return {
+                    id: indexTypeNameWithGroupNumber,
+                    query: indexNameQuery,
+                    collectionName: this.FACT_INDEX_COLLECTION_NAME,
+                    options: aggregateOptions,
+                };
+            });
+            
+            // Выполняем запросы через QueryDispatcher
+            const queryDispatcherResults = await queryDispatcher.executeQueries(preparedQueries);
+            
+            // Преобразуем результаты QueryDispatcher в формат, совместимый с локальным кодом
+            queryResults = queryDispatcherResults.results.map((dispatcherResult) => {
+                const indexTypeNameWithGroupNumber = dispatcherResult.id;
+                const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber].query;
+                const startQuery = startQueriesTime; // Используем общее время начала запросов
+                const countersQuerySize = debugMode ? JSON.stringify(indexNameQuery).length : undefined;
+                
+                // Определяем результат: если result - массив, берем первый элемент, иначе null
+                // В локальном коде используется countersResult[0], где countersResult - результат .toArray()
+                let counters = null;
+                if (dispatcherResult.result && Array.isArray(dispatcherResult.result) && dispatcherResult.result.length > 0) {
+                    counters = dispatcherResult.result[0];
+                } else if (dispatcherResult.result && !Array.isArray(dispatcherResult.result)) {
+                    counters = dispatcherResult.result;
+                }
+                
+                const countersQueryTime = dispatcherResult.metrics?.queryTime || 0;
+                
+                // Определяем сообщение об ошибке для возврата (совместимо с локальным кодом)
+                let errorMessage = undefined;
+                if (dispatcherResult.error) {
+                    errorMessage = dispatcherResult.error instanceof Error 
+                        ? dispatcherResult.error.message 
+                        : (dispatcherResult.error.message || dispatcherResult.error);
+                }
+                
+                // Вычисляем countersSize так же, как в локальном коде: 
+                // - при ошибке: 0 (как в локальном коде в блоке catch)
+                // - при успехе: длина JSON если debugMode включен, иначе undefined (как в локальном коде в блоке try)
+                let countersSize;
+                if (dispatcherResult.error) {
+                    countersSize = 0; // При ошибке всегда 0, как в локальном коде
+                } else {
+                    countersSize = debugMode ? JSON.stringify(counters ?? null).length : undefined;
+                }
+                
+                // Логируем ошибки, если они есть
+                if (dispatcherResult.error) {
+                    this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
+                    this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
+                    this._writeToLogFile(JSON.stringify(indexNameQuery, null, 2));
+                }
+                
+                return {
+                    indexTypeName: indexTypeNameWithGroupNumber,
+                    counters: counters,
+                    error: errorMessage,
+                    processingTime: countersQueryTime,
+                    metrics: {
+                        countersQuerySize: countersQuerySize ?? (dispatcherResult.metrics?.querySize || 0),
+                        countersQueryTime: countersQueryTime,
+                        countersQueryCount: 1,
+                        countersSize: countersSize,
+                    },
+                    debug: {
+                        countersQuery: indexNameQuery,
                     }
                 };
-    
-                return await executeWithDispatcher();
-            } else {
+            });
+            // this.logger.debug(`✓ *** Получены счетчики: ${JSON.stringify(queryResults)} `);
+        } else {
+
+            const queryPromises = Object.keys(queriesByIndexName).map(async (indexTypeNameWithGroupNumber) => {
+                // const indexTypeName = indexTypeNameWithGroupNumber.split('#')[0];
+                // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
+                const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber].query;
+                const startQuery = Date.now();
+
+                // this.logger.info(`Агрегационный запрос на счетчики по фактам: ${JSON.stringify(indexNameQuery)}`);
+                const startCountersQueryTime = Date.now();
+                const countersQuerySize = debugMode ? JSON.stringify(indexNameQuery).length : undefined;
 
                 // Fallback на локальное выполнение, если QueryDispatcher недоступен
                 const factIndexCollection = this._getFactIndexAggregateCollection();
@@ -2030,6 +2018,7 @@ class MongoProvider {
                     return {
                         indexTypeName: indexTypeNameWithGroupNumber,
                         counters: countersResult[0],
+                        error: undefined,
                         processingTime: Date.now() - startQuery,
                         metrics: {
                             countersQuerySize: countersQuerySize,
@@ -2061,12 +2050,11 @@ class MongoProvider {
                         }
                     };
                 }
-            }
-        });
+            });
 
-        // Ждем выполнения всех запросов
-        const startQueriesTime = Date.now();
-        const queryResults = await Promise.all(queryPromises);
+            // Ждем выполнения всех запросов
+            queryResults = await Promise.all(queryPromises);
+        }
         const stopQueriesTime = Date.now();
 
         // Объединяем результаты в один JSON объект
