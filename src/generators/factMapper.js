@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const Logger = require('../utils/logger');
 const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG, ERROR_WRONG_KEY_TYPE } = require('../common/errors');
+const FieldNameMapper = require('./fieldNameMapper');
 
 /**
  * Формат файла fieldConfigs.json
@@ -31,13 +32,15 @@ const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSI
 class FactMapper {
     HASH_ALGORITHM = 'sha1';    // Алгоритм хеширования
 
-    constructor(configPathOrMapArray = null) {
+    constructor(configPathOrMapArray = null, useShortNames = false) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this._mappingConfig = [];
         this._mappingRulesCache = new Map(); // Кеш для правил маппинга по типам сообщений
+        this._useShortNames = useShortNames;
         
         if (!configPathOrMapArray) {
             this.logger.info('Конфигурация не задана. Маппинг не будет производиться.');
+            this.fieldNameMapper = new FieldNameMapper([], useShortNames);
             return;
         }
         // Определяем способ инициализации
@@ -52,7 +55,14 @@ class FactMapper {
             this._mappingConfig = this._loadConfig(configPath);
         } else {
             this.logger.info('Конфигурация не задана. Маппинг не будет производиться.');
+            this.fieldNameMapper = new FieldNameMapper([], useShortNames);
             return;
+        }
+        
+        // Инициализируем FieldNameMapper после загрузки конфигурации
+        this.fieldNameMapper = new FieldNameMapper(this._mappingConfig, useShortNames);
+        if (useShortNames) {
+            this.logger.info('Используются короткие имена полей (shortDst)');
         }
     }
 
@@ -127,6 +137,9 @@ class FactMapper {
         
         // Проверяем конфликтующие dst поля только при пересечении message_types
         const conflictingDstFields = [];
+        
+        // Проверяем конфликтующие shortDst поля только при пересечении message_types
+        const conflictingShortDstFields = [];
 
         for (let i = 0; i < mappingConfig.length; i++) {
             const rule = mappingConfig[i];
@@ -187,6 +200,22 @@ class FactMapper {
                             commonTypes: rule1.message_types.filter(type => rule2.message_types.includes(type))
                         });
                     }
+                    
+                    // Проверяем конфликтующие shortDst поля (разные dst маппятся на одно shortDst)
+                    if (rule1.shortDst && rule2.shortDst && 
+                        rule1.shortDst === rule2.shortDst && 
+                        rule1.dst !== rule2.dst) {
+                        conflictingShortDstFields.push({
+                            shortDst: rule1.shortDst,
+                            dst1: rule1.dst,
+                            dst2: rule2.dst,
+                            src1: rule1.src,
+                            src2: rule2.src,
+                            index1: i,
+                            index2: j,
+                            commonTypes: rule1.message_types.filter(type => rule2.message_types.includes(type))
+                        });
+                    }
                 }
             }
         }
@@ -205,6 +234,14 @@ class FactMapper {
                 `поле ${conflict.dst}: ${conflict.src1} (правило ${conflict.index1}) и ${conflict.src2} (правило ${conflict.index2}) (пересекающиеся типы: [${conflict.commonTypes.join(', ')}])`
             ).join(', ');
             throw new Error(`Найдены конфликтующие dst поля при пересечении message_types: ${conflictsInfo}. Разные src поля не могут маппиться на одно dst поле для пересекающихся типов сообщений.`);
+        }
+        
+        // Если найдены конфликтующие shortDst поля, выбрасываем ошибку
+        if (conflictingShortDstFields.length > 0) {
+            const conflictsInfo = conflictingShortDstFields.map(conflict => 
+                `поле ${conflict.shortDst}: ${conflict.dst1}->${conflict.src1} (правило ${conflict.index1}) и ${conflict.dst2}->${conflict.src2} (правило ${conflict.index2}) (пересекающиеся типы: [${conflict.commonTypes.join(', ')}])`
+            ).join(', ');
+            throw new Error(`Найдены конфликтующие shortDst поля при пересечении message_types: ${conflictsInfo}. Разные dst поля не могут маппиться на одно shortDst поле для пересекающихся типов сообщений.`);
         }
 
         this.logger.info(`Конфигурация маппинга полей валидна. Количество правил маппинга полей: ${mappingConfig.length}`);
@@ -405,10 +442,13 @@ class FactMapper {
                 // Конвертируем значение в целевой тип
                 const convertedValue = this._convertValueToType(sourceValue, targetType, rule.src, rule.dst);
                 
-                // Сохраняем конвертированное значение в целевое поле
-                factData[rule.dst] = convertedValue;
+                // Получаем имя целевого поля с учетом настройки useShortNames
+                const targetFieldName = this.fieldNameMapper ? this.fieldNameMapper.getFieldName(rule.dst) : rule.dst;
                 
-                this.logger.debug(`Применено правило маппинга: ${rule.src} -> ${rule.dst} (${typeof sourceValue} -> ${targetType}) для типа ${messageType}`);
+                // Сохраняем конвертированное значение в целевое поле
+                factData[targetFieldName] = convertedValue;
+                
+                this.logger.debug(`Применено правило маппинга: ${rule.src} -> ${targetFieldName} (${typeof sourceValue} -> ${targetType}) для типа ${messageType}`);
             } else {
                 this.logger.debug(`Исходное поле '${rule.src}' не найдено в факте для типа ${messageType}`);
             }

@@ -123,7 +123,7 @@ async function main(){
     }
     try {
         let factCount = 0;
-        const mongoCounters = new CounterProducer(config.facts.counterConfigPath);
+        const mongoCounters = new CounterProducer(config.facts.counterConfigPath, config.facts.useShortNames, config.facts.fieldConfigPath);
         // Создаем провайдер данных
         mongoProvider = new MongoProvider(config.database.connectionString, config.database.databaseName, config.database.options, mongoCounters, config.facts.includeFactDataToIndex, config.facts.lookupFacts, config.facts.indexBulkUpdate);
         await mongoProvider.connect();

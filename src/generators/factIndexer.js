@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const Logger = require('../utils/logger');
 const ConditionEvaluator = require('../common/conditionEvaluator');
+const FieldNameMapper = require('./fieldNameMapper');
 
 /**
  * Формат файла indexConfig.json
@@ -32,19 +33,25 @@ class FactIndexer {
     INDEX_VALUE_VALUE = 2;      // Значение индекса является само значением поля индекса
     HASH_ALGORITHM = 'sha1';    // Алгоритм хеширования
 
-    constructor(configPathOrMapArray = null, includeFactData = false) {
+    constructor(configPathOrMapArray = null, includeFactData = false, useShortNames = false, messageConfig = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.includeFactData = includeFactData; // Включать данные факта в индексное значение
         this._conditionEvaluator = new ConditionEvaluator(this.logger);
+        this._useShortNames = useShortNames;
+        
+        // Инициализируем FieldNameMapper
+        this.fieldNameMapper = new FieldNameMapper(messageConfig, useShortNames);
         
         try {
             if (Array.isArray(configPathOrMapArray)) {
                 this._validateConfig(configPathOrMapArray);
-                this._indexConfig = configPathOrMapArray;
+                this._indexConfig = this._transformIndexConfig(configPathOrMapArray);
             } else if (typeof configPathOrMapArray === 'string') {
-                this._indexConfig = this._loadConfig(configPathOrMapArray);
+                const loadedConfig = this._loadConfig(configPathOrMapArray);
+                this._indexConfig = this._transformIndexConfig(loadedConfig);
             } else {
                 this.logger.info('Конфигурация не задана. Индексирование не будет производиться.');
+                this._indexConfig = [];
                 return;
             }
         } catch (error) {
@@ -54,8 +61,12 @@ class FactIndexer {
         // Выводим информацию о загруженной конфигурации
         if (this._indexConfig && this._indexConfig.length > 0) {
             this.logger.info(`Загружена конфигурация индексов: ${this._indexConfig.length} элементов`);
+            if (useShortNames) {
+                this.logger.info('Используются короткие имена полей (shortDst)');
+            }
             this._indexConfig.forEach((config, index) => {
-                this.logger.info(`  ${index + 1}. ${config.fieldName} -> ${config.indexTypeName} (тип: ${config.indexType}, значение: ${config.indexValue})`);
+                const fieldNameDisplay = Array.isArray(config.fieldName) ? config.fieldName.join(', ') : config.fieldName;
+                this.logger.info(`  ${index + 1}. ${fieldNameDisplay} -> ${config.indexTypeName} (тип: ${config.indexType}, значение: ${config.indexValue})`);
             });
         }
     }
@@ -85,6 +96,41 @@ class FactIndexer {
         }
     }
 
+    /**
+     * Преобразует конфигурацию индексов с учетом настройки useShortNames
+     * @param {Array} indexConfig - Конфигурация индексов
+     * @returns {Array} Преобразованная конфигурация
+     * @private
+     */
+    _transformIndexConfig(indexConfig) {
+        if (!this._useShortNames || !this.fieldNameMapper) {
+            return indexConfig;
+        }
+        
+        return indexConfig.map(configItem => {
+            const transformed = { ...configItem };
+            
+            // Преобразуем fieldName (может быть строка или массив)
+            if (Array.isArray(configItem.fieldName)) {
+                transformed.fieldName = configItem.fieldName.map(fn => this.fieldNameMapper.getFieldName(fn));
+            } else if (typeof configItem.fieldName === 'string') {
+                transformed.fieldName = this.fieldNameMapper.getFieldName(configItem.fieldName);
+            }
+            
+            // Преобразуем dateName
+            if (typeof configItem.dateName === 'string') {
+                transformed.dateName = this.fieldNameMapper.getFieldName(configItem.dateName);
+            }
+            
+            // Преобразуем computationConditions
+            if (configItem.computationConditions && typeof configItem.computationConditions === 'object') {
+                transformed.computationConditions = this.fieldNameMapper.transformCondition(configItem.computationConditions);
+            }
+            
+            return transformed;
+        });
+    }
+    
     /**
      * Валидирует структуру загруженной конфигурации
      * @throws {Error} если конфигурация имеет неверный формат

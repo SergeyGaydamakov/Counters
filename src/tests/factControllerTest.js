@@ -11,6 +11,7 @@ class FactControllerTest {
         {
             "src": "dt",
             "dst": "dt",
+            "shortDst": "dt",
             "message_types": [1, 2, 3],
             "generator": {
                 "type": "date",
@@ -21,6 +22,7 @@ class FactControllerTest {
         {
             "src": "a",
             "dst": "a",
+            "shortDst": "a",
             "message_types": [1, 2, 3],
             "generator": {
                 "type": "integer",
@@ -33,6 +35,7 @@ class FactControllerTest {
         {
             "src": "f1",
             "dst": "f1",
+            "shortDst": "f1",
             "message_types": [1, 2, 3],
             "generator": {
                 "type": "string",
@@ -46,6 +49,7 @@ class FactControllerTest {
         {
             "src": "f2",
             "dst": "f2",
+            "shortDst": "f2",
             "message_types": [1, 3],
             "generator": {
                 "type": "string",
@@ -58,6 +62,7 @@ class FactControllerTest {
         {
             "src": "f3",
             "dst": "f3",
+            "shortDst": "f3",
             "message_types": [2, 3],
             "generator": {
                 "type": "string",

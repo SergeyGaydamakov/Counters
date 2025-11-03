@@ -2,6 +2,7 @@
   {
     "src": "id",
     "dst": "id",
+    "shortDst": "short_id",
     "message_types": [
       1,
       2,
@@ -22,6 +23,7 @@
   {
     "src": "id2",
     "dst": "id2",
+    "shortDst": "short_id2",
     "message_types": [
       1,
       2,
@@ -44,6 +46,7 @@
   {
     "src": "amount",
     "dst": "a",
+    "shortDst": "short_a",
     "message_types": [
       1,
       2,
@@ -67,6 +70,7 @@
   {
     "src": "count",
     "dst": "cnt",
+    "shortDst": "short_cnt",
     "message_types": [
       1,
       2,
@@ -90,6 +94,7 @@
   {
     "src": "dt",
     "dst": "dt",
+    "shortDst": "short_dt",
     "message_types": [
       1,
       2,
@@ -111,6 +116,7 @@
   {
     "src": "f1",
     "dst": "f1",
+    "shortDst": "short_f1",
     "message_types": [
       1,
       2,
@@ -134,6 +140,7 @@
   {
     "src": "f1",
     "dst": "f1_copy",
+    "shortDst": "short_f1_copy",
     "message_types": [
       1,
       2,
@@ -150,6 +157,7 @@
   {
     "src": "f2",
     "dst": "f2",
+    "shortDst": "short_f2",
     "message_types": [
       1,
       2,
@@ -182,6 +190,7 @@
   {
     "src": "f3",
     "dst": "f3",
+    "shortDst": "short_f3",
     "message_types": [
       1,
       2,
@@ -213,6 +222,7 @@
   {
     "src": "f4",
     "dst": "f4",
+    "shortDst": "short_f4",
     "message_types": [
       1,
       2,
@@ -234,6 +244,7 @@
   {
     "src": "f5",
     "dst": "f5",
+    "shortDst": "short_f5",
     "message_types": [
       2,
       5,
@@ -253,6 +264,7 @@
   {
     "src": "f6",
     "dst": "f6",
+    "shortDst": "short_f6",
     "message_types": [
       2,
       6,
@@ -271,6 +283,7 @@
   {
     "src": "f7",
     "dst": "f7",
+    "shortDst": "short_f7",
     "message_types": [
       1,
       3,
@@ -289,6 +302,7 @@
   {
     "src": "f8",
     "dst": "f8",
+    "shortDst": "short_f8",
     "message_types": [
       4,
       5,
@@ -308,6 +322,7 @@
   {
     "src": "f9",
     "dst": "f9",
+    "shortDst": "short_f9",
     "message_types": [
       3,
       4,
@@ -325,6 +340,7 @@
   {
     "src": "f10",
     "dst": "f10",
+    "shortDst": "short_f10",
     "message_types": [
       1,
       3,
@@ -343,6 +359,7 @@
   {
     "src": "f11",
     "dst": "f11",
+    "shortDst": "short_f11",
     "message_types": [
       5,
       7
@@ -358,6 +375,7 @@
   {
     "src": "f12",
     "dst": "f12",
+    "shortDst": "short_f12",
     "message_types": [
       2,
       4,
@@ -374,6 +392,7 @@
   {
     "src": "f13",
     "dst": "f13",
+    "shortDst": "short_f13",
     "message_types": [
       3,
       4,
@@ -391,6 +410,7 @@
   {
     "src": "f14",
     "dst": "f14",
+    "shortDst": "short_f14",
     "message_types": [
       1,
       3,
@@ -408,6 +428,7 @@
   {
     "src": "f15",
     "dst": "f15",
+    "shortDst": "short_f15",
     "message_types": [
       1,
       3
@@ -423,6 +444,7 @@
   {
     "src": "f16",
     "dst": "f16",
+    "shortDst": "short_f16",
     "message_types": [
       3,
       4,
@@ -440,6 +462,7 @@
   {
     "src": "f17",
     "dst": "f17",
+    "shortDst": "short_f17",
     "message_types": [
       1,
       3,
@@ -457,6 +480,7 @@
   {
     "src": "f18",
     "dst": "f18",
+    "shortDst": "short_f18",
     "message_types": [
       6
     ],
@@ -471,6 +495,7 @@
   {
     "src": "f19",
     "dst": "f19",
+    "shortDst": "short_f19",
     "message_types": [
       4,
       9
@@ -486,6 +511,7 @@
   {
     "src": "f20",
     "dst": "f20",
+    "shortDst": "short_f20",
     "message_types": [
       2
     ],
@@ -500,6 +526,7 @@
   {
     "src": "f21",
     "dst": "f21",
+    "shortDst": "short_f21",
     "message_types": [
       2,
       8,
@@ -516,6 +543,7 @@
   {
     "src": "f22",
     "dst": "f22",
+    "shortDst": "short_f22",
     "message_types": [
       2,
       6
@@ -531,6 +559,7 @@
   {
     "src": "f23",
     "dst": "f23",
+    "shortDst": "short_f23",
     "message_types": [
       1,
       9

@@ -2,6 +2,7 @@ const MessageGenerator = require('../generators/messageGenerator');
 const FactIndexer = require('../generators/factIndexer');
 const FactMapper = require('../generators/factMapper');
 const Logger = require('../utils/logger');
+const config = require('../common/config');
 
 /**
  * Класс-контроллер для управления фактами и их индексными значениями
@@ -31,12 +32,15 @@ class FactController {
 
         this.dbProvider = dbProvider;
         this.messageGenerator = new MessageGenerator(fieldConfigPathOrObject, targetSize);
-        this.factIndexer = new FactIndexer(indexConfigPathOrObject, includeFactDataToIndex);
-        this.factMapper = new FactMapper(fieldConfigPathOrObject);
+        
+        // Передаем useShortNames и messageConfig в конструкторы
+        const useShortNames = config.facts.useShortNames;
+        this.factIndexer = new FactIndexer(indexConfigPathOrObject, includeFactDataToIndex, useShortNames, fieldConfigPathOrObject);
+        this.factMapper = new FactMapper(fieldConfigPathOrObject, useShortNames);
 
         // Значения хеша
-        this.factIndexer._indexConfig.forEach(config => {
-            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${config.indexType} -> ${this.factIndexer._hashBase64(config.indexType, '1234567890')}`);
+        this.factIndexer._indexConfig.forEach(indexConfig => {
+            this.logger.info(`* Значение хеша для значения 1234567890 в индексе ${indexConfig.indexType} -> ${this.factIndexer._hashBase64(indexConfig.indexType, '1234567890')}`);
         });
     }
 

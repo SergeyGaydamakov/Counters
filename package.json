@@ -7,6 +7,7 @@
     "test:logger": "set LOG_LEVEL=DEBUG && node src/tests/loggerTest.js",
     "test:generator": "set LOG_LEVEL=DEBUG && node src/tests/messageGeneratorTest.js",
     "test:mapper": "set LOG_LEVEL=DEBUG && node src/tests/factMapperTest.js",
+    "test:short-name": "set LOG_LEVEL=DEBUG && node src/tests/fieldNameMapperTest.js",
     "test:indexer": "set LOG_LEVEL=DEBUG && node src/tests/factIndexerTest.js",
     "test:computation": "set LOG_LEVEL=DEBUG && node src/tests/computationConditionsTest.js",
     "test:counters": "set LOG_LEVEL=DEBUG && node src/tests/counterProducerTest.js",

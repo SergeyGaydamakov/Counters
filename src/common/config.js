@@ -100,6 +100,7 @@ const config = {
         fieldConfigPath: process.env.MESSAGE_CONFIG_PATH || null,
         indexConfigPath: process.env.INDEX_CONFIG_PATH || null,
         counterConfigPath: process.env.COUNTER_CONFIG_PATH || null,
+        useShortNames: process.env.USE_SHORT_NAMES === 'true',
         targetSize: parseInt(process.env.FACT_TARGET_SIZE) || 500,
         includeFactDataToIndex: process.env.INCLUDE_FACT_DATA_TO_INDEX === 'true',
         lookupFacts: process.env.LOOKUP_FACTS === 'true',

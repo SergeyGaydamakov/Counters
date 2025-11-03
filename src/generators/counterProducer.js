@@ -2,6 +2,7 @@ const fs = require('fs');
 const Logger = require('../utils/logger');
 const config = require('../common/config');
 const ConditionEvaluator = require('../common/conditionEvaluator');
+const FieldNameMapper = require('./fieldNameMapper');
 
 /**
  * Класс для создания счетчиков на основе конфигурации и фактов
@@ -43,7 +44,7 @@ const ConditionEvaluator = require('../common/conditionEvaluator');
  * @property {Object} attributes - Атрибуты счетчика (агрегированные значения)
  */
 class CounterProducer {
-    constructor(configPathOrConfigArray = null) {
+    constructor(configPathOrConfigArray = null, useShortNames = false, messageConfig = null) {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this._debugMode= config.logging.debugMode;
         this._undefinedFieldIsTrue = config.undefinedFieldIsTrue;
@@ -51,6 +52,10 @@ class CounterProducer {
         this._counterConfigByType = {};
         this._EvaluationConditionsByType = {};
         this._conditionEvaluator = new ConditionEvaluator(this.logger, this._debugMode);
+        this._useShortNames = useShortNames;
+        
+        // Инициализируем FieldNameMapper
+        this.fieldNameMapper = new FieldNameMapper(messageConfig, useShortNames);
         
         if (!configPathOrConfigArray) {
             this.logger.warn('Конфигурация счетчиков не задана. Счетчики не будут создаваться.');
@@ -60,17 +65,56 @@ class CounterProducer {
         // Определяем способ инициализации
         if (Array.isArray(configPathOrConfigArray)) {
             // Инициализация через массив конфигурации
-            this._counterConfig = this._validateConfig(configPathOrConfigArray);
+            const validatedConfig = this._validateConfig(configPathOrConfigArray);
+            this._counterConfig = this._transformCounterConfig(validatedConfig);
             this.logger.info(`Конфигурация счетчиков инициализирована объектом. Количество счетчиков: ${this._counterConfig.length}`);
         } else if (typeof configPathOrConfigArray === 'string') {
             // Инициализация через путь к файлу
-            this._counterConfig = this._loadConfig(configPathOrConfigArray);
+            const loadedConfig = this._loadConfig(configPathOrConfigArray);
+            this._counterConfig = this._transformCounterConfig(loadedConfig);
         } else {
             this.logger.warn('Конфигурация счетчиков не задана. Счетчики будут создаваться по умолчанию.');
             return;
         }
+        
+        if (useShortNames) {
+            this.logger.info('Используются короткие имена полей (shortDst) для счетчиков');
+        }
     }
 
+    /**
+     * Преобразует конфигурацию счетчиков с учетом настройки useShortNames
+     * @param {Array} counterConfig - Конфигурация счетчиков
+     * @returns {Array} Преобразованная конфигурация
+     * @private
+     */
+    _transformCounterConfig(counterConfig) {
+        if (!this._useShortNames || !this.fieldNameMapper) {
+            return counterConfig;
+        }
+        
+        return counterConfig.map(counter => {
+            const transformed = { ...counter };
+            
+            // Преобразуем computationConditions
+            if (counter.computationConditions && typeof counter.computationConditions === 'object') {
+                transformed.computationConditions = this.fieldNameMapper.transformCondition(counter.computationConditions);
+            }
+            
+            // Преобразуем evaluationConditions
+            if (counter.evaluationConditions && typeof counter.evaluationConditions === 'object') {
+                transformed.evaluationConditions = this.fieldNameMapper.transformCondition(counter.evaluationConditions);
+            }
+            
+            // Преобразуем attributes
+            if (counter.attributes && typeof counter.attributes === 'object') {
+                transformed.attributes = this.fieldNameMapper.transformAttributes(counter.attributes);
+            }
+            
+            return transformed;
+        });
+    }
+    
     /**
      * Загружает конфигурацию счетчиков из файла
      * @param {string} configPath - Путь к файлу конфигурации

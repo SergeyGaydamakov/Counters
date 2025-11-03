@@ -150,7 +150,7 @@ async function initialize() {
 
         // Создаем экземпляр счетчиков для этого Worker'а
         logger.info(`🔧 Создаю экземпляр счетчиков...`);
-        mongoCounters = new CounterProducer(config.facts.counterConfigPath);
+        mongoCounters = new CounterProducer(config.facts.counterConfigPath, config.facts.useShortNames, config.facts.fieldConfigPath);
         
         // Создаем собственный экземпляр провайдера данных для этого Worker'а
         // Это обеспечивает полную изоляцию между Worker'ами
