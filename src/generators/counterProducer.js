@@ -255,15 +255,17 @@ class CounterProducer {
                     return;
                 }
                 // Проверяем только одно условие на MessageTypeId
-                const messageTypeIdValue = counter.computationConditions ? (counter.computationConditions["d.MessageTypeId"] || counter.computationConditions["t"]) : null;
-                const condition = { "d.MessageTypeId": messageTypeIdValue };
+                const messageTypeIdFieldName = this.fieldNameMapper.getFieldName("MessageTypeID");
+                const messageTypeIdValue = counter.computationConditions ? (counter.computationConditions["d."+messageTypeIdFieldName] || counter.computationConditions["t"]) : null;
+                const condition = {};
+                condition["d."+messageTypeIdFieldName] = messageTypeIdValue;
                 // Создаем временный факт с указанным типом для проверки условия
                 const fact = {
                     "d": {
-                        "MessageTypeId": type,
                         "t": type
                     }
                 };
+                fact.d[messageTypeIdFieldName] = type;
                 if (!messageTypeIdValue || this._conditionEvaluator.matchesCondition(fact, condition)) {
                     this._counterConfigByType[type].push(counter);
                 }
@@ -298,15 +300,17 @@ class CounterProducer {
                     return;
                 }
                 // Проверяем только одно условие на MessageTypeId
-                const messageTypeIdValue = counter.evaluationConditions ? (counter.evaluationConditions["d.MessageTypeId"] || counter.evaluationConditions["t"]) : null;
-                const condition = { "d.MessageTypeId": messageTypeIdValue };
+                const messageTypeIdFieldName = this.fieldNameMapper.getFieldName("MessageTypeID");
+                const messageTypeIdValue = counter.evaluationConditions ? (counter.evaluationConditions["d."+messageTypeIdFieldName] || counter.evaluationConditions["t"]) : null;
+                const condition = {};
+                condition["d."+messageTypeIdFieldName] = messageTypeIdValue;
                 // Создаем временный факт с указанным типом для проверки условия
                 const fact = {
                     "d": {
-                        "MessageTypeId": type,
                         "t": type
                     }
                 };
+                fact.d[messageTypeIdFieldName] = type;
                 if (!messageTypeIdValue || this._conditionEvaluator.matchesCondition(fact, condition)) {
                     this._EvaluationConditionsByType[type].push(counter);
                 }
