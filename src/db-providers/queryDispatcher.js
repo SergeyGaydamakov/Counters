@@ -187,7 +187,7 @@ class QueryDispatcher {
         }
 
         if (requests.length === 0) {
-            return { results: [], summary: this._buildSummary([]) };
+            return { results: [], summary: this._buildSummary([], {}) };
         }
 
         const timeoutMs = this._resolveTimeout(options.timeoutMs);
@@ -195,14 +195,17 @@ class QueryDispatcher {
             ? options.maxWaitForWorkersMs
             : this.maxWaitForWorkersMs;
         
-        // Убеждаемся, что пул инициализирован
+        // Измеряем время инициализации пула
+        const poolInitStartTime = Date.now();
         if (this.processPoolManager?._initializationPromise) {
             await this.processPoolManager._initializationPromise;
         }
+        const poolInitTime = Date.now() - poolInitStartTime;
         
         // Получаем список свободных воркеров с ожиданием освобождения
         const requestedConcurrency = this._resolveConcurrency(options.maxConcurrency, requests.length);
         let readyWorkers;
+        const waitStartTime = Date.now();
         
         try {
             readyWorkers = await this._waitForReadyWorkers(
@@ -215,12 +218,16 @@ class QueryDispatcher {
             throw error;
         }
         
+        const waitTime = Date.now() - waitStartTime;
+        
         if (readyWorkers.length === 0) {
             throw new Error('No ready workers available');
         }
         
         const effectiveWorkerCount = Math.min(readyWorkers.length, requestedConcurrency);
         
+        // Измеряем время подготовки батчей
+        const batchPreparationStartTime = Date.now();
         const preparedRequests = requests.map((request) => this._normalizeRequest(request));
         
         // Разделяем запросы на батчи для распределения по свободным воркерам
@@ -230,6 +237,7 @@ class QueryDispatcher {
         for (let i = 0; i < preparedRequests.length; i += requestsPerBatch) {
             batches.push(preparedRequests.slice(i, i + requestsPerBatch));
         }
+        const batchPreparationTime = Date.now() - batchPreparationStartTime;
 
         // Параллельная отправка батчей напрямую в свободные воркеры
         const batchPromises = batches.map(async (batch, batchIndex) => {
@@ -245,7 +253,8 @@ class QueryDispatcher {
                     metrics: {
                         queryTime: 0,
                         querySize: estimateSize(prepared.query),
-                        resultSize: 0
+                        resultSize: 0,
+                        waitTime: waitTime
                     }
                 }));
             }
@@ -262,7 +271,15 @@ class QueryDispatcher {
                     })),
                     { timeoutMs }
                 );
-                return batchResults;
+                
+                // Добавляем время ожидания в метрики каждого результата батча
+                return batchResults.map((result) => ({
+                    ...result,
+                    metrics: {
+                        ...result.metrics,
+                        waitTime: waitTime
+                    }
+                }));
             } catch (error) {
                 // При ошибке батча возвращаем ошибки для всех запросов в батче
                 return batch.map((prepared) => ({
@@ -272,15 +289,22 @@ class QueryDispatcher {
                     metrics: {
                         queryTime: timeoutMs || 0,
                         querySize: estimateSize(prepared.query),
-                        resultSize: 0
+                        resultSize: 0,
+                        waitTime: waitTime
                     }
                 }));
             }
         });
 
+        // Измеряем время выполнения батчей (IPC коммуникация и ожидание результатов от worker процессов)
+        const batchExecutionStartTime = Date.now();
         const batchResultsArray = await Promise.all(batchPromises);
+        const batchExecutionTime = Date.now() - batchExecutionStartTime;
         const allResults = batchResultsArray.flat();
 
+        // Измеряем время обработки результатов
+        const resultsProcessingStartTime = Date.now();
+        
         // Создаем Map для быстрого доступа к результатам по ID
         const resultsById = new Map();
         allResults.forEach((result) => {
@@ -305,7 +329,8 @@ class QueryDispatcher {
                     metrics: {
                         queryTime: 0,
                         querySize: estimateSize(prepared.query),
-                        resultSize: 0
+                        resultSize: 0,
+                        waitTime: 0
                     }
                 };
             }
@@ -337,8 +362,16 @@ class QueryDispatcher {
 
             return finalResult;
         });
+        
+        const resultsProcessingTime = Date.now() - resultsProcessingStartTime;
 
-        const summary = this._buildSummary(orderedResults);
+        const summary = this._buildSummary(orderedResults, {
+            waitTime,
+            poolInitTime,
+            batchPreparationTime,
+            batchExecutionTime,
+            resultsProcessingTime
+        });
         return { results: orderedResults, summary };
     }
 
@@ -435,7 +468,7 @@ class QueryDispatcher {
         }
     }
 
-    _buildSummary(results) {
+    _buildSummary(results, additionalMetrics = {}) {
         let totalQueries = 0;
         let successfulQueries = 0;
         let failedQueries = 0;
@@ -464,7 +497,12 @@ class QueryDispatcher {
             failedQueries,
             totalQueryTime,
             totalResultSize,
-            totalQuerySize
+            totalQuerySize,
+            waitTime: additionalMetrics.waitTime || 0,
+            poolInitTime: additionalMetrics.poolInitTime || 0,
+            batchPreparationTime: additionalMetrics.batchPreparationTime || 0,
+            batchExecutionTime: additionalMetrics.batchExecutionTime || 0,
+            resultsProcessingTime: additionalMetrics.resultsProcessingTime || 0
         };
     }
 }

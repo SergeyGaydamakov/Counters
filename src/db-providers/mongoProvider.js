@@ -1894,6 +1894,7 @@ class MongoProvider {
                     relevantFactsQueryCount: 0,
                     relevantFactsSize: 0,
                     countersQuerySize: 0,
+                    countersQueryWaitTime: 0,
                     countersQueryTime: 0,
                     countersQueryCount: 0,
                     countersSize: 0,
@@ -1919,6 +1920,8 @@ class MongoProvider {
         const startPrepareQueriesTime = Date.now();
         const startQueriesTime = Date.now();
         let queryResults;
+        let resultsTransformationTime = 0;
+        let dispatcherSummary = {};
         
         if (queryDispatcher) {
             // Создаем маппинг уникальных ID запросов к indexTypeNameWithGroupNumber
@@ -1946,6 +1949,9 @@ class MongoProvider {
             
             // Выполняем запросы через QueryDispatcher
             const queryDispatcherResults = await queryDispatcher.executeQueries(preparedQueries);
+            
+            // Измеряем время преобразования результатов
+            const resultsTransformationStartTime = Date.now();
             
             // Преобразуем результаты QueryDispatcher в формат, совместимый с локальным кодом
             queryResults = queryDispatcherResults.results.map((dispatcherResult) => {
@@ -1992,6 +1998,7 @@ class MongoProvider {
                 }
                 
                 const countersQueryTime = dispatcherResult.metrics?.queryTime || 0;
+                const countersWaitTime = dispatcherResult.metrics?.waitTime || 0;
                 
                 // Определяем сообщение об ошибке для возврата (совместимо с локальным кодом)
                 let errorMessage = undefined;
@@ -2026,6 +2033,7 @@ class MongoProvider {
                     metrics: {
                         countersQuerySize: countersQuerySize ?? (dispatcherResult.metrics?.querySize || 0),
                         countersQueryTime: countersQueryTime,
+                        countersWaitTime: countersWaitTime,
                         countersQueryCount: 1,
                         countersSize: countersSize,
                     },
@@ -2034,6 +2042,11 @@ class MongoProvider {
                     }
                 };
             });
+            
+            resultsTransformationTime = Date.now() - resultsTransformationStartTime;
+            // Сохраняем метрики из summary QueryDispatcher для последующего использования
+            dispatcherSummary = queryDispatcherResults.summary || {};
+            
             // this.logger.debug(`✓ *** Получены счетчики: ${JSON.stringify(queryResults)} `);
         } else {
 
@@ -2102,6 +2115,7 @@ class MongoProvider {
         const countersMetrics = {};
         let countersQuerySize = 0;
         let countersQueryTime = 0;
+        let countersQueryWaitTime = 0;
         let countersCount = 0;
         let countersSize = 0;
         const countersQuery = {};
@@ -2116,6 +2130,7 @@ class MongoProvider {
             };
             countersQuerySize += result.metrics.countersQuerySize ?? 0;
             countersQueryTime = Math.max(countersQueryTime, result.metrics.countersQueryTime ?? 0);
+            countersQueryWaitTime = Math.max(countersQueryWaitTime, result.metrics.countersWaitTime ?? 0);
             countersCount += result.metrics.countersQueryCount ?? 0;
             countersSize += result.metrics.countersSize ?? 0;
             countersQuery[result.indexTypeName] = result.debug.countersQuery;
@@ -2144,7 +2159,13 @@ class MongoProvider {
          * relevantFactsCount - количество релевантных фактов (факты, которые попали после поиска по индексам)
          * relevantFactsSize - размер массива релевантных фактов (факты, которые попали после поиска по индексам)
          * countersQuerySize - размер запросов вычисления счетчиков по релевантным фактам
+         * countersQueryWaitTime - время ожидания запросов в QueryDispatcher
+         * countersPoolInitTime - время инициализации пула процессов в QueryDispatcher
          * countersQueryTime - время выполнения параллельных запросов на вычисление счетчиков
+         * countersBatchPreparationTime - время подготовки батчей в QueryDispatcher
+         * countersBatchExecutionTime - время выполнения батчей (IPC коммуникация и ожидание результатов от worker процессов)
+         * countersResultsProcessingTime - время обработки результатов в QueryDispatcher
+         * countersResultsTransformationTime - время преобразования результатов QueryDispatcher в формат mongoProvider
          * countersQueryCount - число одновременных запросов на вычисление счетчиков
          * countersSize - размер полученных всех счетчиков по всем индексам,
          * resultCountersCount - количество полученных счетчиков, которые были вычислены
@@ -2177,7 +2198,13 @@ class MongoProvider {
                 relevantFactsCount: undefined,
                 relevantFactsSize: undefined,
                 countersQuerySize: countersQuerySize,
+                countersQueryWaitTime: countersQueryWaitTime,
+                countersPoolInitTime: dispatcherSummary.poolInitTime || 0,
                 countersQueryTime: countersQueryTime,
+                countersBatchPreparationTime: dispatcherSummary.batchPreparationTime || 0,
+                countersBatchExecutionTime: dispatcherSummary.batchExecutionTime || 0,
+                countersResultsProcessingTime: dispatcherSummary.resultsProcessingTime || 0,
+                countersResultsTransformationTime: resultsTransformationTime,
                 countersQueryCount: countersCount,
                 countersSize: countersSize,
                 resultCountersCount: Object.keys(mergedCounters).length,

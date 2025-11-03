@@ -239,6 +239,60 @@ class WorkerMetricsCollector {
             labelNames: ['worker_id', 'client_type'],
             registers: [this.register]
         });
+
+        // 25. Гистограмма длительности ожидания запросов в QueryDispatcher
+        this.queryDispatcherWaitTimeHistogram = new client.Histogram({
+            name: 'query_dispatcher_wait_time_msec',
+            help: 'Query dispatcher wait time in msec',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50, 70, 100, 150, 200],
+            registers: [this.register]
+        });
+
+        // 26. Гистограмма длительности подготовки батчей в QueryDispatcher
+        this.queryDispatcherBatchPreparationTimeHistogram = new client.Histogram({
+            name: 'query_dispatcher_batch_preparation_time_msec',
+            help: 'Query dispatcher batch preparation time in msec',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50],
+            registers: [this.register]
+        });
+
+        // 27. Гистограмма длительности обработки результатов в QueryDispatcher
+        this.queryDispatcherResultsProcessingTimeHistogram = new client.Histogram({
+            name: 'query_dispatcher_results_processing_time_msec',
+            help: 'Query dispatcher results processing time in msec',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50],
+            registers: [this.register]
+        });
+
+        // 28. Гистограмма длительности преобразования результатов QueryDispatcher в формат mongoProvider
+        this.queryDispatcherResultsTransformationTimeHistogram = new client.Histogram({
+            name: 'query_dispatcher_results_transformation_time_msec',
+            help: 'Query dispatcher results transformation time in msec',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30, 40, 50],
+            registers: [this.register]
+        });
+
+        // 28.1 Гистограмма длительности выполнения батчей (IPC коммуникация и ожидание результатов)
+        this.queryDispatcherBatchExecutionTimeHistogram = new client.Histogram({
+            name: 'query_dispatcher_batch_execution_time_msec',
+            help: 'Query dispatcher batch execution time in msec (IPC communication and waiting for worker results)',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 150, 200, 500, 1000],
+            registers: [this.register]
+        });
+
+        // 29. Гистограмма длительности инициализации пула процессов в QueryDispatcher
+        this.queryDispatcherPoolInitTimeHistogram = new client.Histogram({
+            name: 'query_dispatcher_pool_init_time_msec',
+            help: 'Query dispatcher pool initialization time in msec',
+            labelNames: ['message_type', 'worker_id'],
+            buckets: [1, 2, 3, 4, 5, 10, 15, 20, 30, 40, 50, 100, 150, 200, 500, 1000, 1500, 2000],
+            registers: [this.register]
+        });
     }
 
     /**
@@ -463,6 +517,36 @@ class WorkerMetricsCollector {
             // + 13. Количество полученных счетчиков
             if (metrics && typeof metrics.resultCountersCount === 'number' && metrics.resultCountersCount !== undefined) {
                 this.resultCountersCountHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.resultCountersCount);
+            }
+
+            // + 14. Длительность ожидания запросов в QueryDispatcher
+            if (metrics && typeof metrics.countersQueryWaitTime === 'number' && metrics.countersQueryWaitTime !== undefined) {
+                this.queryDispatcherWaitTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersQueryWaitTime);
+            }
+
+            // + 14.1 Длительность инициализации пула процессов в QueryDispatcher
+            if (metrics && typeof metrics.countersPoolInitTime === 'number' && metrics.countersPoolInitTime !== undefined) {
+                this.queryDispatcherPoolInitTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersPoolInitTime);
+            }
+
+            // + 15. Длительность подготовки батчей в QueryDispatcher
+            if (metrics && typeof metrics.countersBatchPreparationTime === 'number' && metrics.countersBatchPreparationTime !== undefined) {
+                this.queryDispatcherBatchPreparationTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersBatchPreparationTime);
+            }
+
+            // + 15.1 Длительность выполнения батчей в QueryDispatcher (IPC коммуникация и ожидание результатов)
+            if (metrics && typeof metrics.countersBatchExecutionTime === 'number' && metrics.countersBatchExecutionTime !== undefined) {
+                this.queryDispatcherBatchExecutionTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersBatchExecutionTime);
+            }
+
+            // + 16. Длительность обработки результатов в QueryDispatcher
+            if (metrics && typeof metrics.countersResultsProcessingTime === 'number' && metrics.countersResultsProcessingTime !== undefined) {
+                this.queryDispatcherResultsProcessingTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersResultsProcessingTime);
+            }
+
+            // + 17. Длительность преобразования результатов QueryDispatcher в формат mongoProvider
+            if (metrics && typeof metrics.countersResultsTransformationTime === 'number' && metrics.countersResultsTransformationTime !== undefined) {
+                this.queryDispatcherResultsTransformationTimeHistogram.observe({ message_type: messageTypeStr, worker_id:this.workerId }, metrics.countersResultsTransformationTime);
             }
         } catch (error) {
             if (logger) {
