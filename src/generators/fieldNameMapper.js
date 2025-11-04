@@ -78,6 +78,8 @@ class FieldNameMapper {
      */
     _loadConfig(configPath) {
         try {
+            let finalPath = configPath;
+            
             // Если передан только имя файла, ищем его в стандартных директориях
             if (!path.isAbsolute(configPath) && !configPath.includes(path.sep)) {
                 const searchPaths = [
@@ -89,24 +91,40 @@ class FieldNameMapper {
                 
                 const foundPath = this._findFileInPaths(configPath, searchPaths);
                 if (foundPath) {
-                    configPath = foundPath;
-                    this.logger.info(`Файл ${configPath} найден в директории: ${path.dirname(foundPath)}`);
+                    finalPath = foundPath;
+                    this.logger.info(`Файл ${finalPath} найден в директории: ${path.dirname(foundPath)}`);
+                } else {
+                    // Если файл не найден, проверяем абсолютный путь
+                    if (!fs.existsSync(configPath)) {
+                        this.logger.warn(`Файл конфигурации маппинга полей не найден: ${configPath}. Будет использована пустая конфигурация.`);
+                        return [];
+                    }
+                    finalPath = configPath;
                 }
             }
 
-            if (!fs.existsSync(configPath)) {
-                throw new Error(`Файл конфигурации не найден: ${configPath}`);
+            if (!fs.existsSync(finalPath)) {
+                this.logger.warn(`Файл конфигурации маппинга полей не найден: ${finalPath}. Будет использована пустая конфигурация.`);
+                return [];
             }
 
-            const configData = fs.readFileSync(configPath, 'utf8');
+            const configData = fs.readFileSync(finalPath, 'utf8');
             const config = JSON.parse(configData);
 
-            this.logger.info(`Загружена конфигурация маппинга полей из ${configPath}`);
+            if (!Array.isArray(config)) {
+                this.logger.warn(`Конфигурация маппинга полей должна быть массивом. Используется пустой массив.`);
+                return [];
+            }
+
+            this.logger.info(`Загружена конфигурация маппинга полей из ${finalPath}`);
             this.logger.debug(`Количество правил маппинга: ${config.length}`);
             return config;
         } catch (error) {
+            // При ошибке парсинга или чтения файла логируем ошибку, но возвращаем пустой массив
+            // чтобы не прерывать работу системы
             this.logger.error(`Ошибка загрузки конфигурации маппинга полей: ${error.message}`);
-            throw error;
+            this.logger.warn(`Будет использована пустая конфигурация маппинга полей.`);
+            return [];
         }
     }
     
@@ -183,8 +201,16 @@ class FieldNameMapper {
             return this._dstToShortDst.get(dstName);
         }
         
-        // Если поля нет в карте, логируем предупреждение и возвращаем исходное имя
-        this.logger.warn(`Поле '${dstName}' не найдено в конфигурации маппинга. Используется исходное имя.`);
+        // Если поля нет в карте, проверяем, является ли оно индикатором счетчика (начинается с i_)
+        // Такие поля не являются полями факта и не должны преобразовываться
+        const isCounterIndicator = dstName.startsWith('i_');
+        
+        // Логируем предупреждение только для полей, которые не являются индикаторами счетчиков
+        // Индикаторы счетчиков - это нормально, они не должны быть в messageConfig.json
+        if (!isCounterIndicator) {
+            this.logger.warn(`Поле '${dstName}' не найдено в конфигурации маппинга. Используется исходное имя.`);
+        }
+        
         return dstName;
     }
     
