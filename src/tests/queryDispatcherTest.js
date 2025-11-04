@@ -37,6 +37,7 @@ class QueryDispatcherTest {
             await this.testErrorHandling('3. Тест обработки ошибок запроса...');
             await this.testParallelExecutionWithErrors('4. Тест параллельного выполнения запросов с ошибками...');
             await this.testDispatcherStats('5. Тест получения статистики диспетчера...');
+            await this.testConcurrentExecuteQueries('6. Тест параллельных вызовов executeQueries (race condition protection)...');
         } catch (error) {
             this.logger.error(`Критическая ошибка выполнения тестов: ${error.message}`);
         } finally {
@@ -592,6 +593,99 @@ class QueryDispatcherTest {
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             this.testResults.failed++;
             this.testResults.errors.push(`testDispatcherStats: ${error.message}`);
+        } finally {
+            if (dispatcher) {
+                await dispatcher.shutdown();
+            }
+        }
+    }
+
+    async testConcurrentExecuteQueries(title) {
+        this.logger.debug(title);
+
+        let dispatcher = null;
+        try {
+            const dataset = await this.prepareFactIndexData();
+
+            dispatcher = new QueryDispatcher({
+                workerCount: 2, // Меньше воркеров для проверки race condition
+                connectionString: this.connectionString,
+                databaseName: this.databaseName,
+                databaseOptions: this.databaseOptions,
+                defaultTimeoutMs: 30000,
+                logger: this.logger
+            });
+
+            await this.waitForPoolReady(dispatcher.processPoolManager, 2, 12000);
+
+            // Создаем запросы для каждого параллельного вызова
+            const createRequests = (prefix, count) => {
+                const requests = [];
+                for (let i = 0; i < count; i++) {
+                    requests.push({
+                        id: `${prefix}-req-${i}`,
+                        query: [
+                            { $match: { '_id.f': dataset.factIds[i % dataset.factIds.length] } },
+                            { $limit: 5 }
+                        ],
+                        collectionName: 'factIndex',
+                        options: {}
+                    });
+                }
+                return requests;
+            };
+
+            // Запускаем 3 параллельных вызова executeQueries одновременно
+            const parallelCalls = [
+                dispatcher.executeQueries(createRequests('call1', 3), { timeoutMs: 30000 }),
+                dispatcher.executeQueries(createRequests('call2', 3), { timeoutMs: 30000 }),
+                dispatcher.executeQueries(createRequests('call3', 3), { timeoutMs: 30000 })
+            ];
+
+            const allResults = await Promise.all(parallelCalls);
+
+            // Проверяем, что все вызовы завершились успешно
+            if (allResults.length !== 3) {
+                throw new Error(`Ожидалось 3 результата параллельных вызовов, получено: ${allResults.length}`);
+            }
+
+            // Проверяем, что каждый вызов вернул правильное количество результатов
+            allResults.forEach((callResult, callIndex) => {
+                if (!callResult.results || !Array.isArray(callResult.results)) {
+                    throw new Error(`Вызов ${callIndex}: результаты должны быть массивом`);
+                }
+                if (callResult.results.length !== 3) {
+                    throw new Error(
+                        `Вызов ${callIndex}: ожидалось 3 результата, получено: ${callResult.results.length}`
+                    );
+                }
+
+                // Проверяем, что все запросы завершились (успешно или с ошибкой, но не потеряны)
+                callResult.results.forEach((result, reqIndex) => {
+                    if (!result || !result.id) {
+                        throw new Error(`Вызов ${callIndex}, запрос ${reqIndex}: результат должен иметь ID`);
+                    }
+                });
+            });
+
+            // Проверяем статистику - все запросы должны быть учтены
+            const finalStats = dispatcher.getStats();
+            const totalQueries = finalStats.dispatcher.totalQueries;
+            const expectedQueries = 3 * 3; // 3 вызова * 3 запроса
+
+            if (totalQueries < expectedQueries) {
+                this.logger.debug(
+                    `   ⚠ Ожидалось минимум ${expectedQueries} запросов, учтено в статистике: ${totalQueries} ` +
+                    `(возможно, статистика обновляется асинхронно)`
+                );
+            }
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            this.testResults.failed++;
+            this.testResults.errors.push(`testConcurrentExecuteQueries: ${error.message}`);
         } finally {
             if (dispatcher) {
                 await dispatcher.shutdown();

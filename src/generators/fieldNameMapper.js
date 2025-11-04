@@ -294,6 +294,11 @@ class FieldNameMapper {
             return condition;
         }
         
+        // Обработка строковых значений, содержащих переменные $$d.fieldName
+        if (typeof condition === 'string' && condition.startsWith('$$d.')) {
+            return this.transformVariablePath(condition);
+        }
+        
         if (Array.isArray(condition)) {
             return condition.map(item => this.transformCondition(item));
         }
@@ -361,6 +366,30 @@ class FieldNameMapper {
     }
     
     /**
+     * Преобразует переменную для runtime подстановки вида "$$d.fieldName" -> "$$d.shortFieldName"
+     * @param {string} variablePath - Путь к переменной
+     * @returns {string} Преобразованный путь
+     * @private
+     */
+    transformVariablePath(variablePath) {
+        if (!variablePath || typeof variablePath !== 'string') {
+            return variablePath;
+        }
+        
+        // Обработка переменных вида "$$d.fieldName" или "$$d.fieldName.suffix"
+        const match = variablePath.match(/^(\$\$d\.)([^.]+)(.*)$/);
+        if (match) {
+            const prefix = match[1]; // "$$d."
+            const fieldName = match[2];
+            const suffix = match[3];  // Может быть пустой строкой или содержать ".subfield"
+            const transformedField = this.getFieldName(fieldName);
+            return `${prefix}${transformedField}${suffix}`;
+        }
+        
+        return variablePath;
+    }
+
+    /**
      * Преобразует объект attributes счетчика
      * @param {*} attributes - Атрибуты счетчика
      * @returns {*} Преобразованные атрибуты
@@ -373,15 +402,30 @@ class FieldNameMapper {
         const result = {};
         
         for (const [attrName, attrValue] of Object.entries(attributes)) {
-            if (typeof attrValue === 'string' && attrValue.startsWith('$d.')) {
-                // Прямая ссылка на поле
-                result[attrName] = this.transformMongoPath(attrValue);
+            if (typeof attrValue === 'string') {
+                if (attrValue.startsWith('$$d.')) {
+                    // Переменная для runtime подстановки (например, "$$d.fullMerchantName")
+                    result[attrName] = this.transformVariablePath(attrValue);
+                } else if (attrValue.startsWith('$d.')) {
+                    // Прямая ссылка на поле для MongoDB aggregate
+                    result[attrName] = this.transformMongoPath(attrValue);
+                } else {
+                    result[attrName] = attrValue;
+                }
             } else if (typeof attrValue === 'object' && attrValue !== null && !Array.isArray(attrValue)) {
                 // Объект с оператором агрегации (например, {"$sum": "$d.fieldName"})
                 const transformedAttr = {};
                 for (const [key, value] of Object.entries(attrValue)) {
-                    if (typeof value === 'string' && value.startsWith('$d.')) {
-                        transformedAttr[key] = this.transformMongoPath(value);
+                    if (typeof value === 'string') {
+                        if (value.startsWith('$$d.')) {
+                            // Переменная для runtime подстановки
+                            transformedAttr[key] = this.transformVariablePath(value);
+                        } else if (value.startsWith('$d.')) {
+                            // Ссылка на поле для MongoDB aggregate
+                            transformedAttr[key] = this.transformMongoPath(value);
+                        } else {
+                            transformedAttr[key] = value;
+                        }
                     } else if (typeof value === 'object' && value !== null) {
                         // Рекурсивно обрабатываем вложенные структуры
                         transformedAttr[key] = this.transformAttributes(value);

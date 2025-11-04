@@ -41,10 +41,12 @@ class FieldNameMapperTest {
         this.testTransformCondition('5. Тест transformCondition...');
         this.testTransformExprExpression('6. Тест transformExprExpression...');
         this.testTransformAttributes('7. Тест transformAttributes...');
-        this.testValidation('8. Тест валидации shortDst...');
-        this.testProductionIndexConfig('9. Тест на основе indexConfig.json...');
-        this.testProductionCountersConfig('10. Тест на основе countersConfig.json...');
-        this.testComplexConditions('11. Тест сложных условий...');
+        this.testTransformVariablePath('8. Тест transformVariablePath ($$d.fieldName)...');
+        this.testTransformConditionWithVariables('9. Тест transformCondition с переменными $$d.fieldName...');
+        this.testValidation('10. Тест валидации shortDst...');
+        this.testProductionIndexConfig('11. Тест на основе indexConfig.json...');
+        this.testProductionCountersConfig('12. Тест на основе countersConfig.json...');
+        this.testComplexConditions('13. Тест сложных условий...');
 
         this.printResults();
     }
@@ -236,6 +238,187 @@ class FieldNameMapperTest {
             this.assert(transformed['max_amount']['$max'] === '$d.amt', 'transformAttributes преобразует $max');
         } catch (error) {
             this.assert(false, `Ошибка в testTransformAttributes: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест transformVariablePath и transformAttributes с переменными $$d.fieldName
+     */
+    testTransformVariablePath(title) {
+        this.logger.info(title);
+        try {
+            const config = [
+                { src: 'merchant', dst: 'fullMerchantName', shortDst: 'merchantName', message_types: [1] },
+                { src: 'amount', dst: 'transaction_amount', shortDst: 'amt', message_types: [1] },
+                { src: 'pan', dst: 'PAN', shortDst: 'pan', message_types: [1] },
+                { src: 'date', dst: 'transaction_date', shortDst: 'dt', message_types: [1] }
+            ];
+            
+            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperFalse = new FieldNameMapper(config, false);
+            
+            // Тест 1: Простое преобразование переменной $$d.fieldName
+            const attributes1 = {
+                'merchant_name': '$$d.fullMerchantName',
+                'amount_value': '$$d.transaction_amount'
+            };
+            const transformed1 = mapperTrue.transformAttributes(attributes1);
+            this.assert(transformed1['merchant_name'] === '$$d.merchantName', 'transformAttributes преобразует $$d.fullMerchantName -> $$d.merchantName');
+            this.assert(transformed1['amount_value'] === '$$d.amt', 'transformAttributes преобразует $$d.transaction_amount -> $$d.amt');
+            
+            // Тест 2: Переменные не изменяются при useShortNames=false
+            const transformed1False = mapperFalse.transformAttributes(attributes1);
+            this.assert(transformed1False['merchant_name'] === '$$d.fullMerchantName', 'Переменные не изменяются при useShortNames=false');
+            this.assert(transformed1False['amount_value'] === '$$d.transaction_amount', 'Переменные не изменяются при useShortNames=false');
+            
+            // Тест 3: Переменные внутри объектов атрибутов
+            const attributes2 = {
+                'merchant_info': {
+                    'name': '$$d.fullMerchantName',
+                    'pan': '$$d.PAN'
+                },
+                'amount_info': {
+                    'value': '$$d.transaction_amount'
+                }
+            };
+            const transformed2 = mapperTrue.transformAttributes(attributes2);
+            this.assert(transformed2['merchant_info']['name'] === '$$d.merchantName', 'Преобразование переменной внутри объекта атрибута');
+            this.assert(transformed2['merchant_info']['pan'] === '$$d.pan', 'Преобразование переменной PAN внутри объекта');
+            this.assert(transformed2['amount_info']['value'] === '$$d.amt', 'Преобразование переменной внутри вложенного объекта');
+            
+            // Тест 4: Смешанные переменные $$d и MongoDB пути $d
+            const attributes3 = {
+                'runtime_var': '$$d.fullMerchantName',
+                'aggregate_path': { '$sum': '$d.transaction_amount' },
+                'another_var': '$$d.transaction_date'
+            };
+            const transformed3 = mapperTrue.transformAttributes(attributes3);
+            this.assert(transformed3['runtime_var'] === '$$d.merchantName', 'Преобразование runtime переменной $$d');
+            this.assert(transformed3['aggregate_path']['$sum'] === '$d.amt', 'Преобразование MongoDB пути $d');
+            this.assert(transformed3['another_var'] === '$$d.dt', 'Преобразование другой runtime переменной');
+            
+            // Тест 5: Переменные с суффиксами (если поддерживается)
+            const attributes4 = {
+                'merchant': '$$d.fullMerchantName',
+                'amount': '$$d.transaction_amount'
+            };
+            const transformed4 = mapperTrue.transformAttributes(attributes4);
+            this.assert(transformed4['merchant'] === '$$d.merchantName', 'Преобразование переменной без суффикса');
+            this.assert(transformed4['amount'] === '$$d.amt', 'Преобразование переменной без суффикса');
+            
+            // Тест 6: Неизвестные поля (должны остаться без изменений)
+            const attributes5 = {
+                'unknown_var': '$$d.unknownField',
+                'known_var': '$$d.fullMerchantName'
+            };
+            const transformed5 = mapperTrue.transformAttributes(attributes5);
+            this.assert(transformed5['unknown_var'] === '$$d.unknownField', 'Неизвестные поля остаются без изменений');
+            this.assert(transformed5['known_var'] === '$$d.merchantName', 'Известные поля преобразуются');
+            
+            // Тест 7: Сложная структура с вложенными объектами и переменными
+            const attributes6 = {
+                'level1': {
+                    'level2': {
+                        'var1': '$$d.fullMerchantName',
+                        'var2': '$$d.transaction_date',
+                        'aggregate': { '$avg': '$d.transaction_amount' }
+                    },
+                    'var3': '$$d.PAN'
+                }
+            };
+            const transformed6 = mapperTrue.transformAttributes(attributes6);
+            this.assert(transformed6['level1']['level2']['var1'] === '$$d.merchantName', 'Преобразование в глубоко вложенной структуре');
+            this.assert(transformed6['level1']['level2']['var2'] === '$$d.dt', 'Преобразование второй переменной в вложенной структуре');
+            this.assert(transformed6['level1']['level2']['aggregate']['$avg'] === '$d.amt', 'Преобразование MongoDB пути в вложенной структуре');
+            this.assert(transformed6['level1']['var3'] === '$$d.pan', 'Преобразование переменной на втором уровне');
+            
+            // Тест 8: Переменная $$NOW должна остаться без изменений
+            const attributes7 = {
+                'date_var': '$$NOW',
+                'merchant_var': '$$d.fullMerchantName'
+            };
+            const transformed7 = mapperTrue.transformAttributes(attributes7);
+            this.assert(transformed7['date_var'] === '$$NOW', 'Переменная $$NOW остается без изменений');
+            this.assert(transformed7['merchant_var'] === '$$d.merchantName', 'Обычные переменные преобразуются');
+            
+        } catch (error) {
+            this.assert(false, `Ошибка в testTransformVariablePath: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест transformCondition с переменными $$d.fieldName в evaluationConditions
+     */
+    testTransformConditionWithVariables(title) {
+        this.logger.info(title);
+        try {
+            const config = [
+                { src: 'pan', dst: 'PAN', shortDst: 'pan', message_types: [1] },
+                { src: 'dpan', dst: 'dPan', shortDst: 'dpan', message_types: [1] },
+                { src: 'acq', dst: 'DE32_acq_inst_code', shortDst: 'acq', message_types: [1] },
+                { src: 'merchant', dst: 'MerchantId', shortDst: 'merchantId', message_types: [1] }
+            ];
+            
+            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperFalse = new FieldNameMapper(config, false);
+            
+            // Тест 1: Простые evaluationConditions с переменными $$d.fieldName
+            const evaluation1 = {
+                'd.PAN': '$$d.dPan'
+            };
+            const transformed1 = mapperTrue.transformCondition(evaluation1);
+            this.assert(transformed1['d.pan'] === '$$d.dpan', 'transformCondition преобразует $$d.dPan -> $$d.dpan в evaluationConditions');
+            
+            // Тест 2: Переменные не изменяются при useShortNames=false
+            const transformed1False = mapperFalse.transformCondition(evaluation1);
+            this.assert(transformed1False['d.PAN'] === '$$d.dPan', 'Переменные не изменяются при useShortNames=false');
+            
+            // Тест 3: Несколько переменных в evaluationConditions
+            const evaluation2 = {
+                'd.PAN': '$$d.dPan',
+                'd.DE32_acq_inst_code': '$$d.MerchantId'
+            };
+            const transformed2 = mapperTrue.transformCondition(evaluation2);
+            this.assert(transformed2['d.pan'] === '$$d.dpan', 'Преобразование первой переменной в evaluationConditions');
+            this.assert(transformed2['d.acq'] === '$$d.merchantId', 'Преобразование второй переменной в evaluationConditions');
+            
+            // Тест 4: Переменные с операторами
+            const evaluation3 = {
+                'd.PAN': { '$ne': '$$d.dPan' },
+                'd.DE32_acq_inst_code': { '$in': ['$$d.MerchantId', 'value2'] }
+            };
+            const transformed3 = mapperTrue.transformCondition(evaluation3);
+            this.assert(transformed3['d.pan']['$ne'] === '$$d.dpan', 'Преобразование переменной в $ne операторе');
+            this.assert(Array.isArray(transformed3['d.acq']['$in']), 'Сохранение массива $in');
+            this.assert(transformed3['d.acq']['$in'][0] === '$$d.merchantId', 'Преобразование переменной в массиве $in');
+            this.assert(transformed3['d.acq']['$in'][1] === 'value2', 'Сохранение обычных значений в массиве');
+            
+            // Тест 5: Переменные в вложенных структурах
+            const evaluation4 = {
+                '$and': [
+                    { 'd.PAN': '$$d.dPan' },
+                    { 'd.DE32_acq_inst_code': '$$d.MerchantId' }
+                ]
+            };
+            const transformed4 = mapperTrue.transformCondition(evaluation4);
+            this.assert(Array.isArray(transformed4['$and']), 'Обработка $and оператора');
+            this.assert(transformed4['$and'][0]['d.pan'] === '$$d.dpan', 'Преобразование переменной внутри $and');
+            this.assert(transformed4['$and'][1]['d.acq'] === '$$d.merchantId', 'Преобразование переменной внутри $and');
+            
+            // Тест 6: Строка как сама переменная (прямое значение)
+            const condition1 = '$$d.dPan';
+            const transformed5 = mapperTrue.transformCondition(condition1);
+            this.assert(transformed5 === '$$d.dpan', 'Преобразование строки-переменной напрямую');
+            
+            // Тест 7: Массив с переменными
+            const condition2 = ['$$d.dPan', '$$d.MerchantId', 'regular_value'];
+            const transformed6 = mapperTrue.transformCondition(condition2);
+            this.assert(transformed6[0] === '$$d.dpan', 'Преобразование переменной в массиве');
+            this.assert(transformed6[1] === '$$d.merchantId', 'Преобразование второй переменной в массиве');
+            this.assert(transformed6[2] === 'regular_value', 'Сохранение обычных значений в массиве');
+            
+        } catch (error) {
+            this.assert(false, `Ошибка в testTransformConditionWithVariables: ${error.message}`);
         }
     }
 

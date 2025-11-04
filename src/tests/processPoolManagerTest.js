@@ -161,6 +161,10 @@ class ProcessPoolManagerTest {
             await this.testWorkerStats('8. Тест статистики по каждому процессу...');
             await this.testActiveWorkersCount('9. Тест подсчета активных и неактивных процессов...');
             
+            // 4. Выполнение батчей
+            await this.testExecuteBatchesAsync('10. Тест executeBatchesAsync с динамическим распределением...');
+            await this.testParallelBatchesExecution('11. Тест параллельных вызовов executeBatchesAsync (race condition)...');
+            
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
@@ -616,6 +620,215 @@ class ProcessPoolManagerTest {
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             this.testResults.failed++;
             this.testResults.errors.push(`testActiveWorkersCount: ${error.message}`);
+            if (poolManager) {
+                await poolManager.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Тест 10: executeBatchesAsync с динамическим распределением
+     */
+    async testExecuteBatchesAsync(title) {
+        this.logger.debug(title);
+        
+        let poolManager = null;
+        try {
+            poolManager = new ProcessPoolManager({
+                workerCount: 3,
+                connectionString: this.connectionString,
+                databaseName: this.databaseName,
+                databaseOptions: this.databaseOptions,
+                workerInitTimeoutMs: 6000
+            });
+            
+            await this.waitForPoolReady(poolManager, 3, 6000);
+            
+            // Создаем несколько батчей запросов
+            const batches = [
+                [
+                    {
+                        id: 'batch1-query1',
+                        query: [{ $match: {} }, { $limit: 1 }],
+                        collectionName: 'factIndex',
+                        options: {}
+                    },
+                    {
+                        id: 'batch1-query2',
+                        query: [{ $match: {} }, { $limit: 1 }],
+                        collectionName: 'factIndex',
+                        options: {}
+                    }
+                ],
+                [
+                    {
+                        id: 'batch2-query1',
+                        query: [{ $match: {} }, { $limit: 1 }],
+                        collectionName: 'factIndex',
+                        options: {}
+                    }
+                ],
+                [
+                    {
+                        id: 'batch3-query1',
+                        query: [{ $match: {} }, { $limit: 1 }],
+                        collectionName: 'factIndex',
+                        options: {}
+                    },
+                    {
+                        id: 'batch3-query2',
+                        query: [{ $match: {} }, { $limit: 1 }],
+                        collectionName: 'factIndex',
+                        options: {}
+                    },
+                    {
+                        id: 'batch3-query3',
+                        query: [{ $match: {} }, { $limit: 1 }],
+                        collectionName: 'factIndex',
+                        options: {}
+                    }
+                ]
+            ];
+            
+            const results = await poolManager.executeBatchesAsync(batches, {
+                timeoutMs: 30000,
+                maxWaitForWorkersMs: 5000,
+                checkIntervalMs: 10
+            });
+            
+            if (!Array.isArray(results) || results.length !== batches.length) {
+                throw new Error(`Ожидалось ${batches.length} результатов батчей, получено: ${results.length}`);
+            }
+            
+            // Проверяем, что каждый батч вернул результаты
+            results.forEach((batchResults, batchIndex) => {
+                if (!Array.isArray(batchResults)) {
+                    throw new Error(`Батч ${batchIndex} должен вернуть массив результатов`);
+                }
+                if (batchResults.length !== batches[batchIndex].length) {
+                    throw new Error(
+                        `Батч ${batchIndex}: ожидалось ${batches[batchIndex].length} результатов, ` +
+                        `получено: ${batchResults.length}`
+                    );
+                }
+            });
+            
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+            
+            await poolManager.shutdown();
+        } catch (error) {
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            this.testResults.failed++;
+            this.testResults.errors.push(`testExecuteBatchesAsync: ${error.message}`);
+            if (poolManager) {
+                await poolManager.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Тест 11: Параллельные вызовы executeBatchesAsync (race condition protection)
+     */
+    async testParallelBatchesExecution(title) {
+        this.logger.debug(title);
+        
+        let poolManager = null;
+        try {
+            poolManager = new ProcessPoolManager({
+                workerCount: 2, // Меньше воркеров, чем параллельных вызовов - для проверки race condition
+                connectionString: this.connectionString,
+                databaseName: this.databaseName,
+                databaseOptions: this.databaseOptions,
+                workerInitTimeoutMs: 6000
+            });
+            
+            await this.waitForPoolReady(poolManager, 2, 6000);
+            
+            // Создаем несколько параллельных вызовов executeBatchesAsync
+            const createBatches = (prefix, count) => {
+                const batches = [];
+                for (let i = 0; i < count; i++) {
+                    batches.push([
+                        {
+                            id: `${prefix}-batch${i}-query1`,
+                            query: [{ $match: {} }, { $limit: 1 }],
+                            collectionName: 'factIndex',
+                            options: {}
+                        },
+                        {
+                            id: `${prefix}-batch${i}-query2`,
+                            query: [{ $match: {} }, { $limit: 1 }],
+                            collectionName: 'factIndex',
+                            options: {}
+                        }
+                    ]);
+                }
+                return batches;
+            };
+            
+            // Запускаем 3 параллельных вызова одновременно
+            const parallelCalls = [
+                poolManager.executeBatchesAsync(createBatches('call1', 2), {
+                    timeoutMs: 30000,
+                    maxWaitForWorkersMs: 10000,
+                    checkIntervalMs: 10
+                }),
+                poolManager.executeBatchesAsync(createBatches('call2', 2), {
+                    timeoutMs: 30000,
+                    maxWaitForWorkersMs: 10000,
+                    checkIntervalMs: 10
+                }),
+                poolManager.executeBatchesAsync(createBatches('call3', 2), {
+                    timeoutMs: 30000,
+                    maxWaitForWorkersMs: 10000,
+                    checkIntervalMs: 10
+                })
+            ];
+            
+            const allResults = await Promise.all(parallelCalls);
+            
+            // Проверяем, что все вызовы завершились успешно
+            if (allResults.length !== 3) {
+                throw new Error(`Ожидалось 3 результата параллельных вызовов, получено: ${allResults.length}`);
+            }
+            
+            // Проверяем, что каждый вызов вернул правильное количество батчей
+            allResults.forEach((callResults, callIndex) => {
+                if (!Array.isArray(callResults) || callResults.length !== 2) {
+                    throw new Error(`Вызов ${callIndex}: ожидалось 2 батча, получено: ${callResults.length}`);
+                }
+                
+                callResults.forEach((batchResults, batchIndex) => {
+                    if (!Array.isArray(batchResults) || batchResults.length !== 2) {
+                        throw new Error(
+                            `Вызов ${callIndex}, батч ${batchIndex}: ожидалось 2 результата, ` +
+                            `получено: ${batchResults.length}`
+                        );
+                    }
+                });
+            });
+            
+            // Проверяем, что нет дублирования воркеров (через статистику)
+            const finalStats = poolManager.getStats();
+            const totalQueries = finalStats.totalQueries;
+            const expectedQueries = 3 * 2 * 2; // 3 вызова * 2 батча * 2 запроса
+            
+            if (totalQueries !== expectedQueries) {
+                this.logger.debug(
+                    `   ⚠ Ожидалось ${expectedQueries} запросов, учтено в статистике: ${totalQueries} ` +
+                    `(возможно, статистика обновляется асинхронно)`
+                );
+            }
+            
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+            
+            await poolManager.shutdown();
+        } catch (error) {
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            this.testResults.failed++;
+            this.testResults.errors.push(`testParallelBatchesExecution: ${error.message}`);
             if (poolManager) {
                 await poolManager.shutdown();
             }

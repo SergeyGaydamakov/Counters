@@ -171,9 +171,9 @@ class QueryDispatcher {
     }
 
     /**
-     * Выполнение массива запросов с возможностью ограничения параллелизма
-     * Запросы распределяются по процессам в пуле через batch API
-     * Поддерживает ожидание освобождения воркеров в кластерном режиме
+     * Выполнение массива запросов с оптимизированным распределением по воркерам
+     * Использует work queue pattern - батчи распределяются по воркерам по мере их освобождения
+     * Запросы делятся на this.minWorkers батчей, которые обрабатываются динамически
      * @param {Array<Object>} requests
      * @param {Object} [options]
      * @param {number} [options.timeoutMs]
@@ -202,104 +202,41 @@ class QueryDispatcher {
         }
         const poolInitTime = Date.now() - poolInitStartTime;
         
-        // Получаем список свободных воркеров с ожиданием освобождения
-        const requestedConcurrency = this._resolveConcurrency(options.maxConcurrency, requests.length);
-        let readyWorkers;
-        const waitStartTime = Date.now();
-        
-        try {
-            readyWorkers = await this._waitForReadyWorkers(
-                Math.min(requestedConcurrency, this.minWorkers),
-                maxWaitForWorkersMs,
-                this.checkIntervalMs
-            );
-        } catch (error) {
-            this.logger.warn(`QueryDispatcher: Не удалось получить готовых воркеров: ${error.message}`);
-            throw error;
-        }
-        
-        const waitTime = Date.now() - waitStartTime;
-        
-        if (readyWorkers.length === 0) {
-            throw new Error('No ready workers available');
-        }
-        
-        const effectiveWorkerCount = Math.min(readyWorkers.length, requestedConcurrency);
-        
-        // Измеряем время подготовки батчей
+        // Нормализуем запросы
         const batchPreparationStartTime = Date.now();
         const preparedRequests = requests.map((request) => this._normalizeRequest(request));
         
-        // Разделяем запросы на батчи для распределения по свободным воркерам
+        // Делим запросы на this.minWorkers батчей
         const batches = [];
-        const requestsPerBatch = Math.ceil(preparedRequests.length / effectiveWorkerCount);
+        const requestsPerBatch = Math.ceil(preparedRequests.length / this.minWorkers);
         
         for (let i = 0; i < preparedRequests.length; i += requestsPerBatch) {
             batches.push(preparedRequests.slice(i, i + requestsPerBatch));
         }
         const batchPreparationTime = Date.now() - batchPreparationStartTime;
-
-        // Параллельная отправка батчей напрямую в свободные воркеры
-        const batchPromises = batches.map(async (batch, batchIndex) => {
-            // Выбираем воркер для батча (циклически по индексу)
-            const worker = readyWorkers[batchIndex % effectiveWorkerCount];
-            
-            if (!worker || !worker.isReady) {
-                // Если воркер стал недоступен, возвращаем ошибки для всех запросов
-                return batch.map((prepared) => ({
-                    id: prepared.id,
-                    result: null,
-                    error: new Error('Worker is not ready'),
-                    metrics: {
-                        queryTime: 0,
-                        querySize: estimateSize(prepared.query),
-                        resultSize: 0,
-                        waitTime: waitTime
-                    }
-                }));
-            }
-
-            try {
-                // Отправляем батч напрямую в выбранный воркер
-                const batchResults = await this.processPoolManager.executeBatchOnWorker(
-                    worker,
-                    batch.map((prepared) => ({
-                        id: prepared.id,
-                        query: prepared.query,
-                        collectionName: prepared.collectionName,
-                        options: prepared.options
-                    })),
-                    { timeoutMs }
-                );
-                
-                // Добавляем время ожидания в метрики каждого результата батча
-                return batchResults.map((result) => ({
-                    ...result,
-                    metrics: {
-                        ...result.metrics,
-                        waitTime: waitTime
-                    }
-                }));
-            } catch (error) {
-                // При ошибке батча возвращаем ошибки для всех запросов в батче
-                return batch.map((prepared) => ({
-                    id: prepared.id,
-                    result: null,
-                    error: error instanceof Error ? error : new Error(error?.message || 'Batch execution failed'),
-                    metrics: {
-                        queryTime: timeoutMs || 0,
-                        querySize: estimateSize(prepared.query),
-                        resultSize: 0,
-                        waitTime: waitTime
-                    }
-                }));
-            }
-        });
-
-        // Измеряем время выполнения батчей (IPC коммуникация и ожидание результатов от worker процессов)
+        
+        // Измеряем время ожидания воркеров
+        const waitStartTime = Date.now();
+        
+        // Выполняем батчи через ProcessPoolManager с динамическим распределением
         const batchExecutionStartTime = Date.now();
-        const batchResultsArray = await Promise.all(batchPromises);
+        const batchResultsArray = await this.processPoolManager.executeBatchesAsync(
+            batches.map(batch => batch.map((prepared) => ({
+                id: prepared.id,
+                query: prepared.query,
+                collectionName: prepared.collectionName,
+                options: prepared.options
+            }))),
+            {
+                timeoutMs,
+                maxWaitForWorkersMs,
+                checkIntervalMs: this.checkIntervalMs
+            }
+        );
         const batchExecutionTime = Date.now() - batchExecutionStartTime;
+        const waitTime = Date.now() - waitStartTime;
+        
+        // Собираем все результаты
         const allResults = batchResultsArray.flat();
 
         // Измеряем время обработки результатов
@@ -319,7 +256,13 @@ class QueryDispatcher {
             let finalResult;
             
             if (result) {
-                finalResult = result;
+                finalResult = {
+                    ...result,
+                    metrics: {
+                        ...result.metrics,
+                        waitTime: result.metrics.waitTime || waitTime
+                    }
+                };
             } else {
                 // Если результат не найден, создаем ошибку
                 finalResult = {
@@ -330,7 +273,7 @@ class QueryDispatcher {
                         queryTime: 0,
                         querySize: estimateSize(prepared.query),
                         resultSize: 0,
-                        waitTime: 0
+                        waitTime: waitTime
                     }
                 };
             }
