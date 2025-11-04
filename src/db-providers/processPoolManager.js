@@ -579,10 +579,9 @@ class ProcessPoolManager {
             throw new Error('ProcessPoolManager is shutting down');
         }
 
-        if (this._initializationPromise) {
-            await this._initializationPromise;
-        }
-
+        // Инициализация уже проверена в executeBatchesAsync перед вызовом processBatch
+        // Этот метод вызывается только из processBatch, поэтому дублирование проверки не нужно
+        // Но оставляем проверку ошибки инициализации для безопасности
         if (this._initializationError) {
             throw this._initializationError;
         }
