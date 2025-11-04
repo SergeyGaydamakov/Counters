@@ -70,10 +70,6 @@ class QueryDispatcher {
             ? options.maxWaitForWorkersMs
             : (config.queryDispatcher?.maxWaitForWorkersMs || 500);
         
-        this.checkIntervalMs = typeof options.checkIntervalMs === 'number' && options.checkIntervalMs > 0
-            ? options.checkIntervalMs
-            : (config.queryDispatcher?.checkIntervalMs || 20);
-
         this.maxConcurrency = typeof options.maxConcurrency === 'number' && options.maxConcurrency > 0
             ? options.maxConcurrency
             : null;
@@ -93,6 +89,13 @@ class QueryDispatcher {
             this._ownsProcessPool = true;
         }
 
+        // Сохраняем промис инициализации для ожидания один раз при первом использовании
+        this._initializationPromise = null;
+        if (this.processPoolManager?._initializationPromise) {
+            // Сохраняем промис, чтобы ждать его только один раз
+            this._initializationPromise = this.processPoolManager._initializationPromise;
+        }
+
         this.metrics = {
             totalQueries: 0,
             successfulQueries: 0,
@@ -102,72 +105,6 @@ class QueryDispatcher {
             totalQuerySize: 0,
             lastError: null
         };
-    }
-
-    /**
-     * Ожидание освобождения воркеров с таймаутом
-     * В кластерном режиме каждый HTTP worker процесс имеет свои queryWorkers,
-     * поэтому ожидание помогает, когда все воркеры текущего процесса заняты
-     * @param {number} [minWorkers] - Минимальное количество воркеров (по умолчанию из config)
-     * @param {number} [maxWaitMs] - Максимальное время ожидания в миллисекундах (по умолчанию из config)
-     * @param {number} [checkIntervalMs] - Интервал проверки в миллисекундах (по умолчанию из config)
-     * @returns {Promise<Array>} Массив готовых воркеров
-     */
-    async _waitForReadyWorkers(minWorkers = null, maxWaitMs = null, checkIntervalMs = null) {
-        const effectiveMinWorkers = minWorkers !== null ? minWorkers : this.minWorkers;
-        const effectiveMaxWaitMs = maxWaitMs !== null ? maxWaitMs : this.maxWaitForWorkersMs;
-        const effectiveCheckIntervalMs = checkIntervalMs !== null ? checkIntervalMs : this.checkIntervalMs;
-        const startTime = Date.now();
-        
-        while (Date.now() - startTime < effectiveMaxWaitMs) {
-            const readyWorkers = this.processPoolManager?.getReadyWorkers() || [];
-            
-            // Проверяем не только количество готовых воркеров, но и наличие pending запросов
-            // Если есть воркеры, но все заняты, ждем их освобождения
-            const pendingQueries = this.processPoolManager?.pendingQueries?.size || 0;
-            const totalWorkers = this.processPoolManager?.workers?.length || 0;
-            
-            // Если есть готовые воркеры и не все заняты (или вообще нет активных запросов)
-            if (readyWorkers.length >= effectiveMinWorkers && (pendingQueries === 0 || readyWorkers.length > effectiveMinWorkers)) {
-                return readyWorkers;
-            }
-            
-            // Если все воркеры заняты, логируем для отладки
-            if (readyWorkers.length > 0 && pendingQueries > 0 && readyWorkers.length <= effectiveMinWorkers) {
-                const waitTime = Date.now() - startTime;
-                if (waitTime > 1000 && waitTime % 2000 < effectiveCheckIntervalMs) {
-                    // Логируем каждые ~2 секунды ожидания
-                    this.logger.debug(
-                        `QueryDispatcher: Ожидание освобождения воркеров (${readyWorkers.length} готовых, ` +
-                        `${pendingQueries} активных запросов, ожидание ${Math.round(waitTime)}мс)`
-                    );
-                }
-            }
-            
-            // Ждем перед следующей проверкой
-            await new Promise(resolve => setTimeout(resolve, effectiveCheckIntervalMs));
-        }
-        
-        // Если не удалось дождаться, возвращаем то, что есть
-        const readyWorkers = this.processPoolManager?.getReadyWorkers() || [];
-        if (readyWorkers.length === 0) {
-            const stats = this.processPoolManager?.getStats();
-            throw new Error(
-                `No ready workers available after waiting ${effectiveMaxWaitMs}ms. ` +
-                `Total workers: ${stats?.workerCount || 0}, Active: ${stats?.activeWorkers || 0}, ` +
-                `Pending queries: ${stats?.pendingQueries || 0}`
-            );
-        }
-        
-        // Логируем предупреждение, если пришлось использовать меньше воркеров, чем запрошено
-        if (readyWorkers.length < effectiveMinWorkers) {
-            this.logger.warn(
-                `QueryDispatcher: Используется ${readyWorkers.length} воркеров вместо запрошенных ${effectiveMinWorkers} ` +
-                `(ожидание ${effectiveMaxWaitMs}мс завершено)`
-            );
-        }
-        
-        return readyWorkers;
     }
 
     /**
@@ -195,10 +132,12 @@ class QueryDispatcher {
             ? options.maxWaitForWorkersMs
             : this.maxWaitForWorkersMs;
         
-        // Измеряем время инициализации пула
+        // Измеряем время инициализации пула (ожидаем только один раз при первом вызове)
         const poolInitStartTime = Date.now();
-        if (this.processPoolManager?._initializationPromise) {
-            await this.processPoolManager._initializationPromise;
+        if (this._initializationPromise) {
+            await this._initializationPromise;
+            // После первого ожидания очищаем промис, чтобы последующие вызовы были мгновенными
+            this._initializationPromise = null;
         }
         const poolInitTime = Date.now() - poolInitStartTime;
         
@@ -215,10 +154,8 @@ class QueryDispatcher {
         }
         const batchPreparationTime = Date.now() - batchPreparationStartTime;
         
-        // Измеряем время ожидания воркеров
-        const waitStartTime = Date.now();
-        
         // Выполняем батчи через ProcessPoolManager с динамическим распределением
+        // waitTime и queryTime вычисляются внутри executeBatchesAsync для каждого батча
         const batchExecutionStartTime = Date.now();
         const batchResultsArray = await this.processPoolManager.executeBatchesAsync(
             batches.map(batch => batch.map((prepared) => ({
@@ -229,12 +166,10 @@ class QueryDispatcher {
             }))),
             {
                 timeoutMs,
-                maxWaitForWorkersMs,
-                checkIntervalMs: this.checkIntervalMs
+                maxWaitForWorkersMs
             }
         );
         const batchExecutionTime = Date.now() - batchExecutionStartTime;
-        const waitTime = Date.now() - waitStartTime;
         
         // Собираем все результаты
         const allResults = batchResultsArray.flat();
@@ -256,13 +191,8 @@ class QueryDispatcher {
             let finalResult;
             
             if (result) {
-                finalResult = {
-                    ...result,
-                    metrics: {
-                        ...result.metrics,
-                        waitTime: result.metrics.waitTime || waitTime
-                    }
-                };
+                // Метрики уже содержат waitTime и queryTime из executeBatchesAsync
+                finalResult = result;
             } else {
                 // Если результат не найден, создаем ошибку
                 finalResult = {
@@ -273,7 +203,7 @@ class QueryDispatcher {
                         queryTime: 0,
                         querySize: estimateSize(prepared.query),
                         resultSize: 0,
-                        waitTime: waitTime
+                        waitTime: 0
                     }
                 };
             }
@@ -308,8 +238,13 @@ class QueryDispatcher {
         
         const resultsProcessingTime = Date.now() - resultsProcessingStartTime;
 
+        // Вычисляем средний waitTime из результатов для summary
+        const avgWaitTime = orderedResults.length > 0
+            ? orderedResults.reduce((sum, r) => sum + (r.metrics?.waitTime || 0), 0) / orderedResults.length
+            : 0;
+        
         const summary = this._buildSummary(orderedResults, {
-            waitTime,
+            waitTime: Math.round(avgWaitTime),
             poolInitTime,
             batchPreparationTime,
             batchExecutionTime,

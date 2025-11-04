@@ -692,8 +692,7 @@ class ProcessPoolManagerTest {
             
             const results = await poolManager.executeBatchesAsync(batches, {
                 timeoutMs: 30000,
-                maxWaitForWorkersMs: 5000,
-                checkIntervalMs: 10
+                maxWaitForWorkersMs: 5000
             });
             
             if (!Array.isArray(results) || results.length !== batches.length) {
@@ -771,18 +770,15 @@ class ProcessPoolManagerTest {
             const parallelCalls = [
                 poolManager.executeBatchesAsync(createBatches('call1', 2), {
                     timeoutMs: 30000,
-                    maxWaitForWorkersMs: 10000,
-                    checkIntervalMs: 10
+                    maxWaitForWorkersMs: 10000
                 }),
                 poolManager.executeBatchesAsync(createBatches('call2', 2), {
                     timeoutMs: 30000,
-                    maxWaitForWorkersMs: 10000,
-                    checkIntervalMs: 10
+                    maxWaitForWorkersMs: 10000
                 }),
                 poolManager.executeBatchesAsync(createBatches('call3', 2), {
                     timeoutMs: 30000,
-                    maxWaitForWorkersMs: 10000,
-                    checkIntervalMs: 10
+                    maxWaitForWorkersMs: 10000
                 })
             ];
             

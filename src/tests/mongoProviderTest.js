@@ -3465,13 +3465,56 @@ class MongoProviderTest {
                 )
                     .then(result => {
                         const factId = searchFact._id;
+                        
+                        // Проверяем наличие ошибок: в result.error (включая таймауты воркеров),
+                        // в result.metrics?.info (информационные сообщения об ошибках),
+                        // или отсутствие результата
+                        const hasError = !!result.error || 
+                                        !!result.metrics?.info || 
+                                        result.result === null;
+                        
+                        // Определяем тип ошибки для логирования
+                        let errorMessage = null;
+                        if (result.error) {
+                            errorMessage = result.error instanceof Error 
+                                ? result.error.message 
+                                : (typeof result.error === 'string' ? result.error : result.error.message || 'Unknown error');
+                        } else if (result.metrics?.info) {
+                            errorMessage = result.metrics.info;
+                        }
+                        
+                        // Если есть ошибка таймаута воркеров, добавляем ее в список ошибок
+                        if (errorMessage && (
+                            errorMessage.includes('No available workers after timeout') ||
+                            errorMessage.includes('timeout') ||
+                            errorMessage.toLowerCase().includes('timeout')
+                        )) {
+                            errors.push({
+                                requestId: i,
+                                factId: factId,
+                                error: errorMessage,
+                                type: 'worker_timeout'
+                            });
+                        }
+                        
+                        // Сохраняем реальное время выполнения запросов из метрик (без учета ожидания)
+                        // countersQueryTime - это сумма времени выполнения всех запросов для этого факта
+                        // Для среднего нужно учитывать количество запросов (countersQueryCount)
+                        const countersQueryTime = result.metrics?.countersQueryTime || 0;
+                        const countersQueryCount = result.metrics?.countersQueryCount || 1;
+                        const avgQueryTime = countersQueryCount > 0 ? countersQueryTime / countersQueryCount : 0;
+                        
                         results.push({
                             requestId: i,
                             factId: factId,
                             hasResult: !!result.result,
-                            hasError: !!result.metrics?.info || result.result === null,
+                            hasError: hasError,
+                            errorMessage: errorMessage,
                             countersCount: result.result ? Object.keys(result.result).length : 0,
-                            processingTime: result.processingTime || 0
+                            processingTime: result.processingTime || 0, // Общее время обработки (включая ожидание)
+                            avgQueryTime: avgQueryTime, // Среднее время выполнения запросов (без ожидания)
+                            queryTime: countersQueryTime, // Общее время выполнения всех запросов
+                            queryCount: countersQueryCount // Количество запросов
                         });
 
                         // Проверяем на дубликаты (хотя для разных фактов они должны быть разными)
@@ -3487,7 +3530,18 @@ class MongoProviderTest {
                         errors.push({
                             requestId: i,
                             factId: searchFact._id,
-                            error: error.message
+                            error: error.message,
+                            type: 'exception'
+                        });
+                        // Добавляем в results для правильного подсчета
+                        results.push({
+                            requestId: i,
+                            factId: searchFact._id,
+                            hasResult: false,
+                            hasError: true,
+                            errorMessage: error.message,
+                            countersCount: 0,
+                            processingTime: 0
                         });
                         return null;
                     });
@@ -3516,8 +3570,16 @@ class MongoProviderTest {
             const uniqueFactIdsMatch = uniqueFactIds === requests;
             const hasDuplicateErrors = errors.some(e => typeof e === 'string' && e.includes('Дубликат'));
 
+            // Вычисляем среднее время обработки правильно:
+            // Используем среднее время выполнения запросов (avgQueryTime) из метрик
+            // Это реальное время выполнения запросов на воркере без учета времени ожидания
+            // Если avgQueryTime недоступен, используем общее время / количество запросов (с учетом параллельности)
             const avgProcessingTime = successfulRequests.length > 0
-                ? Math.round(successfulRequests.reduce((sum, r) => sum + (r.processingTime || 0), 0) / successfulRequests.length)
+                ? (successfulRequests.some(r => r.avgQueryTime !== undefined && r.avgQueryTime > 0)
+                    ? Math.round(successfulRequests.reduce((sum, r) => sum + (r.avgQueryTime || 0), 0) / successfulRequests.length)
+                    : (totalTime > 0 && results.length > 0
+                        ? Math.round(totalTime / results.length)
+                        : Math.round(successfulRequests.reduce((sum, r) => sum + (r.processingTime || 0), 0) / successfulRequests.length)))
                 : 0;
 
             // Проверяем результаты теста
@@ -3550,16 +3612,65 @@ class MongoProviderTest {
             this.logger.debug(`      Время выполнения: ${totalTime}ms`);
             this.logger.debug(`      Запросов в секунду: ${Math.round((results.length / totalTime) * 1000)}`);
             this.logger.debug(`      Среднее время обработки: ${avgProcessingTime}ms`);
+            
+            // Анализируем компоненты времени для успешных запросов
+            if (successfulRequests.length > 0) {
+                const avgProcessingTimeWithWait = Math.round(
+                    successfulRequests.reduce((sum, r) => sum + (r.processingTime || 0), 0) / successfulRequests.length
+                );
+                const avgQueryTime = Math.round(
+                    successfulRequests.reduce((sum, r) => sum + (r.avgQueryTime || 0), 0) / successfulRequests.length
+                );
+                const avgWaitTime = avgProcessingTimeWithWait - avgQueryTime;
+                
+                this.logger.debug(`      Среднее время обработки (с ожиданием): ${avgProcessingTimeWithWait}ms`);
+                this.logger.debug(`      Среднее время выполнения запросов (без ожидания): ${avgQueryTime}ms`);
+                if (avgWaitTime > 0) {
+                    this.logger.debug(`      Среднее время ожидания воркеров: ~${avgWaitTime}ms`);
+                    if (avgWaitTime > avgQueryTime * 2) {
+                        this.logger.debug(`      ⚠️  Время ожидания воркеров значительно превышает время выполнения запросов`);
+                        this.logger.debug(`         Это нормально для параллельных запросов, но можно оптимизировать, увеличив количество воркеров`);
+                    }
+                }
+            }
+            
             this.logger.debug(`      Уникальных factId: ${uniqueFactIds}/${requests}`);
 
-            if (errors.length > 0 && errors.length <= 5) {
-                errors.forEach(err => {
-                    if (typeof err === 'string') {
-                        this.logger.warn(`      ${err}`);
-                    } else {
-                        this.logger.warn(`      Request ${err.requestId}: ${err.error}`);
-                    }
-                });
+            if (errors.length > 0) {
+                // Подсчитываем ошибки по типам
+                const timeoutErrors = errors.filter(e => typeof e === 'object' && e.type === 'worker_timeout');
+                const exceptionErrors = errors.filter(e => typeof e === 'object' && e.type === 'exception');
+                const otherErrors = errors.filter(e => typeof e !== 'object' || (!e.type || (e.type !== 'worker_timeout' && e.type !== 'exception')));
+                
+                if (timeoutErrors.length > 0) {
+                    this.logger.warn(`      ⚠️  Таймауты воркеров: ${timeoutErrors.length}`);
+                }
+                if (exceptionErrors.length > 0) {
+                    this.logger.warn(`      ⚠️  Исключения: ${exceptionErrors.length}`);
+                }
+                
+                // Выводим первые несколько ошибок детально
+                if (errors.length <= 10) {
+                    errors.forEach(err => {
+                        if (typeof err === 'string') {
+                            this.logger.warn(`      ${err}`);
+                        } else {
+                            const errorType = err.type ? ` [${err.type}]` : '';
+                            this.logger.warn(`      Request ${err.requestId}${errorType}: ${err.error}`);
+                        }
+                    });
+                } else {
+                    // Если ошибок много, выводим только первые 5
+                    errors.slice(0, 5).forEach(err => {
+                        if (typeof err === 'string') {
+                            this.logger.warn(`      ${err}`);
+                        } else {
+                            const errorType = err.type ? ` [${err.type}]` : '';
+                            this.logger.warn(`      Request ${err.requestId}${errorType}: ${err.error}`);
+                        }
+                    });
+                    this.logger.warn(`      ... и еще ${errors.length - 5} ошибок`);
+                }
             }
 
             this.testResults.passed++;

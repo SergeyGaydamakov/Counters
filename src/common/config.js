@@ -91,8 +91,6 @@ const config = {
         timeoutMs: parseInt(process.env.QUERY_DISPATCHER_TIMEOUT_MS) || 60000,
         // Максимальное время ожидания освобождения воркеров (мс)
         maxWaitForWorkersMs: parseInt(process.env.QUERY_DISPATCHER_MAX_WAIT_FOR_WORKERS_MS) || 500,
-        // Интервал проверки готовности воркеров (мс)
-        checkIntervalMs: parseInt(process.env.QUERY_DISPATCHER_CHECK_INTERVAL_MS) || 20,
     },
 
     // Настройки фактов
