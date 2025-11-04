@@ -93,7 +93,7 @@ class WorkerMetricsCollector {
             name: 'parallel_counters_requests_count',
             help: 'Number of parallel counters requests',
             labelNames: ['message_type', 'worker_id'],
-            buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20],
+            buckets: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 35, 40, 45, 50],
             registers: [this.register]
         });
 
