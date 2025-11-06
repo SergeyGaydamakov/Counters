@@ -615,12 +615,16 @@ function CreateShardZones(databaseName, zonesCount = 2) {
         print("Adding tag ranges <" + range.namespace + ">");
         let count = 0;
         shards.forEach(shard => {
-            const res = sh.addTagRange(range.namespace, range.keys[count], range.keys[count + 1], shard);
-            if (!res.ok) {
-                print("ERROR: Can not add tag range <" + count + "> for shard <" + shard + ">: " + res.errmsg);
-                return false;
+            if (count < (range.keys.length-1)) {
+                const res = sh.addTagRange(range.namespace, range.keys[count], range.keys[count + 1], shard);
+                if (!res.ok) {
+                    print("ERROR: Can not add tag range <" + count + "> for shard <" + shard + ">: " + res.errmsg);
+                    return false;
+                }
+                print("Tag range <" + count + "> for shard <" + shard + "> added successfully.");
+            } else {
+                print(`Tag range for shard <${shard}> not added, because needed only ${zonesCount} zones.`);
             }
-            print("Tag range <" + count + "> for shard <" + shard + "> added successfully.");
             count++;
         });
     });
