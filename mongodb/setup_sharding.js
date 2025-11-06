@@ -517,10 +517,10 @@ if (!shardResult.ok) {
 
 
 // 12. Создание зон шардирования
-function CreateShardZones(databaseName) {
+function CreateShardZones(databaseName, zonesCount = 2) {
     sh.stopBalancer();
-    print("Creating shard zones:");
-    var listShards = adminDb.runCommand({
+    print(`Creating ${zonesCount} zones for ${databaseName}`);
+    var listShards = db.getSiblingDB("admin").runCommand({
         listShards: 1
     });
     if (!listShards.ok) {
@@ -553,19 +553,19 @@ function CreateShardZones(databaseName) {
         {
             namespace: databaseName + ".facts",
             keys: [
-                { _id: MinKey },
-                { _id: hexToBase64("5555555555555555555555555555555555555555") },
-                { _id: hexToBase64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") },
-                { _id: MaxKey }
+                { "_id": MinKey() },
+                { "_id": hexToBase64("3fffffffffffffffffffffffffffffffffffffff") },
+                { "_id": hexToBase64("9fffffffffffffffffffffffffffffffffffffff") },
+                { "_id": MaxKey() }
             ]
         },
         {
             namespace: databaseName + ".factIndex",
             keys: [
-                { "_id.h": MinKey},
-                { "_id.h": hexToBase64("5555555555555555555555555555555555555555")},
-                { "_id.h": hexToBase64("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")},
-                { "_id.h": MaxKey},
+                { "_id.h": MinKey(), "dt": MinKey() },
+                { "_id.h": hexToBase64("3fffffffffffffffffffffffffffffffffffffff"), "dt": MinKey() },
+                { "_id.h": hexToBase64("9fffffffffffffffffffffffffffffffffffffff"), "dt": MinKey() },
+                { "_id.h": MaxKey(), "dt": MaxKey() },
             ]
         },
     ];
@@ -573,23 +573,39 @@ function CreateShardZones(databaseName) {
         {
             namespace: databaseName + ".facts",
             keys: [
-                { _id: MinKey },
-                { _id: hexToBase64("7fffffffffffffffffffffffffffffffffffffff") },
-                { _id: MaxKey }
+                { "_id": MinKey()},
+                { "_id": hexToBase64("4fffffffffffffffffffffffffffffffffffffff")},
+                { "_id": MaxKey() }
             ]
         },
         {
             namespace: databaseName + ".factIndex",
             keys: [
-                { "_id.h": MinKey},
-                { "_id.h": hexToBase64("7fffffffffffffffffffffffffffffffffffffff")},
-                { "_id.h": MaxKey},
+                { "_id.h": MinKey(), "dt": MinKey() },
+                { "_id.h": hexToBase64("4fffffffffffffffffffffffffffffffffffffff"), "dt": MinKey() },
+                { "_id.h": MaxKey(), "dt": MaxKey() },
             ]
         },
     ];
-    
+    const ranges_for_1_shards = [
+        {
+            namespace: databaseName + ".facts",
+            keys: [
+                { "_id": MinKey()},
+                { "_id": MaxKey() }
+            ]
+        },
+        {
+            namespace: databaseName + ".factIndex",
+            keys: [
+                { "_id.h": MinKey(), "dt": MinKey() },
+                { "_id.h": MaxKey(), "dt": MaxKey() },
+            ]
+        },
+    ];
+    const ranges = zonesCount === 3 ? ranges_for_3_shards : zonesCount === 2 ? ranges_for_2_shards : ranges_for_1_shards;
     print("*** TAGS ********************************************")
-    ranges_for_2_shards.forEach(range => {
+    ranges.forEach(range => {
         // Сначала удалим существующие диапазоны
         print(`Removing ${db.getSiblingDB("config").tags.find({ "ns": range.namespace }).count()} tag ranges for ${range.namespace}`);
         // Удаляем старые зоны коллекции
