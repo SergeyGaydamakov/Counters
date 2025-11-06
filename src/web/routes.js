@@ -185,7 +185,20 @@ async function saveDebugInfoIfNeeded(factController, message, fact, processingTi
         stats.requestCounter++;
         
         // Обновляем максимальное время обработки и связанную информацию
-        if (!stats.maxProcessingTime || (processingTime.counters > stats.maxProcessingTime.counters)) {
+        // Проверяем, что processingTime существует перед обращением к его свойствам
+        let shouldUpdate = false;
+        
+        if (!stats.maxProcessingTime) {
+            // Если еще нет максимального времени, обновляем (даже если processingTime null)
+            shouldUpdate = true;
+        } else if (processingTime && processingTime.counters && 
+                   stats.maxProcessingTime && stats.maxProcessingTime.counters &&
+                   processingTime.counters > stats.maxProcessingTime.counters) {
+            // Если новое время обработки счетчиков больше максимального - обновляем
+            shouldUpdate = true;
+        }
+        
+        if (shouldUpdate) {
             stats.maxProcessingTime = processingTime;
             stats.maxMetrics = metrics;
             stats.maxDebugInfo = debugInfo;

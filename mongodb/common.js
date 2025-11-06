@@ -271,7 +271,7 @@ function CounterStatistics(limit = 1000, hashIndex = 10, lastDays = 14, database
   print(`***   Hash index type ${hashIndex}: ${hash}`);
   print("");
   const query = {
-    "_id.h": {
+    "h": {
       "$in": [
         hash,
         "ec112d7c8244ddedf4f48fbf35c578b33a382793",
@@ -299,7 +299,7 @@ function CounterStatistics(limit = 1000, hashIndex = 10, lastDays = 14, database
     },
     {
       "$group": {
-        "_id": "$_id.f"
+        "_id": "$f"
       }
     },
     {
@@ -463,7 +463,7 @@ function CounterStatistics(limit = 1000, hashIndex = 10, lastDays = 14, database
   print("");
   // Два отдельных запроса для проверки
   const findQuery = query;
-  findQuery["_id.f"] = {
+  findQuery["f"] = {
     "$ne": "6ead1ede6d2b8ae568da8b0a"
   };
   // print("***   Find query factIndex: \n" + JSON.stringify(findQuery));
@@ -485,7 +485,7 @@ function CounterStatistics(limit = 1000, hashIndex = 10, lastDays = 14, database
   print("");
   const queryFacts = {
     "_id": {
-      "$in": findArrayResult.map(item => item._id.f)
+      "$in": findArrayResult.map(item => item.f)
     }
   };
 
@@ -624,7 +624,7 @@ function CounterStatistics(limit = 1000, hashIndex = 10, lastDays = 14, database
   }
   print("");
 
-  const factIndexCount = dbStat.factIndex.find({ "_id.h": hash }).count();
+  const factIndexCount = dbStat.factIndex.find({ "h": hash }).count();
   print("***   Total factIndex with " + hashIndex + " hash : " + factIndexCount);
 }
 

@@ -236,20 +236,19 @@ try {
             bsonType: "object",
             title: "Схема для коллекции индексных значений фактов",
             description: "Схема для коллекции индексных значений фактов",
-            required: ["_id", "dt", "c"],
+            required: ["_id", "h", "f", "dt", "c"],
             properties: {
                 _id: {
-                    bsonType: "object",
-                    properties: {
-                        h: {
-                            bsonType: "string",
-                            description: "Хеш значение <тип индексного значения>:<значение поля факта>"
-                        },
-                        f: {
-                            bsonType: "string",
-                            description: "Уникальный идентификатор факта в коллекции facts._id"
-                        },
-                    }
+                    bsonType: "objectId",
+                    description: "Уникальный идентификатор индексного значения"
+                },
+                h: {
+                    bsonType: "string",
+                    description: "Хеш значение <тип индексного значения>:<значение поля факта>"
+                },
+                f: {
+                    bsonType: "string",
+                    description: "Уникальный идентификатор факта в коллекции facts._id"
                 },
                 dt: {
                     bsonType: "date",
@@ -335,9 +334,17 @@ try {
     });
     const indexesToCreate = [
         {
-            key: { "_id.h": 1, "dt": 1 },
+            key: { "h": 1, "f": 1 },
             options: {
-                name: 'idx_id_h_dt',
+                name: 'idx_h_f',
+                background: true,
+                unique: true
+            }
+        },
+        {
+            key: { "h": 1, "dt": 1 },
+            options: {
+                name: 'idx_h_dt',
                 background: true
             }
         }
@@ -366,10 +373,10 @@ print(`\n8. Настройка шардирования для коллекци�
 const factIndexShardingResult = executeCommand(
     {
         shardCollection: `${DATABASE_NAME}.${FACT_INDEX_COLLECTION}`,
-        key: { "_id.h": 1, "dt": 1 }, // dt позволяет избежать jumbo chunks
-        unique: false
+        key: { "h": 1, "f": 1 }, // уникальный индекс {h: 1, f: 1} требует, чтобы шардированный ключ был его префиксом
+        unique: true
     },
-    `Настройка шардирования для коллекции ${FACT_INDEX_COLLECTION} по ключу {_id.h: 1, "dt": 1}`
+    `Настройка шардирования для коллекции ${FACT_INDEX_COLLECTION} по ключу {h: 1, "f": 1}`
 );
 
 if (!factIndexShardingResult.success) {
@@ -563,10 +570,10 @@ function CreateShardZones(databaseName, zonesCount = 2) {
         {
             namespace: databaseName + ".factIndex",
             keys: [
-                { "_id.h": MinKey(), "dt": MinKey() },
-                { "_id.h": hexToBase64("3fffffffffffffffffffffffffffffffffffffff"), "dt": MinKey() },
-                { "_id.h": hexToBase64("9fffffffffffffffffffffffffffffffffffffff"), "dt": MinKey() },
-                { "_id.h": MaxKey(), "dt": MaxKey() },
+                { "h": MinKey(), "f": MinKey() },
+                { "h": hexToBase64("3fffffffffffffffffffffffffffffffffffffff"), "f": MinKey() },
+                { "h": hexToBase64("9fffffffffffffffffffffffffffffffffffffff"), "f": MinKey() },
+                { "h": MaxKey(), "f": MaxKey() },
             ]
         },
     ];
@@ -582,9 +589,9 @@ function CreateShardZones(databaseName, zonesCount = 2) {
         {
             namespace: databaseName + ".factIndex",
             keys: [
-                { "_id.h": MinKey(), "dt": MinKey() },
-                { "_id.h": hexToBase64("4fffffffffffffffffffffffffffffffffffffff"), "dt": MinKey() },
-                { "_id.h": MaxKey(), "dt": MaxKey() },
+                { "h": MinKey(), "f": MinKey() },
+                { "h": hexToBase64("4fffffffffffffffffffffffffffffffffffffff"), "f": MinKey() },
+                { "h": MaxKey(), "f": MaxKey() },
             ]
         },
     ];
@@ -599,8 +606,8 @@ function CreateShardZones(databaseName, zonesCount = 2) {
         {
             namespace: databaseName + ".factIndex",
             keys: [
-                { "_id.h": MinKey(), "dt": MinKey() },
-                { "_id.h": MaxKey(), "dt": MaxKey() },
+                { "h": MinKey(), "f": MinKey() },
+                { "h": MaxKey(), "f": MaxKey() },
             ]
         },
     ];

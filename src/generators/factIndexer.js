@@ -354,16 +354,15 @@ class FactIndexer {
                 }
 
                 const indexData = {
-                    "_id": {
-                        "h": indexValue,              // вычисленное значение индекса
-                        "f": fact._id                 // идентификатор факта
-                    },               
-                    "dt": indexDate,                  // дата из поля dateName или значение по умолчанию
-                    "c": new Date(),                  // дата создания факта
+                    // _id будет автоматически создан MongoDB как ObjectId
+                    "h": indexValue,                  // вычисленное значение индекса
+                    "f": fact._id,                     // идентификатор факта
+                    "dt": indexDate,                   // дата из поля dateName или значение по умолчанию
+                    "c": new Date(),                   // дата создания факта
                     // @deprecated нужно удалить после отладки
-                    "it": configItem.indexType,       // числовой тип индекса из конфигурации
-                    "v": String(fact.d[fieldName]),   // значение поля из факта
-                    "t": fact.t,                      // тип факта
+                    "it": configItem.indexType,        // числовой тип индекса из конфигурации
+                    "v": String(fact.d[fieldName]),    // значение поля из факта
+                    "t": fact.t,                       // тип факта
                 };
                 if (this.includeFactData) {
                     indexData["d"] = fact.d;       // JSON объект с данными факта
@@ -384,7 +383,7 @@ class FactIndexer {
      */
     getHashValuesForSearch(indexValues) {
         return indexValues.map(value => ({
-            hashValue: value._id.h,
+            hashValue: value.h,
             index: this._indexConfig.find(configItem => configItem.indexType === value.it)
         }));
     }

@@ -162,7 +162,8 @@ class FactIndexerTest {
             }
 
             // Проверяем структуру индексного значения
-            const requiredFields = ['_id', 'c', 'it', 'v', 't'];
+            // _id будет создан MongoDB при вставке, поэтому не проверяем его здесь
+            const requiredFields = ['h', 'f', 'c', 'it', 'v', 't'];
             if (config.facts.includeFactDataToIndex) {
                 requiredFields.push('d');
             }
@@ -192,16 +193,16 @@ class FactIndexerTest {
             const f5Index = indexValues.find(iv => iv.v === 'value5');
 
             // f1 должен иметь хеш (indexValue = 1), f5 должен иметь само значение (indexValue = 2)
-            if (f1Index._id.h.length !==28) {
-                throw new Error(`f1 должен иметь хеш длиной 28 символов (Base64), получено ${f1Index._id.h.length}`);
+            if (f1Index.h.length !==28) {
+                throw new Error(`f1 должен иметь хеш длиной 28 символов (Base64), получено ${f1Index.h.length}`);
             }
-            if (f5Index._id.h !== '5:value5') {
-                throw new Error(`f5 должен иметь само значение поля, получено ${f5Index._id.h}`);
+            if (f5Index.h !== '5:value5') {
+                throw new Error(`f5 должен иметь само значение поля, получено ${f5Index.h}`);
             }
 
             // f2 должен иметь само значение поля (indexValue = 2)
-            if (f2Index._id.h !== '2:value2') {
-                throw new Error(`f2 должен иметь само значение поля, получено ${f2Index._id.h}`);
+            if (f2Index.h !== '2:value2') {
+                throw new Error(`f2 должен иметь само значение поля, получено ${f2Index.h}`);
             }
 
             this.testResults.passed++;
@@ -276,8 +277,8 @@ class FactIndexerTest {
             if (it3.length !== 1) {
                 throw new Error(`Для it=3 ожидалось 1 значение, получено ${it3.length}`);
             }
-            if (it3[0]._id.h.length !== 28) {
-                throw new Error(`Для it=3 ожидался хеш длиной 28 символов, получено ${it3[0]._id.h.length}`);
+            if (it3[0].h.length !== 28) {
+                throw new Error(`Для it=3 ожидался хеш длиной 28 символов, получено ${it3[0].h.length}`);
             }
 
             // Проверяем корректность даты dt
@@ -331,12 +332,13 @@ class FactIndexerTest {
 
             // Проверяем, что все индексные значения имеют правильные поля
             indexValues.forEach(indexValue => {
-                if (indexValue._id.f !== 'multi-field-test') {
+                if (indexValue.f !== 'multi-field-test') {
                     throw new Error('Неправильный ID факта в индексном значении');
                 }
 
                 // Проверяем структуру
-                const requiredFields = ['_id', 'c', 'it', 'v', 't'];
+                // _id будет создан MongoDB при вставке, поэтому не проверяем его здесь
+                const requiredFields = ['h', 'f', 'c', 'it', 'v', 't'];
                 if (config.facts.includeFactDataToIndex) {
                     requiredFields.push('d');
                 }
@@ -367,15 +369,15 @@ class FactIndexerTest {
 
             hashFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.v === val);
-                if (indexValue._id.h.length !== 28) {
-                    throw new Error(`Поле ${val} должно иметь хеш длиной 28 символов (Base64), получено ${indexValue._id.h.length}`);
+                if (indexValue.h.length !== 28) {
+                    throw new Error(`Поле ${val} должно иметь хеш длиной 28 символов (Base64), получено ${indexValue.h.length}`);
                 }
             });
 
             valueFields.forEach(val => {
                 const indexValue = indexValues.find(iv => iv.v === val);
-                if (indexValue._id.h !== `${indexValue.it}:${val}`) {
-                    throw new Error(`Поле ${val} должно иметь само значение, получено ${indexValue._id.h}`);
+                if (indexValue.h !== `${indexValue.it}:${val}`) {
+                    throw new Error(`Поле ${val} должно иметь само значение, получено ${indexValue.h}`);
                 }
             });
 
@@ -494,7 +496,7 @@ class FactIndexerTest {
             }
 
             // Проверяем, что индексные значения содержат правильные ID фактов
-            const factIds = indexValues.map(idx => idx._id.f);
+            const factIds = indexValues.map(idx => idx.f);
             if (!factIds.includes('fact1') || !factIds.includes('fact2')) {
                 throw new Error('Неправильные ID фактов в индексных значениях');
             }
@@ -534,8 +536,9 @@ class FactIndexerTest {
             }
 
             // Проверяем, что все индексные значения имеют правильную структуру
+            // _id будет создан MongoDB при вставке, поэтому не проверяем его здесь
             indexValues.forEach((indexValue, i) => {
-                const requiredFields = ['_id', 'c', 'it', 'v', 't'];
+                const requiredFields = ['h', 'f', 'c', 'it', 'v', 't'];
                 if (config.facts.includeFactDataToIndex) {
                     requiredFields.push('d');
                 }
@@ -548,10 +551,10 @@ class FactIndexerTest {
 
             // Проверяем типы данных
             indexValues.forEach((indexValue, i) => {
-                if (typeof indexValue._id.h !== 'string') {
+                if (typeof indexValue.h !== 'string') {
                     throw new Error(`Поле h должно быть строкой в индексном значении ${i}`);
                 }
-                if (typeof indexValue._id.f !== 'string') {
+                if (typeof indexValue.f !== 'string') {
                     throw new Error(`Поле f должно быть строкой в индексном значении ${i}`);
                 }
                 if (typeof indexValue.it !== 'number') {
@@ -604,8 +607,9 @@ class FactIndexerTest {
             }
 
             // Проверяем, что все индексные значения имеют правильную структуру
+            // _id будет создан MongoDB при вставке, поэтому не проверяем его здесь
             indexValues.forEach(indexValue => {
-                const requiredFields = ['_id', 'dt', 'c'];
+                const requiredFields = ['h', 'f', 'dt', 'c'];
                 for (const field of requiredFields) {
                     if (!(field in indexValue)) {
                         throw new Error(`Отсутствует поле ${field} в индексном значении`);

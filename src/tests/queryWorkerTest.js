@@ -1160,7 +1160,7 @@ class QueryWorkerTest {
             
             // Простой запрос: получить все записи из factIndex с полем f1 = 'test-value-1'
             const query = [
-                { $match: { '_id.f': { $in: ['test-validation-fact-001', 'test-validation-fact-003'] } } },
+                { $match: { 'f': { $in: ['test-validation-fact-001', 'test-validation-fact-003'] } } },
                 { $sort: { dt: 1 } },
                 { $limit: 100 }
             ];
@@ -1200,8 +1200,8 @@ class QueryWorkerTest {
             // Проверяем результаты
             // Должны найтись записи для test-validation-fact-001 и test-validation-fact-003
             const foundIds = deserializedResult.map(r => {
-                // ID в factIndex имеет структуру _id: { f: factId, ... }
-                return r._id && r._id.f ? r._id.f : (r._id && typeof r._id === 'string' ? r._id : null);
+                // ID в factIndex имеет структуру f: factId
+                return r.f || (r._id && typeof r._id === 'string' ? r._id : null);
             }).filter(id => id !== null);
             
             // Проверяем, что найдены ожидаемые факты

@@ -285,7 +285,7 @@ class QueryDispatcherTest {
             const { results } = await dispatcher.executeQueries([{
                 id: 'single-query-test',
                 query: [
-                    { $match: { '_id.f': { $in: [dataset.factIds[0], dataset.factIds[2]] } } },
+                    { $match: { 'f': { $in: [dataset.factIds[0], dataset.factIds[2]] } } },
                     { $sort: { dt: 1 } }
                 ],
                 collectionName: 'factIndex',
@@ -306,7 +306,7 @@ class QueryDispatcherTest {
                 throw new Error('Результат запроса должен содержать документы');
             }
 
-            const returnedIds = response.result.map(doc => (doc._id && doc._id.f) ? doc._id.f : doc._id);
+            const returnedIds = response.result.map(doc => doc.f || doc._id);
             const containsFirst = returnedIds.includes(dataset.factIds[0]);
             const containsThird = returnedIds.includes(dataset.factIds[2]);
 
@@ -353,7 +353,7 @@ class QueryDispatcherTest {
             const requests = dataset.factIds.map((factId, index) => ({
                 id: `multi-query-${index}`,
                 query: [
-                    { $match: { '_id.f': factId } },
+                    { $match: { 'f': factId } },
                     { $sort: { dt: 1 } },
                     { $limit: 5 }
                 ],
@@ -383,7 +383,7 @@ class QueryDispatcherTest {
                     throw new Error(`Запрос ${item.id} должен вернуть документы factIndex`);
                 }
                 const doc = item.result[0];
-                const factId = (doc._id && doc._id.f) ? doc._id.f : doc._id;
+                const factId = doc.f || doc._id;
                 if (factId !== dataset.factIds[index]) {
                     throw new Error(`Запрос ${item.id} вернул запись для другого факта`);
                 }
@@ -491,7 +491,7 @@ class QueryDispatcherTest {
                 {
                     id: 'parallel-error-valid',
                     query: [
-                        { $match: { '_id.f': dataset.factIds[0] } },
+                        { $match: { 'f': dataset.factIds[0] } },
                         { $limit: 5 }
                     ],
                     collectionName: 'factIndex',
@@ -556,7 +556,7 @@ class QueryDispatcherTest {
                 {
                     id: 'stats-query-1',
                     query: [
-                        { $match: { '_id.f': dataset.factIds[0] } },
+                        { $match: { 'f': dataset.factIds[0] } },
                         { $limit: 10 }
                     ],
                     collectionName: 'factIndex',
@@ -565,7 +565,7 @@ class QueryDispatcherTest {
                 {
                     id: 'stats-query-2',
                     query: [
-                        { $match: { '_id.f': dataset.factIds[1] } },
+                        { $match: { 'f': dataset.factIds[1] } },
                         { $limit: 5 }
                     ],
                     collectionName: 'factIndex',
@@ -625,7 +625,7 @@ class QueryDispatcherTest {
                     requests.push({
                         id: `${prefix}-req-${i}`,
                         query: [
-                            { $match: { '_id.f': dataset.factIds[i % dataset.factIds.length] } },
+                            { $match: { 'f': dataset.factIds[i % dataset.factIds.length] } },
                             { $limit: 5 }
                         ],
                         collectionName: 'factIndex',

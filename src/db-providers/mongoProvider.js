@@ -684,8 +684,10 @@ class MongoProvider {
                 const indexBulk = factIndexCollection.initializeUnorderedBulkOp(bulkWriteOptions);
 
                 factIndexValues.forEach(indexValue => {
+                    // Используем уникальный индекс {h: 1, f: 1} для поиска и обновления
                     const indexFilter = {
-                        _id: indexValue._id
+                        h: indexValue.h,
+                        f: indexValue.f
                     };
                     indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
                     if (this._debugMode) {
@@ -711,13 +713,15 @@ class MongoProvider {
                 const updatePromises = factIndexValues.map(async (indexValue) => {
                     const startTime = Date.now();
                     try {
-                        const result = await factIndexCollection.updateOne({ _id: indexValue._id }, { $set: indexValue }, updateOptions);
+                        // Используем уникальный индекс {h: 1, f: 1} для поиска и обновления
+                        const result = await factIndexCollection.updateOne({ h: indexValue.h, f: indexValue.f }, { $set: indexValue }, updateOptions);
                         return {
                             writeError: result.writeErrors,
                             upsertedCount: result.upsertedCount || 0,
                             modifiedCount: result.modifiedCount || 0,
                             processingTime: Date.now() - startTime,
-                            _id: indexValue._id
+                            h: indexValue.h,
+                            f: indexValue.f
                         };
                     } catch (error) {
                         this.logger.error(`✗ Ошибка при обновлении индексного значения: ${error.message}`);
@@ -726,7 +730,8 @@ class MongoProvider {
                             upsertedCount: 0,
                             modifiedCount: 0,
                             processingTime: Date.now() - startTime,
-                            _id: indexValue._id
+                            h: indexValue.h,
+                            f: indexValue.f
                         };
                     }
                 });
@@ -739,7 +744,7 @@ class MongoProvider {
                     inserted += result.upsertedCount || 0;
                     updated += result.modifiedCount || 0;
                 });
-                saveIndexMetrics = updateResults.map(result => { return { _id: result._id, processingTime: result.processingTime } });
+                saveIndexMetrics = updateResults.map(result => { return { h: result.h, f: result.f, processingTime: result.processingTime } });
                 duplicatesIgnored = factIndexValues.length - inserted - updated;
             }
 
@@ -796,7 +801,7 @@ class MongoProvider {
             return null;
         }
         const findCondition = {
-            "_id.h": indexValue.h,
+            "h": indexValue.h,
             "dt": {
                 "$gte": new Date(Date.now() - lastDays * 24 * 60 * 60 * 1000),
             },
@@ -1339,7 +1344,7 @@ class MongoProvider {
         const stopFindFactIndexTime = Date.now();
         const relevantFactsQuerySize = debugMode ? JSON.stringify(indexNameQuery.factIndexFindQuery).length : undefined;
         const relevantFactsSize = debugMode ? JSON.stringify(factIndexResult).length : undefined;
-        const factIds = factIndexResult.map(item => item._id.f);
+        const factIds = factIndexResult.map(item => item.f);
         if (this._debugMode) {
             this.logger.debug(`✓ Получены списки ИД фактов: ${JSON.stringify(factIds)} \n`);
         }
@@ -1523,7 +1528,7 @@ class MongoProvider {
                 return;
             }
             const factIndexFindQuery = {
-                "_id.h": indexInfo.hashValue
+                "h": indexInfo.hashValue
             };
             if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0) {
                 const fromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0 ? nowDate - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : (depthFromDate ? depthFromDate.getTime() : nowDate);
@@ -1538,7 +1543,7 @@ class MongoProvider {
                 factIndexFindQuery["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
-                factIndexFindQuery["_id.f"] = {
+                factIndexFindQuery["f"] = {
                     "$ne": fact._id
                 };
             }
@@ -1552,10 +1557,10 @@ class MongoProvider {
                     readConcern: this._databaseOptions.readConcern,
                     readPreference: this._databaseOptions.aggregateReadPreference,
                     comment: "getRelevantFactsByIndex - find",
-                    projection: { "_id.f": 1 }
+                    projection: { "f": 1 }
                 },
                 factIndexFindSort: {
-                    "_id.h": 1,
+                    "h": 1,
                     "dt": -1
                 },
                 depthLimit: Math.min(limitValue, depthLimit),
@@ -1797,7 +1802,7 @@ class MongoProvider {
                 return;
             }
             const match = {
-                "_id.h": indexInfo.hashValue
+                "h": indexInfo.hashValue
             };
             if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0) {
                 const fromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0 ? nowDate - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : (depthFromDate ? depthFromDate.getTime() : nowDate);
@@ -1812,12 +1817,12 @@ class MongoProvider {
                 match["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
-                match["_id.f"] = {
+                match["f"] = {
                     "$ne": fact._id
                 };
             }
             const sort = {
-                "_id.h": 1,
+                "h": 1,
                 "dt": -1
             };
             const limitValue = indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ? (indexInfo.index.limit ? Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords, indexInfo.index.limit) : indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords) : (indexInfo.index.limit ? indexInfo.index.limit : 100);
@@ -1832,9 +1837,9 @@ class MongoProvider {
                 aggregateIndexQuery.push({
                     "$lookup": {
                         from: "facts",
-                        localField: "_id.f",
+                        localField: "f",
                         foreignField: "_id",
-                        let: { "factId": "$_id.f" },
+                        let: { "factId": "$f" },
                         pipeline: [
                             {
                                 "$match": {
@@ -2257,12 +2262,12 @@ class MongoProvider {
         // получить уникальные значения поля _id
         // и результат объединить с фактом из коллекции facts
         const matchQuery = {
-            "_id.h": {
+            "h": {
                 "$in": indexHashValues
             }
         };
         if (fact) {
-            matchQuery["_id.f"] = {
+            matchQuery["f"] = {
                 "$ne": fact._id
             };
         }
@@ -2289,7 +2294,7 @@ class MongoProvider {
             {
                 "$match": {
                     "_id": {
-                        "$in": relevantFactIds.map(item => item._id.f)
+                        "$in": relevantFactIds.map(item => item.f)
                     }
                 }
             }
@@ -2795,20 +2800,19 @@ class MongoProvider {
                     bsonType: "object",
                     title: "Схема для коллекции индексных значений фактов",
                     description: "Схема для коллекции индексных значений фактов",
-                    required: ["_id", "dt", "c"],
+                    required: ["_id", "h", "f", "dt", "c"],
                     properties: {
                         _id: {
-                            bsonType: "object",
-                            properties: {
-                                h: {
-                                    bsonType: "string",
-                                    description: "Хеш значение <тип индексного значения>:<значение поля факта>"
-                                },
-                                f: {
-                                    bsonType: "string",
-                                    description: "Уникальный идентификатор факта в коллекции facts._id"
-                                },
-                            }
+                            bsonType: "objectId",
+                            description: "Уникальный идентификатор индексного значения"
+                        },
+                        h: {
+                            bsonType: "string",
+                            description: "Хеш значение <тип индексного значения>:<значение поля факта>"
+                        },
+                        f: {
+                            bsonType: "string",
+                            description: "Уникальный идентификатор факта в коллекции facts._id"
                         },
                         dt: {
                             bsonType: "date",
@@ -2899,9 +2903,17 @@ class MongoProvider {
 
             const indexesToCreate = [
                 {
-                    key: { "_id.h": 1, "dt": 1 },
+                    key: { "h": 1, "f": 1 },
                     options: {
-                        name: 'idx_id_h_dt',
+                        name: 'idx_h_f',
+                        background: true,
+                        unique: true
+                    }
+                },
+                {
+                    key: { "h": 1, "dt": 1 },
+                    options: {
+                        name: 'idx_h_dt',
                         background: true
                     }
                 }
@@ -2932,7 +2944,7 @@ class MongoProvider {
                 }
             }
             // Шардирование после создания индексов, чтобы не создавался шардированный индекс
-            await this._shardCollection(adminDb, this.FACT_INDEX_COLLECTION_NAME, { "_id.h": 1 }, false);
+            await this._shardCollection(adminDb, this.FACT_INDEX_COLLECTION_NAME, { "h": 1, "f": 1 }, true);
             this.logger.info(`✓ Выполнено шардирование коллекции ${this.FACT_INDEX_COLLECTION_NAME}`);
 
             this.logger.debug(`\n=== Результат создания индексов для индексных значений ===`);
