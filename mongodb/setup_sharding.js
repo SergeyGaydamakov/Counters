@@ -5,6 +5,7 @@ print("=== Настройка шардирования для коллекций
 
 // Конфигурация
 const DATABASE_NAME = "counters"; // Замените на нужное имя базы данных
+const SHARD_ZONES_COUNT = 2;
 const FACTS_COLLECTION = "facts";
 const FACT_INDEX_COLLECTION = "factIndex";
 const LOG_COLLECTION = "log";
@@ -633,7 +634,7 @@ function CreateShardZones(databaseName, zonesCount = 2) {
 }
 
 print("\n9. Создание зон шардирования...");
-if (CreateShardZones(DATABASE_NAME)) {
+if (CreateShardZones(DATABASE_NAME, SHARD_ZONES_COUNT)) {
     print("✓ Зоны шардирования созданы");
 } else {
     print("✗ Не удалось создать зоны шардирования");
