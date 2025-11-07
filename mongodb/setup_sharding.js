@@ -562,8 +562,8 @@ function CreateShardZones(databaseName, zonesCount = 2) {
             namespace: databaseName + ".facts",
             keys: [
                 { "_id": MinKey() },
-                { "_id": hexToBase64("3fffffffffffffffffffffffffffffffffffffff") },
-                { "_id": hexToBase64("9fffffffffffffffffffffffffffffffffffffff") },
+                { "_id": hexToBase64("28ffffffffffffffffffffffffffffffffffffff") },
+                { "_id": hexToBase64("5affffffffffffffffffffffffffffffffffffff") },
                 { "_id": MaxKey() }
             ]
         },
@@ -571,8 +571,8 @@ function CreateShardZones(databaseName, zonesCount = 2) {
             namespace: databaseName + ".factIndex",
             keys: [
                 { "h": MinKey(), "f": MinKey() },
-                { "h": hexToBase64("3fffffffffffffffffffffffffffffffffffffff"), "f": MinKey() },
-                { "h": hexToBase64("9fffffffffffffffffffffffffffffffffffffff"), "f": MinKey() },
+                { "h": hexToBase64("28ffffffffffffffffffffffffffffffffffffff"), "f": MinKey() },
+                { "h": hexToBase64("5affffffffffffffffffffffffffffffffffffff"), "f": MinKey() },
                 { "h": MaxKey(), "f": MaxKey() },
             ]
         },
