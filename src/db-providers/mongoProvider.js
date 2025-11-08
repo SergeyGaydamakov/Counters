@@ -1547,9 +1547,11 @@ class MongoProvider {
                     // Добавляем для тестов, чтобы выполнять пустые запросы
                     factIndexFindQuery["f"] = "empty";
                 } else {
+                    /*
                     factIndexFindQuery["f"] = {
                         "$ne": fact._id
                     };
+                    */
                 }
             }
             indexTypeNames.add(indexTypeName);
@@ -1826,9 +1828,11 @@ class MongoProvider {
                     // Добавляем для тестов, чтобы выполнять пустые запросы
                     match["f"] = "empty";
                 } else {
+                    /*
                     match["f"] = {
                         "$ne": fact._id
                     };
+                    */
                 }
             }
             const sort = {
@@ -1839,9 +1843,12 @@ class MongoProvider {
             const limit = Math.min(limitValue, depthLimit);
             const aggregateIndexQuery = [
                 { "$match": match },
-                { "$sort": sort },
-                { "$limit": limit }
+                { "$sort": sort }
             ];
+            if (config.facts.skipFactLimit > 0) {
+                aggregateIndexQuery.push({ "$skip": config.facts.skipFactLimit });
+            }
+            aggregateIndexQuery.push({ "$limit": limit });
 
             if (lookupFacts) {
                 aggregateIndexQuery.push({
