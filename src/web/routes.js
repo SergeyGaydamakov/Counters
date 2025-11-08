@@ -12,6 +12,10 @@ const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 // Глобальные переменные для отслеживания статистики запросов по потокам
 const threadStats = new Map(); // Map<processId, {requestCounter, maxProcessingTime, maxMetrics, maxDebugInfo}>
 
+// Переменные для управления задержкой IRIS запросов (вторая очередь задержек)
+let irisFirstCallTime = null; // Время первого успешного вызова processMessageWithCounters для IRIS
+let irisFirstCallProcessed = false; // Флаг первого успешного вызова
+
 /**
  * Получает или создает статистику для текущего потока
  * @returns {Object} объект со статистикой потока
@@ -566,8 +570,63 @@ function createRoutes(factController) {
                 });
             }
 
+            // Проверка задержки для IRIS запросов (вторая очередь задержек)
+            // После первого успешного вызова processMessageWithCounters блокируем запросы на START_DELAY секунд
+            if (config.startDelay > 0) {
+                // Если первый вызов уже был обработан
+                if (irisFirstCallProcessed && irisFirstCallTime !== null) {
+                    const currentTime = Date.now();
+                    const elapsedSeconds = (currentTime - irisFirstCallTime) / 1000;
+                    
+                    // Если прошло меньше START_DELAY секунд, блокируем запрос
+                    if (elapsedSeconds < config.startDelay) {
+                        const remainingSeconds = (config.startDelay - elapsedSeconds).toFixed(2);
+                        logger.info(`⏳ IRIS запрос заблокирован второй очередью задержек (осталось ${remainingSeconds} сек): MessageTypeId=${messageType}, MessageId=${messageId}`);
+                        
+                        // Возвращаем XML ответ с информацией о блокировке
+                        const blockedResponse = {
+                            IRIS: {
+                                status: `Сервис прогревается. Осталось ${remainingSeconds} секунд.`
+                            },
+                            _attributes: {
+                                Version: '1',
+                                Message: 'ModelResponse',
+                                MessageTypeId: messageType,
+                                MessageId: messageId
+                            }
+                        };
+                        
+                        const formattedBlockedResponse = formatDatesInObject(blockedResponse, 'iso');
+                        const builder = new xml2js.Builder({
+                            rootName: 'IRIS',
+                            headless: false,
+                            renderOpts: { 
+                                pretty: true,
+                                indent: '  ',
+                                newline: '\n'
+                            },
+                            attrkey: '_attributes',
+                            charkey: '_text',
+                            explicitArray: false,
+                            mergeAttrs: true
+                        });
+                        const xmlBlockedResponse = builder.buildObject(sanitizeXmlObject(formattedBlockedResponse));
+                        
+                        res.set('Content-Type', 'application/xml');
+                        return res.status(503).send(xmlBlockedResponse);
+                    }
+                }
+            }
+
             // Обрабатываем сообщение через контроллер
             const result = await factController.processMessageWithCounters(message, debugMode);
+            
+            // После успешного вызова processMessageWithCounters устанавливаем время первого вызова
+            if (config.startDelay > 0 && !irisFirstCallProcessed) {
+                irisFirstCallTime = Date.now();
+                irisFirstCallProcessed = true;
+                logger.info(`🔥 IRIS: первый вызов processMessageWithCounters выполнен, начинается задержка ${config.startDelay} сек (MessageTypeId=${messageType}, MessageId=${messageId})`);
+            }
 
             // Асинхронно сохраняем отладочную информацию (не блокируем ответ)
             saveDebugInfoIfNeeded(factController, message, result.fact, result.processingTime, result.metrics, result.debug)
