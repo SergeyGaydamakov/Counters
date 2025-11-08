@@ -110,7 +110,7 @@ class QueryDispatcher {
     /**
      * Выполнение массива запросов с оптимизированным распределением по воркерам
      * Использует work queue pattern - батчи распределяются по воркерам по мере их освобождения
-     * Запросы делятся на this.minWorkers батчей, которые обрабатываются динамически
+     * Запросы делятся на батчи (не более this.minWorkers и не более количества запросов), которые обрабатываются динамически
      * @param {Array<Object>} requests
      * @param {Object} [options]
      * @param {number} [options.timeoutMs]
@@ -145,9 +145,10 @@ class QueryDispatcher {
         const batchPreparationStartTime = Date.now();
         const preparedRequests = requests.map((request) => this._normalizeRequest(request));
         
-        // Делим запросы на this.minWorkers батчей
+        // Делим запросы на батчи (не более this.minWorkers и не более количества запросов)
         const batches = [];
-        const requestsPerBatch = Math.ceil(preparedRequests.length / this.minWorkers);
+        const actualBatchCount = Math.min(this.minWorkers, preparedRequests.length);
+        const requestsPerBatch = Math.ceil(preparedRequests.length / actualBatchCount);
         
         for (let i = 0; i < preparedRequests.length; i += requestsPerBatch) {
             batches.push(preparedRequests.slice(i, i + requestsPerBatch));
