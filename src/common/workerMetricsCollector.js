@@ -84,7 +84,7 @@ class WorkerMetricsCollector {
             name: 'total_index_count',
             help: 'Number of fact indexes ',
             labelNames: ['message_type', 'worker_id'],
-            buckets: [2, 5, 7, 10, 15, 20],
+            buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30],
             registers: [this.register]
         });
 
@@ -93,7 +93,7 @@ class WorkerMetricsCollector {
             name: 'parallel_counters_requests_count',
             help: 'Number of parallel counters requests',
             labelNames: ['message_type', 'worker_id'],
-            buckets: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 35, 40, 45, 50],
+            buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 45, 50, 55, 60],
             registers: [this.register]
         });
 
@@ -102,7 +102,7 @@ class WorkerMetricsCollector {
             name: 'fact_counters_count',
             help: 'Number of calculated counters per fact',
             labelNames: ['message_type', 'worker_id'],
-            buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
+            buckets: [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 750, 1000, 1250, 1500],
             registers: [this.register]
         });
 
@@ -112,7 +112,7 @@ class WorkerMetricsCollector {
             name: 'evaluation_counters_count',
             help: 'Number of evaluation counters per fact',
             labelNames: ['message_type', 'worker_id'],
-            buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
+            buckets: [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 750, 1000, 1250, 1500],
             registers: [this.register]
         });
 
@@ -139,7 +139,7 @@ class WorkerMetricsCollector {
             name: 'query_counters_count',
             help: 'Number of query counters',
             labelNames: ['message_type', 'worker_id'],
-            buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
+            buckets: [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 750, 1000, 1250, 1500],
             registers: [this.register]
         });
 
@@ -148,7 +148,7 @@ class WorkerMetricsCollector {
             name: 'result_counters_count',
             help: 'Number of result counters',
             labelNames: ['message_type', 'worker_id'],
-            buckets: [1, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500],
+            buckets: [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 750, 1000, 1250, 1500],
             registers: [this.register]
         });
 
