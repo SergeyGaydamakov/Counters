@@ -576,7 +576,7 @@ class WorkerMetricsCollector {
                     metricsData: metricsData
                 });
             } else {
-                logger.warn(`Worker ${this.workerId} - process.send недоступен`);
+                logger.warn(`Worker ${this.workerId} - мастер процесс для отправки логов недоступен process.send`);
             }
         } catch (error) {
             logger.error('Ошибка при отправке метрик мастеру:', error);

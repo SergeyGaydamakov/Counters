@@ -54,6 +54,10 @@ let mongoProvider = null;
 let factController = null;
 let mongoCounters = null;
 
+// Переменные для управления задержкой запуска (прогрев сервиса)
+let serverStartTime = null; // Время запуска сервера
+let firstRequestProcessed = false; // Флаг первого запроса (для прогрева)
+
 // Middleware для безопасности
 app.use(helmet({
     contentSecurityPolicy: false, // Отключаем CSP для API
@@ -65,6 +69,49 @@ app.use(cors(config.cors));
 
 // Сжатие ответов
 app.use(compression());
+
+// Middleware для задержки запуска (прогрев сервиса)
+// Размещен до парсинга данных, чтобы снизить нагрузку на сервис
+// Пропускает первый запрос для прогрева, затем блокирует запросы на config.startDelay секунд
+app.use((req, res, next) => {
+    // Если config.startDelay == 0, пропускаем все запросы
+    if (config.startDelay === 0) {
+        return next();
+    }
+
+    // Если serverStartTime еще не установлен (не должно происходить, но на всякий случай)
+    if (serverStartTime === null) {
+        logger.warn(`⚠️ Воркер ${process.pid}: serverStartTime не установлен, пропускаю запрос`);
+        return next();
+    }
+
+    const currentTime = Date.now();
+    const elapsedSeconds = (currentTime - serverStartTime) / 1000;
+
+    // Пропускаем первый запрос для прогрева
+    if (!firstRequestProcessed) {
+        firstRequestProcessed = true;
+        logger.info(`🔥 Воркер ${process.pid}: пропускаю первый запрос для прогрева (${req.method} ${req.path})`);
+        return next();
+    }
+
+    // Если прошло меньше config.startDelay секунд, блокируем запрос
+    if (elapsedSeconds < config.startDelay) {
+        const remainingSeconds = (config.startDelay - elapsedSeconds).toFixed(2);
+        logger.info(`⏳ Воркер ${process.pid}: запрос заблокирован (осталось ${remainingSeconds} сек): ${req.method} ${req.path}`);
+        return res.status(503).json({
+            success: false,
+            error: 'Сервис прогревается',
+            message: `Сервис еще не готов. Осталось ${remainingSeconds} секунд.`,
+            timestamp: new Date().toISOString(),
+            worker: process.pid,
+            retryAfter: Math.ceil(config.startDelay - elapsedSeconds)
+        });
+    }
+
+    // Время задержки истекло, пропускаем все запросы
+    next();
+});
 
 // Rate limiting
 // const limiter = rateLimit(config.rateLimit);
@@ -123,6 +170,13 @@ async function initialize() {
         logger.info(`   - Индексы: ${config.facts.indexConfigPath || 'не указан'}`);
         logger.info(`📊 Настройки индексирования:`);
         logger.info(`   - Включать данные факта в индекс: ${config.facts.includeFactDataToIndex}`);
+        
+        // Выводим информацию о задержке запуска
+        if (config.startDelay > 0) {
+            logger.info(`⏳ Задержка запуска: ${config.startDelay} секунд (первый запрос будет пропущен для прогрева)`);
+        } else {
+            logger.info(`⏳ Задержка запуска: отключена (config.startDelay=0)`);
+        }
         
         // Выводим информацию о разрешенных типах сообщений
         logger.info(`📨 Обрабатываемые типы сообщений:`);
@@ -209,9 +263,22 @@ async function initialize() {
 
         // Запускаем сервер
         logger.info(`🔧 Запускаю HTTP сервер на порту ${config.port}...`);
+        
+        // Устанавливаем время запуска сервера ДО вызова listen, чтобы избежать гонки
+        // Это гарантирует, что serverStartTime будет установлен до того, как сервер начнет принимать запросы
+        serverStartTime = Date.now();
+        firstRequestProcessed = false; // Сбрасываем флаг первого запроса
+        
         const server = app.listen(config.port, () => {
             logger.info(`🚀 Воркер ${process.pid} запущен на порту ${config.port}`);
             logger.info(`🌐 API доступно по адресу: http://localhost:${config.port}/api/v1/health`);
+            
+            if (config.startDelay > 0) {
+                logger.info(`⏳ Режим прогрева активен: первый запрос будет пропущен, затем ${config.startDelay} сек задержки`);
+                logger.info(`⏳ serverStartTime установлен: ${new Date(serverStartTime).toISOString()}`);
+            } else {
+                logger.info(`⏳ Задержка запуска отключена (config.startDelay=${config.startDelay})`);
+            }
             
             // Отправляем сообщение мастеру о готовности
             if (process.send) {

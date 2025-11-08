@@ -80,6 +80,11 @@ const config = {
     
     // Количество воркеров в кластере
     workers: parseInt(process.env.CLUSTER_WORKERS) || require('os').cpus().length,
+    
+    // Задержка запуска сервера (в секундах)
+    // Пропускает первый запрос для прогрева, затем блокирует запросы на указанное время
+    // Если 0, задержка отключена
+    startDelay: parseInt(process.env.START_DELAY || '0', 10),
 
     // Настройки QueryDispatcher для управления пулом процессов запросов
     queryDispatcher: {
