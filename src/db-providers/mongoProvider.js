@@ -1543,9 +1543,14 @@ class MongoProvider {
                 factIndexFindQuery["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
-                factIndexFindQuery["f"] = {
-                    "$ne": fact._id
-                };
+                if (config.facts.emptyRequests) {
+                    // Добавляем для тестов, чтобы выполнять пустые запросы
+                    factIndexFindQuery["f"] = "empty";
+                } else {
+                    factIndexFindQuery["f"] = {
+                        "$ne": fact._id
+                    };
+                }
             }
             indexTypeNames.add(indexTypeName);
             const limitValue = indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ? (indexInfo.index.limit ? Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords, indexInfo.index.limit) : indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords) : (indexInfo.index.limit ? indexInfo.index.limit : 100);
@@ -1817,9 +1822,14 @@ class MongoProvider {
                 match["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
-                match["f"] = {
-                    "$ne": fact._id
-                };
+                if (config.facts.emptyRequests) {
+                    // Добавляем для тестов, чтобы выполнять пустые запросы
+                    match["f"] = "empty";
+                } else {
+                    match["f"] = {
+                        "$ne": fact._id
+                    };
+                }
             }
             const sort = {
                 "h": 1,

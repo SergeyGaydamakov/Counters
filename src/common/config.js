@@ -112,6 +112,8 @@ const config = {
         maxCountersProcessing: parseInt(process.env.MAX_COUNTERS_PROCESSING) || 0,
         maxCountersPerRequest: parseInt(process.env.MAX_COUNTERS_PER_REQUEST) || 0,
         allowedCountersNames: process.env.ALLOWED_COUNTERS_NAMES ? process.env.ALLOWED_COUNTERS_NAMES.split(',').map(t => t.trim()).filter(t => t !== '') : null,
+        // Отправлять пустые запросы
+        emptyRequests: process.env.EMPTY_REQUESTS === 'true' || false,
     },
     
     // CORS настройки
