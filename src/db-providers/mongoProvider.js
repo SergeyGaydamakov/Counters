@@ -827,19 +827,25 @@ class MongoProvider {
         //
         const matchStageCondition = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : { "$match": {} };
         // Нужно добавить условие по fromTimeMs и toTimeMs в matchStage
-        if (counter.fromTimeMs) {
+        if (counter.fromTimeMs > 0) {
             const fromDateTime = nowDate - counter.fromTimeMs;
             if (!matchStageCondition["$match"]) {
                 matchStageCondition["$match"] = {};
             }
-            matchStageCondition["$match"][timeFieldName] = { "$gte": new Date(fromDateTime) };
+            if (!matchStageCondition["$match"][timeFieldName]) {
+                matchStageCondition["$match"][timeFieldName] = {};
+            }
+            matchStageCondition["$match"][timeFieldName]["$gte"] = new Date(fromDateTime);
         }
-        if (counter.toTimeMs) {
+        if (counter.toTimeMs > 0) {
             const toDateTime = nowDate - counter.toTimeMs;
             if (!matchStageCondition["$match"]) {
                 matchStageCondition["$match"] = {};
             }
-            matchStageCondition["$match"][timeFieldName] = { "$lt": new Date(toDateTime) };
+            if (!matchStageCondition["$match"][timeFieldName]) {
+                matchStageCondition["$match"][timeFieldName] = {};
+            }
+            matchStageCondition["$match"][timeFieldName]["$lt"] = new Date(toDateTime);
         }
         const matchStage = Object.keys(matchStageCondition["$match"]).length ? matchStageCondition : null;
         //
@@ -1992,9 +1998,10 @@ class MongoProvider {
             };
             if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0) {
                 const fromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0 ? nowDate - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : (depthFromDate ? depthFromDate.getTime() : nowDate);
-                match["dt"] = {
-                    "$gte": new Date(fromDateTime)
-                };
+                if (!match["dt"]) {
+                    match["dt"] = {};
+                }
+                match["dt"]["$gte"] = new Date(fromDateTime);
             }
             if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0) {
                 if (!match["dt"]) {

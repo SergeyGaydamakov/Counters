@@ -238,12 +238,10 @@ class CounterProducer {
                 const intervalTo = allBoundaries[i];
                 const intervalFrom = allBoundaries[i + 1];
 
-                // Создаем копию счетчика с новыми границами
-                const splitCounter = {
-                    ...counter,
-                    toTimeMs: intervalTo,
-                    fromTimeMs: intervalFrom
-                };
+                // Создаем глубокую копию счетчика с новыми границами
+                const splitCounter = JSON.parse(JSON.stringify(counter));
+                splitCounter.toTimeMs = intervalTo;
+                splitCounter.fromTimeMs = intervalFrom;
 
                 // Добавляем суффикс к имени счетчика для идентификации интервала
                 if (allBoundaries.length > 2) {
