@@ -206,7 +206,7 @@ class MongoProviderTest {
      * Запуск всех тестов
      */
     async runAllTests() {
-        this.logger.debug('=== Тестирование всех методов MongoProvider (37 тестов) ===\n');
+        this.logger.debug('=== Тестирование всех методов MongoProvider (38 тестов) ===\n');
 
         try {
             // Тесты подключения
@@ -263,6 +263,7 @@ class MongoProviderTest {
             await this.testCounterCombinedLimits('35. Тест комбинированных ограничений счетчиков...');
             await this.testCounterEdgeCases('36. Тест граничных случаев счетчиков...');
             await this.testQueryIdCollisionsUnderLoad('37. Тест конфликтов идентификаторов запросов под нагрузкой...');
+            await this.testGetFactIndexCountersInfoWithSplitIntervals('38. Тест getFactIndexCountersInfo с splitIntervals...');
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
@@ -3679,6 +3680,393 @@ class MongoProviderTest {
             this.testResults.failed++;
             this.testResults.errors.push(`testQueryIdCollisionsUnderLoad: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
+        }
+    }
+
+    /**
+     * Тест getFactIndexCountersInfo с splitIntervals
+     */
+    async testGetFactIndexCountersInfoWithSplitIntervals(title) {
+        this.logger.debug(title);
+
+        try {
+            const originalSplitIntervals = config.facts.splitIntervals;
+            const originalMaxCountersProcessing = config.facts.maxCountersProcessing;
+            let testProvider = null;
+
+            try {
+                // Устанавливаем тестовые интервалы
+                config.facts.splitIntervals = [30000, 60000]; // 30 и 60 секунд
+                // Отключаем ограничение на количество счетчиков для теста
+                config.facts.maxCountersProcessing = 0;
+
+                // Создаем тестовые счетчики с временными границами
+                // splitIntervals = [30000, 60000]
+                const testCountersConfig = [
+                    {
+                        name: "split_counter_1",
+                        comment: "Счетчик для разбиения по интервалам",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 },
+                            "sumA": { "$sum": "$d.amount" }
+                        },
+                        fromTimeMs: 120000, // 2 минуты назад - пересекает обе границы
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 1000
+                    },
+                    {
+                        name: "split_counter_2",
+                        comment: "Второй счетчик для разбиения",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 90000, // 1.5 минуты назад - пересекает обе границы
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 500
+                    },
+                    {
+                        name: "no_split_before",
+                        comment: "Счетчик до всех интервалов - не должен разбиваться",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 20000, // До границы 30000 - не должен разбиваться
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 100
+                    },
+                    {
+                        name: "no_split_after",
+                        comment: "Счетчик после всех интервалов - не должен разбиваться",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 120000, // После границы 60000
+                        toTimeMs: 70000, // После границы 60000 - не должен разбиваться
+                        maxEvaluatedRecords: 100
+                    },
+                    {
+                        name: "boundary_from_30000",
+                        comment: "Счетчик с fromTimeMs точно на границе 30000 - не должен разбиваться",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 30000, // Точно на границе - не должен разбиваться (boundary не < fromTimeMs)
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 100
+                    },
+                    {
+                        name: "boundary_from_60000",
+                        comment: "Счетчик с fromTimeMs точно на границе 60000 - не должен разбиваться",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 60000, // Точно на границе - не должен разбиваться (boundary не < fromTimeMs)
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 100
+                    },
+                    {
+                        name: "boundary_to_30000",
+                        comment: "Счетчик с toTimeMs точно на границе 30000 - не должен разбиваться",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 90000,
+                        toTimeMs: 30000, // Точно на границе - не должен разбиваться (boundary не > toTimeMs)
+                        maxEvaluatedRecords: 100
+                    },
+                    {
+                        name: "boundary_to_60000",
+                        comment: "Счетчик с toTimeMs точно на границе 60000 - не должен разбиваться",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 90000,
+                        toTimeMs: 60000, // Точно на границе - не должен разбиваться (boundary не > toTimeMs)
+                        maxEvaluatedRecords: 100
+                    },
+                    {
+                        name: "boundary_inside_30000_60000",
+                        comment: "Счетчик внутри интервала между границами - должен разбиться только по одной границе",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: {
+                            "count": { "$sum": 1 }
+                        },
+                        fromTimeMs: 50000, // Между 30000 и 60000
+                        toTimeMs: 10000, // До 30000
+                        maxEvaluatedRecords: 100
+                    }
+                ];
+
+                const testMongoCounters = new CounterProducer(testCountersConfig);
+                testProvider = new MongoProvider(
+                    config.database.connectionString,
+                    'mongoProviderTestDB',
+                    config.database.options,
+                    testMongoCounters,
+                    config.facts.includeFactDataToIndex,
+                    config.facts.lookupFacts,
+                    config.facts.indexBulkUpdate
+                );
+                await testProvider.connect();
+
+                // Создаем тестовый факт
+                const testFact = {
+                    _id: 'test-fact-split-intervals',
+                    t: 1,
+                    c: new Date(),
+                    d: {
+                        amount: 100,
+                        dt: new Date(),
+                        f1: 'value1',
+                        f2: 'value2'
+                    }
+                };
+
+                // Вызываем getFactIndexCountersInfo
+                const result = testProvider.getFactIndexCountersInfo(testFact, "dt");
+
+                // Проверяем результат
+                if (!result) {
+                    throw new Error('getFactIndexCountersInfo вернул null');
+                }
+
+                if (!result.indexFacetStages) {
+                    throw new Error('Отсутствует indexFacetStages в результате');
+                }
+
+                if (!result.indexLimits) {
+                    throw new Error('Отсутствует indexLimits в результате');
+                }
+
+                // Проверяем, что счетчики разбиты на группы
+                // Счетчик split_counter_1 должен быть разбит на 3 части (120000 -> 60000 -> 30000 -> 0)
+                // Счетчик split_counter_2 должен быть разбит на 3 части (90000 -> 60000 -> 30000 -> 0, обе границы попадают в диапазон)
+                // Но на самом деле, splitIntervals применяется в конструкторе CounterProducer,
+                // поэтому счетчики уже разбиты на части с именами split_counter_1#0, split_counter_1#1, split_counter_1#2 и т.д.
+
+                // Проверяем наличие счетчиков в indexFacetStages
+                const indexTypeNames = Object.keys(result.indexFacetStages);
+                this.logger.debug(`   Найдено типов индексов: ${indexTypeNames.length}`);
+                this.logger.debug(`   Типы индексов: ${indexTypeNames.join(', ')}`);
+
+                // Проверяем, что счетчики разбиты на части (должны иметь имена с суффиксами #0, #1, #2)
+                const allCounterNames = [];
+                for (const indexTypeName of indexTypeNames) {
+                    const counters = Object.keys(result.indexFacetStages[indexTypeName]);
+                    allCounterNames.push(...counters);
+                    this.logger.debug(`   Индекс ${indexTypeName} содержит счетчики: ${counters.join(', ')}`);
+                }
+
+                // Проверяем, что есть разбитые счетчики
+                const splitCounterNames = allCounterNames.filter(name => name.includes('#'));
+                if (splitCounterNames.length === 0) {
+                    throw new Error('Не найдено разбитых счетчиков. Ожидались счетчики с суффиксами #0, #1, #2');
+                }
+                this.logger.debug(`   ✓ Найдено разбитых счетчиков: ${splitCounterNames.length}`);
+                this.logger.debug(`   Разбитые счетчики: ${splitCounterNames.join(', ')}`);
+
+                // Проверяем, что счетчик split_counter_1 разбит на 3 части
+                const splitCounter1Parts = splitCounterNames.filter(name => name.startsWith('split_counter_1'));
+                if (splitCounter1Parts.length !== 3) {
+                    throw new Error(`Счетчик split_counter_1 должен быть разбит на 3 части, найдено: ${splitCounter1Parts.length}. Части: ${splitCounter1Parts.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Счетчик split_counter_1 разбит на ${splitCounter1Parts.length} части: ${splitCounter1Parts.join(', ')}`);
+
+                // Проверяем, что счетчик split_counter_2 разбит на 3 части (90000 -> 60000 -> 30000 -> 0, обе границы попадают в диапазон)
+                const splitCounter2Parts = splitCounterNames.filter(name => name.startsWith('split_counter_2'));
+                if (splitCounter2Parts.length !== 3) {
+                    throw new Error(`Счетчик split_counter_2 должен быть разбит на 3 части, найдено: ${splitCounter2Parts.length}. Части: ${splitCounter2Parts.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Счетчик split_counter_2 разбит на ${splitCounter2Parts.length} части: ${splitCounter2Parts.join(', ')}`);
+
+                // Проверяем, что есть группы счетчиков (должны быть с постфиксом #N в имени индекса)
+                let foundSplitGroups = false;
+                for (const indexTypeName of indexTypeNames) {
+                    if (indexTypeName.includes('#')) {
+                        foundSplitGroups = true;
+                        const counters = Object.keys(result.indexFacetStages[indexTypeName]);
+                        this.logger.debug(`   Индекс ${indexTypeName} содержит счетчики: ${counters.join(', ')}`);
+                    }
+                }
+
+                // Проверяем indexLimits для каждой группы
+                for (const indexTypeName of indexTypeNames) {
+                    if (result.indexLimits[indexTypeName]) {
+                        const limits = result.indexLimits[indexTypeName];
+                        this.logger.debug(`   Индекс ${indexTypeName} имеет limits: fromTimeMs=${limits.fromTimeMs}, toTimeMs=${limits.toTimeMs}, maxEvaluatedRecords=${limits.maxEvaluatedRecords}`);
+                        
+                        // Проверяем, что fromTimeMs и toTimeMs установлены корректно
+                        if (limits.fromTimeMs !== undefined && limits.toTimeMs !== undefined) {
+                            if (limits.fromTimeMs <= limits.toTimeMs) {
+                                throw new Error(`Некорректные границы времени для индекса ${indexTypeName}: fromTimeMs=${limits.fromTimeMs} <= toTimeMs=${limits.toTimeMs}`);
+                            }
+                        }
+                    }
+                }
+
+                // Проверяем, что счетчики правильно разделены на группы при наличии splitIntervals
+                // Счетчик split_counter_1 (fromTimeMs=120000, toTimeMs=0) должен быть разбит на 3 части:
+                // - split_counter_1#0: 120000 -> 60000
+                // - split_counter_1#1: 60000 -> 30000
+                // - split_counter_1#2: 30000 -> 0
+                // Эти части должны быть разделены на группы в getFactIndexCountersInfo, когда они пересекают границы интервалов
+                
+                // Проверяем, что разбитые счетчики присутствуют в результатах
+                let splitCounter1Found = false;
+                let splitCounter2Found = false;
+                
+                for (const indexTypeName of indexTypeNames) {
+                    const counters = Object.keys(result.indexFacetStages[indexTypeName]);
+                    if (counters.some(name => name.startsWith('split_counter_1'))) {
+                        splitCounter1Found = true;
+                    }
+                    if (counters.some(name => name.startsWith('split_counter_2'))) {
+                        splitCounter2Found = true;
+                    }
+                }
+
+                if (!splitCounter1Found) {
+                    throw new Error('Счетчик split_counter_1 не найден в результатах');
+                }
+                if (!splitCounter2Found) {
+                    throw new Error('Счетчик split_counter_2 не найден в результатах');
+                }
+                this.logger.debug('   ✓ Оба разбитых счетчика найдены в результатах');
+
+                // Проверяем счетчики за границами интервалов - они не должны разбиваться
+                const noSplitBeforeParts = splitCounterNames.filter(name => name.startsWith('no_split_before'));
+                if (noSplitBeforeParts.length !== 0) {
+                    throw new Error(`Счетчик no_split_before не должен разбиваться, но найден разбитым: ${noSplitBeforeParts.join(', ')}`);
+                }
+                const noSplitBeforeOriginal = allCounterNames.filter(name => name === 'no_split_before');
+                if (noSplitBeforeOriginal.length === 0) {
+                    throw new Error('Счетчик no_split_before не найден в результатах');
+                }
+                this.logger.debug('   ✓ Счетчик no_split_before не разбит (до всех интервалов)');
+
+                const noSplitAfterParts = splitCounterNames.filter(name => name.startsWith('no_split_after'));
+                if (noSplitAfterParts.length !== 0) {
+                    throw new Error(`Счетчик no_split_after не должен разбиваться, но найден разбитым: ${noSplitAfterParts.join(', ')}`);
+                }
+                const noSplitAfterOriginal = allCounterNames.filter(name => name === 'no_split_after');
+                if (noSplitAfterOriginal.length === 0) {
+                    throw new Error('Счетчик no_split_after не найден в результатах');
+                }
+                this.logger.debug('   ✓ Счетчик no_split_after не разбит (после всех интервалов)');
+
+                // Проверяем счетчики на границах интервалов - они не должны разбиваться
+                const boundaryFrom30000Parts = splitCounterNames.filter(name => name.startsWith('boundary_from_30000'));
+                if (boundaryFrom30000Parts.length !== 0) {
+                    throw new Error(`Счетчик boundary_from_30000 не должен разбиваться (fromTimeMs на границе), но найден разбитым: ${boundaryFrom30000Parts.join(', ')}`);
+                }
+                const boundaryFrom30000Original = allCounterNames.filter(name => name === 'boundary_from_30000');
+                if (boundaryFrom30000Original.length === 0) {
+                    throw new Error('Счетчик boundary_from_30000 не найден в результатах');
+                }
+                this.logger.debug('   ✓ Счетчик boundary_from_30000 не разбит (fromTimeMs на границе 30000)');
+
+                // Счетчик boundary_from_60000 (fromTimeMs=60000, toTimeMs=0) разбивается по границе 30000,
+                // так как 30000 попадает в диапазон (30000 > 0 && 30000 < 60000)
+                const boundaryFrom60000Parts = splitCounterNames.filter(name => name.startsWith('boundary_from_60000'));
+                if (boundaryFrom60000Parts.length !== 2) {
+                    throw new Error(`Счетчик boundary_from_60000 должен быть разбит на 2 части (по границе 30000), найдено: ${boundaryFrom60000Parts.length}. Части: ${boundaryFrom60000Parts.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Счетчик boundary_from_60000 разбит на ${boundaryFrom60000Parts.length} части (по границе 30000): ${boundaryFrom60000Parts.join(', ')}`);
+
+                // Счетчик boundary_to_30000 (fromTimeMs=90000, toTimeMs=30000) разбивается по границе 60000,
+                // так как 60000 попадает в диапазон (60000 > 30000 && 60000 < 90000)
+                const boundaryTo30000Parts = splitCounterNames.filter(name => name.startsWith('boundary_to_30000'));
+                if (boundaryTo30000Parts.length !== 2) {
+                    throw new Error(`Счетчик boundary_to_30000 должен быть разбит на 2 части (по границе 60000), найдено: ${boundaryTo30000Parts.length}. Части: ${boundaryTo30000Parts.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Счетчик boundary_to_30000 разбит на ${boundaryTo30000Parts.length} части (по границе 60000): ${boundaryTo30000Parts.join(', ')}`);
+
+                const boundaryTo60000Parts = splitCounterNames.filter(name => name.startsWith('boundary_to_60000'));
+                if (boundaryTo60000Parts.length !== 0) {
+                    throw new Error(`Счетчик boundary_to_60000 не должен разбиваться (toTimeMs на границе), но найден разбитым: ${boundaryTo60000Parts.join(', ')}`);
+                }
+                const boundaryTo60000Original = allCounterNames.filter(name => name === 'boundary_to_60000');
+                if (boundaryTo60000Original.length === 0) {
+                    throw new Error('Счетчик boundary_to_60000 не найден в результатах');
+                }
+                this.logger.debug('   ✓ Счетчик boundary_to_60000 не разбит (toTimeMs на границе 60000)');
+
+                // Проверяем счетчик внутри интервала - должен разбиться только по одной границе (30000)
+                // fromTimeMs=50000, toTimeMs=10000, граница 30000 попадает (30000 > 10000 && 30000 < 50000)
+                // граница 60000 не попадает (60000 не < 50000)
+                const boundaryInsideParts = splitCounterNames.filter(name => name.startsWith('boundary_inside_30000_60000'));
+                if (boundaryInsideParts.length !== 2) {
+                    throw new Error(`Счетчик boundary_inside_30000_60000 должен быть разбит на 2 части (только по границе 30000), найдено: ${boundaryInsideParts.length}. Части: ${boundaryInsideParts.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Счетчик boundary_inside_30000_60000 разбит на ${boundaryInsideParts.length} части: ${boundaryInsideParts.join(', ')}`);
+
+                // Проверяем логику разделения на группы
+                // Если счетчик пересекается с границей интервала, он должен быть в новой группе
+                // Проверяем, что группы создаются правильно
+                const groupsByIndexType = {};
+                for (const indexTypeName of indexTypeNames) {
+                    const match = indexTypeName.match(/^(.+)#(\d+)$/);
+                    if (match) {
+                        const baseIndexType = match[1];
+                        const groupNumber = parseInt(match[2]);
+                        if (!groupsByIndexType[baseIndexType]) {
+                            groupsByIndexType[baseIndexType] = [];
+                        }
+                        groupsByIndexType[baseIndexType].push(groupNumber);
+                    }
+                }
+
+                // Проверяем, что группы созданы (если есть разбитые счетчики)
+                if (Object.keys(groupsByIndexType).length > 0) {
+                    this.logger.debug(`   ✓ Найдены группы счетчиков: ${Object.keys(groupsByIndexType).join(', ')}`);
+                    for (const [baseIndexType, groups] of Object.entries(groupsByIndexType)) {
+                        groups.sort((a, b) => a - b);
+                        this.logger.debug(`   Индекс ${baseIndexType} имеет группы: ${groups.join(', ')}`);
+                    }
+                }
+
+                this.testResults.passed++;
+                this.logger.debug('   ✓ Успешно: getFactIndexCountersInfo корректно работает с splitIntervals');
+            } finally {
+                if (testProvider) {
+                    await testProvider.disconnect();
+                }
+                config.facts.splitIntervals = originalSplitIntervals;
+                config.facts.maxCountersProcessing = originalMaxCountersProcessing;
+            }
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetFactIndexCountersInfoWithSplitIntervals: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            if (error.stack) {
+                this.logger.error(`   Stack: ${error.stack}`);
+            }
         }
     }
 

@@ -67,11 +67,17 @@ class CounterProducer {
             // Инициализация через массив конфигурации
             const validatedConfig = this._validateConfig(configPathOrConfigArray);
             this._counterConfig = this._transformCounterConfig(validatedConfig);
+            if (config.facts.splitIntervals) {
+                this._counterConfig = this._splitIntervals(this._counterConfig, config.facts.splitIntervals);
+            }
             this.logger.info(`Конфигурация счетчиков инициализирована объектом. Количество счетчиков: ${this._counterConfig.length}`);
         } else if (typeof configPathOrConfigArray === 'string') {
             // Инициализация через путь к файлу
             const loadedConfig = this._loadConfig(configPathOrConfigArray);
             this._counterConfig = this._transformCounterConfig(loadedConfig);
+            if (config.facts.splitIntervals) {
+                this._counterConfig = this._splitIntervals(this._counterConfig, config.facts.splitIntervals);
+            }
         } else {
             this.logger.warn('Конфигурация счетчиков не задана. Счетчики будут создаваться по умолчанию.');
             return;
@@ -184,6 +190,72 @@ class CounterProducer {
         return counterConfig;
     }
 
+    /**
+     * Разбивает один счетчик по интервалам
+     * @param {Array} counters - счетчики
+     * @param {Array} intervals - массив чисел, отсортированный по возрастанию, на которые нужно разбить диапазон fromTimeMs, toTimeMs счетчика (относительное время в прошлом от текущего времени)
+     * @returns {Array} Преобразованная конфигурация
+     * @private
+     */
+    _splitIntervals(counterConfig, intervals) {
+        const result = [];
+
+        for (const counter of counterConfig) {
+            // Если у счетчика нет fromTimeMs или toTimeMs, добавляем его как есть
+            if (counter.fromTimeMs === undefined && counter.toTimeMs === undefined) {
+                result.push(counter);
+                continue;
+            }
+
+            const fromTimeMs = counter.fromTimeMs ?? 0;
+            const toTimeMs = counter.toTimeMs ?? 0;
+
+            // Если fromTimeMs <= toTimeMs, нет смысла разбивать (некорректный интервал или нулевой)
+            if (fromTimeMs <= toTimeMs) {
+                result.push(counter);
+                continue;
+            }
+
+            // Находим все границы из intervals, которые попадают в диапазон [toTimeMs, fromTimeMs]
+            const relevantBoundaries = intervals.filter(boundary => 
+                boundary > toTimeMs && (fromTimeMs === 0 || boundary < fromTimeMs)
+            );
+
+            // Если нет подходящих границ, добавляем счетчик как есть
+            if (relevantBoundaries.length === 0) {
+                result.push(counter);
+                continue;
+            }
+
+            // Сортируем границы по возрастанию (они уже должны быть отсортированы, но на всякий случай)
+            relevantBoundaries.sort((a, b) => a - b);
+
+            // Создаем список всех границ: [fromTimeMs, ...границы..., toTimeMs]
+            const allBoundaries = [toTimeMs, ...relevantBoundaries, fromTimeMs];
+
+            // Разбиваем интервал на подынтервалы
+            for (let i = 0; i < allBoundaries.length - 1; i++) {
+                const intervalTo = allBoundaries[i];
+                const intervalFrom = allBoundaries[i + 1];
+
+                // Создаем копию счетчика с новыми границами
+                const splitCounter = {
+                    ...counter,
+                    toTimeMs: intervalTo,
+                    fromTimeMs: intervalFrom
+                };
+
+                // Добавляем суффикс к имени счетчика для идентификации интервала
+                if (allBoundaries.length > 2) {
+                    splitCounter.name = `${counter.name}#${i}`;
+                }
+
+                result.push(splitCounter);
+            }
+        }
+
+        return result;
+    }
 
     /**
      * Старый метод. Создает структуру счетчиков для факта
@@ -270,12 +342,12 @@ class CounterProducer {
                     this._counterConfigByType[type].push(counter);
                 }
             });
-            // Сортируем счетчики в порядке возрастания fromTimeMs и затем по возрастанию toTimeMs
+            // Сортируем счетчики в порядке возрастания toTimeMs и затем по возрастанию fromTimeMs
             this._counterConfigByType[type].sort((a, b) => {
-                if (a.fromTimeMs !== b.fromTimeMs) {
-                    return a.fromTimeMs - b.fromTimeMs;
+                if (a.toTimeMs !== b.toTimeMs) {
+                    return a.toTimeMs - b.toTimeMs;
                 }
-                return a.toTimeMs - b.toTimeMs;
+                return a.fromTimeMs - b.fromTimeMs;
             });
         }
         return this._counterConfigByType[type];

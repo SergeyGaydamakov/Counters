@@ -25,7 +25,7 @@ class MongoProvider {
         // Читаем всегда локальную копию данных
         // https://www.mongodb.com/docs/manual/reference/read-concern/
         readConcern: { "level": "local" },
-        aggregateReadPreference: {"mode": "secondaryPreferred"},
+        aggregateReadPreference: { "mode": "secondaryPreferred" },
         // Журнал сбрасывается на диск в соответствии с политикой журналирования сервера (раз в 100 мс)
         // https://www.mongodb.com/docs/manual/core/journaling/#std-label-journal-process
         // Параметр на сервере: storage.journal.commitIntervalMs
@@ -61,7 +61,7 @@ class MongoProvider {
         // Создаем логгер для этого провайдера
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
-        this._debugMode= config.logging.debugMode || config.logging.logLevel.toUpperCase() === 'DEBUG';
+        this._debugMode = config.logging.debugMode || config.logging.logLevel.toUpperCase() === 'DEBUG';
         this._connectionString = connectionString;
         this._databaseName = databaseName;
         this._databaseOptions = this._mergeDatabaseOptions(databaseOptions);
@@ -81,7 +81,7 @@ class MongoProvider {
         this._counterClient = null;
         this._counterDb = null;
         this._isConnected = false;
-        
+
         // Переменные для мониторинга connection pool
         this._counterClientPoolStatus = null;
         this._aggregateClientPoolStatus = null;
@@ -102,11 +102,11 @@ class MongoProvider {
     setMetricsCollector(metricsCollector) {
         this._metricsCollector = metricsCollector;
         this.logger.debug('Metrics collector установлен для мониторинга connection pool');
-        
+
         // Если клиенты уже подключены, переинициализируем мониторинг с новым коллектором
         if (this._isConnected && (this._counterClient || this._aggregateClient)) {
             this.logger.debug('Переинициализация мониторинга connection pool с установленным metricsCollector');
-            
+
             // Очищаем старые обработчики перед переинициализацией
             if (this._counterClientPoolStatus && typeof this._counterClientPoolStatus.cleanUp === 'function') {
                 this._counterClientPoolStatus.cleanUp();
@@ -114,7 +114,7 @@ class MongoProvider {
             if (this._aggregateClientPoolStatus && typeof this._aggregateClientPoolStatus.cleanUp === 'function') {
                 this._aggregateClientPoolStatus.cleanUp();
             }
-            
+
             this._initConnectionPoolMonitoring();
         }
     }
@@ -205,7 +205,7 @@ class MongoProvider {
         // Опции для подключения по умолчанию
         const options = {
             readConcern: databaseOptions.readConcern,
-            readPreference: {"mode": "primary"},
+            readPreference: { "mode": "primary" },
             writeConcern: databaseOptions.writeConcern,
             appName: "CounterTest",
             // monitorCommands: true,
@@ -317,7 +317,7 @@ class MongoProvider {
                 this._metricsCollector,
                 this.logger
             );
-            
+
             this.logger.info('✓ Мониторинг connection pool инициализирован для обоих клиентов');
         } catch (error) {
             this.logger.error('✗ Ошибка инициализации мониторинга connection pool:', error.message);
@@ -675,7 +675,7 @@ class MongoProvider {
                 // Bulk вставка индексных значений с обработкой дубликатов
                 const bulkWriteOptions = {
                     readConcern: this._databaseOptions.readConcern,
-                    readPreference: {"mode": "primary"},
+                    readPreference: { "mode": "primary" },
                     writeConcern: this._databaseOptions.writeConcern,
                     comment: "saveFactIndexList - bulk",
                     ordered: false,
@@ -704,7 +704,7 @@ class MongoProvider {
             } else {
                 const updateOptions = {
                     readConcern: this._databaseOptions.readConcern,
-                    readPreference: {"mode": "primary"},
+                    readPreference: { "mode": "primary" },
                     writeConcern: this._databaseOptions.writeConcern,
                     comment: "saveFactIndexList - update",
                     upsert: true,
@@ -768,7 +768,7 @@ class MongoProvider {
                     saveIndexBulkUpdate: this._indexBulkUpdate,
                 }
             };
-            if (saveIndexMetrics && saveIndexMetrics.length > 0){
+            if (saveIndexMetrics && saveIndexMetrics.length > 0) {
                 // Чтобы никого не смущали пустые метрики
                 result.metrics.saveIndexMetrics = saveIndexMetrics;
             }
@@ -789,7 +789,7 @@ class MongoProvider {
      * @param {Object} conditions - условия поиска
      * @returns {Promise<Object>} факт
      */
-    async findFact(factId, messageTypeId, indexType, factIndexValues, conditions = {}, lastDays = 10){
+    async findFact(factId, messageTypeId, indexType, factIndexValues, conditions = {}, lastDays = 10) {
         // Находим индексное значение по типу индекса
         const indexValue = factIndexValues.find(value => value.it === indexType);
         if (!indexValue) {
@@ -816,7 +816,71 @@ class MongoProvider {
             fact: fact,
             findTime: Date.now() - startFindTime
         };
-    }   
+    }
+
+    /**
+     * Вычисление facet условия для одного счетчика
+     */
+    _getCounterFacetStage(counter, timeFieldName = "dt", nowDate) {
+        //
+        // Условие фильтрации счетчика
+        //
+        const matchStageCondition = counter.evaluationConditions ? { "$match": counter.evaluationConditions } : { "$match": {} };
+        // Нужно добавить условие по fromTimeMs и toTimeMs в matchStage
+        if (counter.fromTimeMs) {
+            const fromDateTime = nowDate - counter.fromTimeMs;
+            if (!matchStageCondition["$match"]) {
+                matchStageCondition["$match"] = {};
+            }
+            matchStageCondition["$match"][timeFieldName] = { "$gt": new Date(fromDateTime) };
+        }
+        if (counter.toTimeMs) {
+            const toDateTime = nowDate - counter.toTimeMs;
+            if (!matchStageCondition["$match"]) {
+                matchStageCondition["$match"] = {};
+            }
+            matchStageCondition["$match"][timeFieldName] = { "$lte": new Date(toDateTime) };
+        }
+        const matchStage = Object.keys(matchStageCondition["$match"]).length ? matchStageCondition : null;
+        //
+        // Ограничение количества записей для счетчика
+        //
+        const limitValue = (counter.maxEvaluatedRecords ? (counter.maxMatchingRecords ? Math.min(counter.maxEvaluatedRecords, counter.maxMatchingRecords) : counter.maxEvaluatedRecords) : (counter.maxMatchingRecords ? counter.maxMatchingRecords : null));
+        const limitStage = limitValue > 0 ? { "$limit": limitValue } : null;
+        //
+        // Добавление условия по группировке
+        //
+        const groupStage = { "$group": counter.attributes };
+        // Всегда добавлять идентификатор, по которому выполняется группировка - _id = null
+        groupStage["$group"]["_id"] = null;
+        //
+        // Формирование facet pipeline
+        //
+        const facet = [];
+        if (matchStage) {
+            facet.push(matchStage);
+        }
+        if (limitStage) {
+            facet.push(limitStage);
+        }
+        facet.push(groupStage);
+        if (config.facts.splitIntervals) {
+            // Добавление подсчета уникальных значений для счетчика, но только если нет сплитования интервалов, иначе не сможем потом выполнить подсчет
+            const addFieldsStage = {};
+            Object.keys(counter.attributes).forEach(counterName => {
+                const counterEvaluation = counter.attributes[counterName];
+                if (counterEvaluation && counterEvaluation["$addToSet"]) {
+                    // Есть выражение для получения уникальных значений
+                    addFieldsStage[counterName] = { "$size": "$" + counterName };
+                }
+            });
+            if (Object.keys(addFieldsStage).length) {
+                facet.push({ "$addFields": addFieldsStage });
+            }
+        }
+
+        return facet;
+    }
 
     /**
      * Выдает счетчики применительно к факту, с разбивкой по типам индексов с разбивкой на группы счетчиков для ограничения количества счетчиков в запросе.
@@ -826,6 +890,118 @@ class MongoProvider {
      * @returns {Promise<Array>} выражение для вычисления группы счетчиков для факта и типа индексов
      */
     getFactIndexCountersInfo(fact, timeFieldName = "dt") {
+        if (!this._counterProducer) {
+            this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
+            return this.getDefaultFactIndexCountersInfo();
+        }
+        // Получение счетчиков, которые подходят для факта по условию computationConditions
+        // которые отсортированы по возрастанию времени в прошлое от текущего времени
+        const countersInfo = this._counterProducer.getFactCounters(fact, config.facts.allowedCountersNames);
+        if (!countersInfo) {
+            this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
+            return null;
+        }
+        const factCounters = countersInfo.computationConditionsCounters;
+        if (!factCounters) {
+            this.logger.warn(`Для факта ${fact?._id} нет подходящих счетчиков.`);
+            return null;
+        }
+        // this.logger.debug(`factCounters: ${JSON.stringify(factCounters)}`);
+        const maxDepthLimit = config.facts.maxDepthLimit;
+        // Интервалы разбивки счетчиков на группы по возрастанию времени в прошлое от текущего времени
+        const splitIntervals = config.facts.splitIntervals;
+        // Список условий по каждому типу индекса.
+        // К имени индекса добавляется постфикс #N, где N - номер группы счетчиков для ограничения количества счетчиков в запросе.
+        const indexFacetStages = {};
+        const indexLimits = {};
+        // Счетчик количества counters в каждой группе {countersCount, groupNumber}
+        const countersGroupCount = {};
+        // Общее число счетчиков
+        let totalCountersCount = 0;
+        // Текущая дата и время
+        const nowDate = Date.now();
+        // Подставляем параметры для каждого счетчика
+        factCounters.forEach(counter => {
+            totalCountersCount++;
+            // Ограничение на число счетчиков, заданное в настройках
+            if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
+                return;
+            }
+            // Вычисление номера группы счетчиков в запросе и названия индекса с номером группы
+            //
+            if (!countersGroupCount[counter.indexTypeName]) {
+                countersGroupCount[counter.indexTypeName] = {
+                    countersCount: 0, // Общее количество счетчиков в текущей группе
+                    groupNumber: 1, // Номер группы счетчиков в запросе
+                    intervalNumber: 0, // Номер интервала в запросе
+                    fromTimeMs: splitIntervals ? splitIntervals[0] : 0, // Время начала интервала в прошлом
+                    toTimeMs: 0, // Время конца интервала в прошлом
+                };
+            }
+            countersGroupCount[counter.indexTypeName].countersCount++;
+            let groupNumberAlreadyIncremented = false;
+            if (config.facts.maxCountersPerRequest > 0 && countersGroupCount[counter.indexTypeName].countersCount > config.facts.maxCountersPerRequest) {
+                countersGroupCount[counter.indexTypeName].groupNumber++;
+                groupNumberAlreadyIncremented = true;
+                countersGroupCount[counter.indexTypeName].countersCount = 1;
+            }
+            // Если счетчик пересекается с предыдущим интервалом, то увеличиваем номер группы и счетчик счетчиков в группе
+            if (splitIntervals &&
+                countersGroupCount[counter.indexTypeName].fromTimeMs < counter.fromTimeMs
+            ) {
+                if (!groupNumberAlreadyIncremented) {
+                    countersGroupCount[counter.indexTypeName].groupNumber++;
+                }
+                countersGroupCount[counter.indexTypeName].countersCount = 1;
+                countersGroupCount[counter.indexTypeName].intervalNumber++;
+                countersGroupCount[counter.indexTypeName].toTimeMs = countersGroupCount[counter.indexTypeName].fromTimeMs;
+                countersGroupCount[counter.indexTypeName].fromTimeMs = splitIntervals[countersGroupCount[counter.indexTypeName].intervalNumber];
+            }
+            //
+            // Добавление счетчика в список счетчиков для текущего индекса
+            //
+            const indexTypeNameWithGroupNumber = counter.indexTypeName + "#" + countersGroupCount[counter.indexTypeName].groupNumber;
+            if (!indexFacetStages[indexTypeNameWithGroupNumber]) {
+                indexFacetStages[indexTypeNameWithGroupNumber] = {};
+            }
+            indexFacetStages[indexTypeNameWithGroupNumber][counter.name] = this._getCounterFacetStage(counter, timeFieldName, nowDate);
+            // Добавление максимального количества записей для группы счетчиков
+            if (!indexLimits[indexTypeNameWithGroupNumber]) {
+                indexLimits[indexTypeNameWithGroupNumber] = {};
+            }
+            indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords = Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ?? 0, counter.maxEvaluatedRecords ?? 0);
+            // Если максимальное количество записей для группы счетчиков превышает максимальную глубину запроса, то устанавливаем максимальную глубину запроса
+            if (maxDepthLimit > 0 && indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords > maxDepthLimit) {
+                indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords = maxDepthLimit;
+            }
+            indexLimits[indexTypeNameWithGroupNumber].fromTimeMs = Math.max(indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ?? 0, counter.fromTimeMs ?? 0);
+            indexLimits[indexTypeNameWithGroupNumber].toTimeMs = (counter.toTimeMs > 0 ? (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0 ? Math.min(counter.toTimeMs, indexLimits[indexTypeNameWithGroupNumber].toTimeMs) : counter.toTimeMs) : (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0 ? indexLimits[indexTypeNameWithGroupNumber].toTimeMs : 0));
+        });
+        if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
+            this.logger.warn(`Превышено максимальное количество счетчиков для обработки: ${config.facts.maxCountersProcessing}. Всего счетчиков: ${totalCountersCount}.`);
+        }
+
+        // Если в выражении счетчиков есть параметры, то заменить их на значения атрибутов из факта
+        // Например, если в выражении счетчиков есть параметр "$$f2", то он будет заменен на значение атрибута "f2" из факта
+        const indexFacetStagesString = JSON.stringify(indexFacetStages);
+        if (!indexFacetStagesString.includes('$$')) {
+            return { indexFacetStages: indexFacetStages, indexLimits: indexLimits };
+        }
+        // Создаем глубокую копию выражения счетчиков
+        const parameterizedFacetStages = JSON.parse(indexFacetStagesString);
+        // Рекурсивно заменяем переменные в объекте
+        this._replaceParametersRecursive(parameterizedFacetStages, fact.d);
+
+        return {
+            indexFacetStages: parameterizedFacetStages,
+            indexLimits: indexLimits,
+            // Количество счетчиков, которые будут меняться фактом по условиям оценки (для метрик)
+            evaluationCountersCount: countersInfo.evaluationCountersCount
+        };
+    }
+
+    // Старый метод, не используется
+    getFactIndexCountersInfo_Old(fact, timeFieldName = "dt") {
         if (!this._counterProducer) {
             this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
             return this.getDefaultFactIndexCountersInfo();
@@ -900,7 +1076,7 @@ class MongoProvider {
                 };
             }
             countersGroupCount[counter.indexTypeName].countersCount++;
-            if (config.facts.maxCountersPerRequest > 0 &&countersGroupCount[counter.indexTypeName].countersCount > config.facts.maxCountersPerRequest) {
+            if (config.facts.maxCountersPerRequest > 0 && countersGroupCount[counter.indexTypeName].countersCount > config.facts.maxCountersPerRequest) {
                 countersGroupCount[counter.indexTypeName].groupNumber++;
                 countersGroupCount[counter.indexTypeName].countersCount = 1;
             }
@@ -932,7 +1108,7 @@ class MongoProvider {
                 indexFacetStages[indexTypeNameWithGroupNumber][counter.name].push({ "$addFields": addFieldsStage });
             }
             // Добавление максимального количества записей для группы счетчиков
-            if (!indexLimits[indexTypeNameWithGroupNumber]){
+            if (!indexLimits[indexTypeNameWithGroupNumber]) {
                 indexLimits[indexTypeNameWithGroupNumber] = {};
             }
             indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords = Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ?? 0, counter.maxEvaluatedRecords ?? 0);
@@ -947,7 +1123,7 @@ class MongoProvider {
         // Например, если в выражении счетчиков есть параметр "$$f2", то он будет заменен на значение атрибута "f2" из факта
         const indexFacetStagesString = JSON.stringify(indexFacetStages);
         if (!indexFacetStagesString.includes('$$')) {
-            return {indexFacetStages: indexFacetStages, indexLimits: indexLimits};
+            return { indexFacetStages: indexFacetStages, indexLimits: indexLimits };
         }
         // Создаем глубокую копию выражения счетчиков
         const parameterizedFacetStages = JSON.parse(indexFacetStagesString);
@@ -955,7 +1131,7 @@ class MongoProvider {
         this._replaceParametersRecursive(parameterizedFacetStages, fact.d);
 
         return {
-            indexFacetStages: parameterizedFacetStages, 
+            indexFacetStages: parameterizedFacetStages,
             indexLimits: indexLimits,
             // Количество счетчиков, которые будут меняться фактом по условиям оценки (для метрик)
             evaluationCountersCount: countersInfo.evaluationCountersCount
@@ -1517,7 +1693,7 @@ class MongoProvider {
             const indexTypeName = indexTypeNameWithGroupNumber.split('#')[0];
             // const groupNumber = parseInt(indexTypeNameWithGroupNumber.split('#')[1] ?? 0);
             // Если тип индекса уже был обработан, то пропускаем
-            if(indexTypeNames.has(indexTypeName)) {
+            if (indexTypeNames.has(indexTypeName)) {
                 // Нужно обновить глубину запроса для типа индекса, если она меньше максимальной глубины для группы счетчиков
                 queriesByIndexName[indexTypeName].depthLimit = Math.max(queriesByIndexName[indexTypeName].depthLimit, indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords);
                 return;
@@ -1540,7 +1716,7 @@ class MongoProvider {
                 if (!factIndexFindQuery["dt"]) {
                     factIndexFindQuery["dt"] = {};
                 }
-                factIndexFindQuery["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
+                factIndexFindQuery["dt"]["$lte"] = new Date(nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
                 if (config.facts.emptyRequests) {
@@ -1618,7 +1794,7 @@ class MongoProvider {
             const indexNameQuery = queriesByIndexName[indexTypeName];
             const startQuery = Date.now();
             const indexNameResult = await this._getRelevantFactsByIndex(indexNameQuery, debugMode);
-            
+
             const emptyRelevantFacts = !indexNameResult.factIds || !indexNameResult.factIds.length;
             if (emptyRelevantFacts) {
                 const indexInfo = factIndexInfos.find(info => info.index.indexTypeName === indexTypeName);
@@ -1795,7 +1971,7 @@ class MongoProvider {
         // Перебираем все индексы, по которым нужно построить счетчики и формируем агрегационный запрос
         const queriesByIndexName = {};
         const nowDate = Date.now();
-        
+
         // this.logger.info(`*** Индексы счетчиков: ${JSON.stringify(indexCountersInfo)}`);
         // this.logger.info(`*** Получено ${Object.keys(indexCountersInfo).length} типов индексов счетчиков: ${Object.keys(indexCountersInfo).join(', ')}`);
         Object.keys(indexCountersInfo).forEach((indexTypeNameWithGroupNumber) => {
@@ -1821,7 +1997,7 @@ class MongoProvider {
                 if (!match["dt"]) {
                     match["dt"] = {};
                 }
-                match["dt"]["$lte"] = new Date( nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
+                match["dt"]["$lte"] = new Date(nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
                 if (config.facts.emptyRequests) {
@@ -1944,12 +2120,12 @@ class MongoProvider {
         let queryResults;
         let resultsTransformationTime = 0;
         let dispatcherSummary = {};
-        
+
         if (queryDispatcher) {
             // Создаем маппинг уникальных ID запросов к indexTypeNameWithGroupNumber
             // Это необходимо для избежания конфликтов при параллельных запросах с одинаковыми индексами
             const queryIdToIndexMap = new Map();
-            
+
             // Подготовка массива запросов для выполнения через QueryDispatcher
             let queryCounter = 0;
             const preparedQueries = Object.keys(queriesByIndexName).map(indexTypeNameWithGroupNumber => {
@@ -1960,7 +2136,7 @@ class MongoProvider {
                 const uniqueQueryId = `${indexTypeNameWithGroupNumber}_${uniqueId}_${Math.random().toString(36).slice(2, 9)}`;
                 // Сохраняем маппинг для последующего восстановления indexTypeNameWithGroupNumber
                 queryIdToIndexMap.set(uniqueQueryId, indexTypeNameWithGroupNumber);
-                
+
                 return {
                     id: uniqueQueryId,
                     query: indexNameQuery,
@@ -1968,13 +2144,13 @@ class MongoProvider {
                     options: aggregateOptions,
                 };
             });
-            
+
             // Выполняем запросы через QueryDispatcher
             const queryDispatcherResults = await queryDispatcher.executeQueries(preparedQueries);
-            
+
             // Измеряем время преобразования результатов
             const resultsTransformationStartTime = Date.now();
-            
+
             // Преобразуем результаты QueryDispatcher в формат, совместимый с локальным кодом
             queryResults = queryDispatcherResults.results.map((dispatcherResult) => {
                 // Восстанавливаем indexTypeNameWithGroupNumber из маппинга
@@ -1986,7 +2162,7 @@ class MongoProvider {
                     this.logger.warn(`Не найден маппинг для запроса ${dispatcherResult.id}, используем извлеченное значение: ${extractedIndex}`);
                     indexTypeNameWithGroupNumber = extractedIndex || dispatcherResult.id;
                 }
-                
+
                 const indexNameQuery = queriesByIndexName[indexTypeNameWithGroupNumber];
                 if (!indexNameQuery || !indexNameQuery.query) {
                     this.logger.error(`Не удалось найти запрос для indexTypeNameWithGroupNumber: ${indexTypeNameWithGroupNumber} (ID запроса: ${dispatcherResult.id})`);
@@ -2009,7 +2185,7 @@ class MongoProvider {
                 const query = indexNameQuery.query;
                 const startQuery = startQueriesTime; // Используем общее время начала запросов
                 const countersQuerySize = debugMode ? JSON.stringify(query).length : undefined;
-                
+
                 // Определяем результат: если result - массив, берем первый элемент, иначе null
                 // В локальном коде используется countersResult[0], где countersResult - результат .toArray()
                 let counters = null;
@@ -2018,18 +2194,18 @@ class MongoProvider {
                 } else if (dispatcherResult.result && !Array.isArray(dispatcherResult.result)) {
                     counters = dispatcherResult.result;
                 }
-                
+
                 const countersQueryTime = dispatcherResult.metrics?.queryTime || 0;
                 const countersWaitTime = dispatcherResult.metrics?.waitTime || 0;
-                
+
                 // Определяем сообщение об ошибке для возврата (совместимо с локальным кодом)
                 let errorMessage = undefined;
                 if (dispatcherResult.error) {
-                    errorMessage = dispatcherResult.error instanceof Error 
-                        ? dispatcherResult.error.message 
+                    errorMessage = dispatcherResult.error instanceof Error
+                        ? dispatcherResult.error.message
                         : (dispatcherResult.error.message || dispatcherResult.error);
                 }
-                
+
                 // Вычисляем countersSize так же, как в локальном коде: 
                 // - при ошибке: 0 (как в локальном коде в блоке catch)
                 // - при успехе: длина JSON если debugMode включен, иначе undefined (как в локальном коде в блоке try)
@@ -2039,14 +2215,14 @@ class MongoProvider {
                 } else {
                     countersSize = debugMode ? JSON.stringify(counters ?? null).length : undefined;
                 }
-                
+
                 // Логируем ошибки, если они есть
                 if (dispatcherResult.error) {
                     this.logger.error(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
                     this._writeToLogFile(`Ошибка при выполнении запроса для индекса ${indexTypeNameWithGroupNumber}: ${errorMessage}`);
                     this._writeToLogFile(JSON.stringify(query, null, 2));
                 }
-                
+
                 return {
                     indexTypeName: indexTypeNameWithGroupNumber,
                     counters: counters,
@@ -2064,11 +2240,11 @@ class MongoProvider {
                     }
                 };
             });
-            
+
             resultsTransformationTime = Date.now() - resultsTransformationStartTime;
             // Сохраняем метрики из summary QueryDispatcher для последующего использования
             dispatcherSummary = queryDispatcherResults.summary || {};
-            
+
             // this.logger.debug(`✓ *** Получены счетчики: ${JSON.stringify(queryResults)} `);
         } else {
 
@@ -2162,7 +2338,7 @@ class MongoProvider {
             this.logger.debug(`✓ Получены счетчики: ${JSON.stringify(mergedCounters)} `);
         }
 
-        const queryCountersCount = Object.keys(countersQuery).map(key => countersQuery[key] ? Object.keys( (countersQuery[key].find(i => i["$facet"]) ?? {"$facet": {}})["$facet"]).length : 0).reduce((a, b) => a + b, 0);
+        const queryCountersCount = Object.keys(countersQuery).map(key => countersQuery[key] ? Object.keys((countersQuery[key].find(i => i["$facet"]) ?? { "$facet": {} })["$facet"]).length : 0).reduce((a, b) => a + b, 0);
 
         /**
          * Структура отладочной информации debug:
@@ -2198,7 +2374,7 @@ class MongoProvider {
          */
 
         // Возвращаем массив статистики
-        
+
         return {
             result: mergedCounters,
             processingTime: Date.now() - startTime,
@@ -2463,7 +2639,7 @@ class MongoProvider {
 
             const deleteOptions = {
                 readConcern: this._databaseOptions.readConcern,
-                readPreference: {"mode": "primary"},
+                readPreference: { "mode": "primary" },
                 writeConcern: this._databaseOptions.writeConcern,
                 comment: "clearFactIndexCollection",
             };
@@ -2512,7 +2688,7 @@ class MongoProvider {
 
             const deleteOptions = {
                 readConcern: this._databaseOptions.readConcern,
-                readPreference: {"mode": "primary"},
+                readPreference: { "mode": "primary" },
                 writeConcern: this._databaseOptions.writeConcern,
                 comment: "clearLogCollection",
             };
@@ -3225,7 +3401,7 @@ class MongoProvider {
      * @returns {Promise<Object>} результат создания базы данных
      */
     async createDatabase() {
-        if (!config.isDevelopment){
+        if (!config.isDevelopment) {
             this.logger.debug("*** Production mode on.");
             return {
                 success: true

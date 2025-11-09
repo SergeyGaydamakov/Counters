@@ -110,6 +110,13 @@ const config = {
         indexBulkUpdate: process.env.INDEX_BULK_UPDATE === 'true',
         maxDepthLimit: parseInt(process.env.MAX_DEPTH_LIMIT) || 500,
         skipFactLimit: parseInt(process.env.SKIP_FACT_LIMIT) || 0,
+        splitIntervals: process.env.SPLIT_INTERVALS ? 
+            (() => {
+                // Сортируем по возрастанию в прошлое от текущего времени
+                const intervals = process.env.SPLIT_INTERVALS.split(',').map(i => parseInt(i.trim())).filter(i => !isNaN(i)).sort((a, b) => a - b);
+                return intervals.length > 0 ? intervals : null;
+            })() : 
+            null,
         maxCountersProcessing: parseInt(process.env.MAX_COUNTERS_PROCESSING) || 0,
         maxCountersPerRequest: parseInt(process.env.MAX_COUNTERS_PER_REQUEST) || 0,
         allowedCountersNames: process.env.ALLOWED_COUNTERS_NAMES ? process.env.ALLOWED_COUNTERS_NAMES.split(',').map(t => t.trim()).filter(t => t !== '') : null,

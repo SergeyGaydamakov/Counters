@@ -28,6 +28,7 @@ class CounterProducerTest {
         this.testMakeMethod('6. Тест метода make...');
         this.testHelperMethods('7. Тест вспомогательных методов...');
         // testNowOperator перенесен в computationConditionsTest
+        this.testSplitIntervals('8. Тест разбиения счетчиков по интервалам (_splitIntervals)...');
         this.testErrorHandling('10. Тест обработки ошибок...');
         
         this.printResults();
@@ -403,6 +404,185 @@ class CounterProducerTest {
         }
     }
 
+
+    /**
+     * Тест разбиения счетчиков по интервалам (_splitIntervals)
+     */
+    testSplitIntervals(title) {
+        this.logger.info(title);
+        try {
+            const config = require('../common/config');
+            const originalSplitIntervals = config.facts.splitIntervals;
+
+            // Тест 1: Разбиение счетчика с одним интервалом
+            try {
+                config.facts.splitIntervals = [30000]; // 30 секунд
+                const counterConfig1 = [
+                    {
+                        name: 'counter_with_interval',
+                        comment: 'Счетчик с интервалом',
+                        indexTypeName: 'test_index',
+                        computationConditions: { t: [50] },
+                        evaluationConditions: null,
+                        attributes: {
+                            cnt: { $sum: 1 }
+                        },
+                        fromTimeMs: 60000, // 1 минута назад
+                        toTimeMs: 0
+                    }
+                ];
+
+                const mongoCounters1 = new CounterProducer(counterConfig1);
+                const counters1 = mongoCounters1.getCounterNames();
+                
+                // Должно быть 2 счетчика: counter_with_interval#0 и counter_with_interval#1
+                this.assert(counters1.length === 2, 'Счетчик разбит на 2 части');
+                this.assert(counters1.includes('counter_with_interval#0'), 'Первый счетчик имеет суффикс #0');
+                this.assert(counters1.includes('counter_with_interval#1'), 'Второй счетчик имеет суффикс #1');
+
+                // Проверяем границы интервалов
+                // Новая логика: интервалы идут от меньшего к большему (от toTimeMs к fromTimeMs)
+                const counter0 = mongoCounters1.getCounterDescription('counter_with_interval#0');
+                const counter1 = mongoCounters1.getCounterDescription('counter_with_interval#1');
+                this.assert(counter0 !== null, 'Первый счетчик найден');
+                this.assert(counter1 !== null, 'Второй счетчик найден');
+                this.assert(counter0.fromTimeMs === 30000 && counter0.toTimeMs === 0, 
+                    'Первый счетчик имеет правильные границы (30000 -> 0)');
+                this.assert(counter1.fromTimeMs === 60000 && counter1.toTimeMs === 30000, 
+                    'Второй счетчик имеет правильные границы (60000 -> 30000)');
+            } finally {
+                config.facts.splitIntervals = originalSplitIntervals;
+            }
+
+            // Тест 2: Разбиение счетчика с несколькими интервалами
+            try {
+                config.facts.splitIntervals = [10000, 30000, 50000]; // 10, 30, 50 секунд
+                const counterConfig2 = [
+                    {
+                        name: 'counter_multiple_intervals',
+                        comment: 'Счетчик с несколькими интервалами',
+                        indexTypeName: 'test_index',
+                        computationConditions: { t: [50] },
+                        evaluationConditions: null,
+                        attributes: {
+                            cnt: { $sum: 1 }
+                        },
+                        fromTimeMs: 60000, // 1 минута назад
+                        toTimeMs: 0
+                    }
+                ];
+
+                const mongoCounters2 = new CounterProducer(counterConfig2);
+                const counters2 = mongoCounters2.getCounterNames();
+                
+                // Должно быть 4 счетчика: counter_multiple_intervals#0, #1, #2, #3
+                this.assert(counters2.length === 4, 'Счетчик разбит на 4 части');
+                
+                // Проверяем границы каждого счетчика
+                // Новая логика: интервалы идут от меньшего к большему (от toTimeMs к fromTimeMs)
+                const counter2_0 = mongoCounters2.getCounterDescription('counter_multiple_intervals#0');
+                const counter2_1 = mongoCounters2.getCounterDescription('counter_multiple_intervals#1');
+                const counter2_2 = mongoCounters2.getCounterDescription('counter_multiple_intervals#2');
+                const counter2_3 = mongoCounters2.getCounterDescription('counter_multiple_intervals#3');
+                
+                this.assert(counter2_0 !== null && counter2_0.fromTimeMs === 10000 && counter2_0.toTimeMs === 0,
+                    'Счетчик #0 имеет границы 10000 -> 0');
+                this.assert(counter2_1 !== null && counter2_1.fromTimeMs === 30000 && counter2_1.toTimeMs === 10000,
+                    'Счетчик #1 имеет границы 30000 -> 10000');
+                this.assert(counter2_2 !== null && counter2_2.fromTimeMs === 50000 && counter2_2.toTimeMs === 30000,
+                    'Счетчик #2 имеет границы 50000 -> 30000');
+                this.assert(counter2_3 !== null && counter2_3.fromTimeMs === 60000 && counter2_3.toTimeMs === 50000,
+                    'Счетчик #3 имеет границы 60000 -> 50000');
+            } finally {
+                config.facts.splitIntervals = originalSplitIntervals;
+            }
+
+            // Тест 3: Счетчик без интервалов не разбивается
+            try {
+                config.facts.splitIntervals = [30000];
+                const counterConfig3 = [
+                    {
+                        name: 'counter_no_time',
+                        comment: 'Счетчик без временных границ',
+                        indexTypeName: 'test_index',
+                        computationConditions: { t: [50] },
+                        evaluationConditions: null,
+                        attributes: {
+                            cnt: { $sum: 1 }
+                        }
+                    }
+                ];
+
+                const mongoCounters3 = new CounterProducer(counterConfig3);
+                const counters3 = mongoCounters3.getCounterNames();
+                
+                // Должен остаться один счетчик без изменений
+                this.assert(counters3.length === 1, 'Счетчик без временных границ не разбит');
+                this.assert(counters3[0] === 'counter_no_time', 'Имя счетчика не изменилось');
+            } finally {
+                config.facts.splitIntervals = originalSplitIntervals;
+            }
+
+            // Тест 4: Счетчик с некорректным интервалом (fromTimeMs <= toTimeMs) не разбивается
+            try {
+                config.facts.splitIntervals = [30000];
+                const counterConfig4 = [
+                    {
+                        name: 'counter_invalid_interval',
+                        comment: 'Счетчик с некорректным интервалом',
+                        indexTypeName: 'test_index',
+                        computationConditions: { t: [50] },
+                        evaluationConditions: null,
+                        attributes: {
+                            cnt: { $sum: 1 }
+                        },
+                        fromTimeMs: 10000,
+                        toTimeMs: 30000 // toTimeMs > fromTimeMs - некорректно
+                    }
+                ];
+
+                const mongoCounters4 = new CounterProducer(counterConfig4);
+                const counters4 = mongoCounters4.getCounterNames();
+                
+                // Должен остаться один счетчик без изменений
+                this.assert(counters4.length === 1, 'Счетчик с некорректным интервалом не разбит');
+                this.assert(counters4[0] === 'counter_invalid_interval', 'Имя счетчика не изменилось');
+            } finally {
+                config.facts.splitIntervals = originalSplitIntervals;
+            }
+
+            // Тест 5: Счетчик с интервалами, которые не попадают в диапазон, не разбивается
+            try {
+                config.facts.splitIntervals = [100000, 200000]; // Границы вне диапазона счетчика
+                const counterConfig5 = [
+                    {
+                        name: 'counter_out_of_range',
+                        comment: 'Счетчик с границами вне диапазона',
+                        indexTypeName: 'test_index',
+                        computationConditions: { t: [50] },
+                        evaluationConditions: null,
+                        attributes: {
+                            cnt: { $sum: 1 }
+                        },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0
+                    }
+                ];
+
+                const mongoCounters5 = new CounterProducer(counterConfig5);
+                const counters5 = mongoCounters5.getCounterNames();
+                
+                // Должен остаться один счетчик без изменений
+                this.assert(counters5.length === 1, 'Счетчик с границами вне диапазона не разбит');
+                this.assert(counters5[0] === 'counter_out_of_range', 'Имя счетчика не изменилось');
+            } finally {
+                config.facts.splitIntervals = originalSplitIntervals;
+            }
+
+        } catch (error) {
+            this.assert(false, 'Разбиение счетчиков по интервалам', `Ошибка: ${error.message}`);
+        }
+    }
 
     /**
      * Тест обработки ошибок
