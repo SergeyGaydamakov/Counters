@@ -832,14 +832,14 @@ class MongoProvider {
             if (!matchStageCondition["$match"]) {
                 matchStageCondition["$match"] = {};
             }
-            matchStageCondition["$match"][timeFieldName] = { "$gt": new Date(fromDateTime) };
+            matchStageCondition["$match"][timeFieldName] = { "$gte": new Date(fromDateTime) };
         }
         if (counter.toTimeMs) {
             const toDateTime = nowDate - counter.toTimeMs;
             if (!matchStageCondition["$match"]) {
                 matchStageCondition["$match"] = {};
             }
-            matchStageCondition["$match"][timeFieldName] = { "$lte": new Date(toDateTime) };
+            matchStageCondition["$match"][timeFieldName] = { "$lt": new Date(toDateTime) };
         }
         const matchStage = Object.keys(matchStageCondition["$match"]).length ? matchStageCondition : null;
         //
@@ -967,7 +967,10 @@ class MongoProvider {
             indexFacetStages[indexTypeNameWithGroupNumber][counter.name] = this._getCounterFacetStage(counter, timeFieldName, nowDate);
             // Добавление максимального количества записей для группы счетчиков
             if (!indexLimits[indexTypeNameWithGroupNumber]) {
-                indexLimits[indexTypeNameWithGroupNumber] = {};
+                indexLimits[indexTypeNameWithGroupNumber] = {
+                    fromTimeMs: counter.fromTimeMs,
+                    toTimeMs: counter.toTimeMs,
+                };
             }
             indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords = Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ?? 0, counter.maxEvaluatedRecords ?? 0);
             // Если максимальное количество записей для группы счетчиков превышает максимальную глубину запроса, то устанавливаем максимальную глубину запроса
@@ -975,7 +978,7 @@ class MongoProvider {
                 indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords = maxDepthLimit;
             }
             indexLimits[indexTypeNameWithGroupNumber].fromTimeMs = Math.max(indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ?? 0, counter.fromTimeMs ?? 0);
-            indexLimits[indexTypeNameWithGroupNumber].toTimeMs = (counter.toTimeMs > 0 ? (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0 ? Math.min(counter.toTimeMs, indexLimits[indexTypeNameWithGroupNumber].toTimeMs) : counter.toTimeMs) : (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0 ? indexLimits[indexTypeNameWithGroupNumber].toTimeMs : 0));
+            indexLimits[indexTypeNameWithGroupNumber].toTimeMs = Math.min(indexLimits[indexTypeNameWithGroupNumber].toTimeMs ?? 0, counter.toTimeMs ?? 0);
         });
         if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
             this.logger.warn(`Превышено максимальное количество счетчиков для обработки: ${config.facts.maxCountersProcessing}. Всего счетчиков: ${totalCountersCount}.`);
@@ -1716,7 +1719,7 @@ class MongoProvider {
                 if (!factIndexFindQuery["dt"]) {
                     factIndexFindQuery["dt"] = {};
                 }
-                factIndexFindQuery["dt"]["$lte"] = new Date(nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
+                factIndexFindQuery["dt"]["$lt"] = new Date(nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
                 if (config.facts.emptyRequests) {
@@ -1997,7 +2000,7 @@ class MongoProvider {
                 if (!match["dt"]) {
                     match["dt"] = {};
                 }
-                match["dt"]["$lte"] = new Date(nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
+                match["dt"]["$lt"] = new Date(nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs);
             }
             if (fact) {
                 if (config.facts.emptyRequests) {

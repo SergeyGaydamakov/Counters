@@ -3898,12 +3898,68 @@ class MongoProviderTest {
                 }
                 this.logger.debug(`   ✓ Счетчик split_counter_1 разбит на ${splitCounter1Parts.length} части: ${splitCounter1Parts.join(', ')}`);
 
+                // Проверяем конкретные значения fromTimeMs и toTimeMs для разбитых частей split_counter_1
+                // Исходный счетчик: fromTimeMs=120000, toTimeMs=0
+                // Интервалы: [30000, 60000]
+                // Ожидаемое разбиение:
+                // - split_counter_1#0: toTimeMs=0, fromTimeMs=30000
+                // - split_counter_1#1: toTimeMs=30000, fromTimeMs=60000
+                // - split_counter_1#2: toTimeMs=60000, fromTimeMs=120000
+                const expectedSplitCounter1Values = {
+                    'split_counter_1#0': { fromTimeMs: 30000, toTimeMs: 0 },
+                    'split_counter_1#1': { fromTimeMs: 60000, toTimeMs: 30000 },
+                    'split_counter_1#2': { fromTimeMs: 120000, toTimeMs: 60000 }
+                };
+
+                for (const partName of splitCounter1Parts) {
+                    const counter = testMongoCounters.getCounterDescription(partName);
+                    if (!counter) {
+                        throw new Error(`Счетчик ${partName} не найден в CounterProducer`);
+                    }
+                    const expected = expectedSplitCounter1Values[partName];
+                    if (!expected) {
+                        throw new Error(`Неожиданная часть счетчика: ${partName}`);
+                    }
+                    if (counter.fromTimeMs !== expected.fromTimeMs || counter.toTimeMs !== expected.toTimeMs) {
+                        throw new Error(`Счетчик ${partName} имеет некорректные границы: ожидалось fromTimeMs=${expected.fromTimeMs}, toTimeMs=${expected.toTimeMs}, получено fromTimeMs=${counter.fromTimeMs}, toTimeMs=${counter.toTimeMs}`);
+                    }
+                    this.logger.debug(`   ✓ Счетчик ${partName} имеет корректные границы: fromTimeMs=${counter.fromTimeMs}, toTimeMs=${counter.toTimeMs}`);
+                }
+
                 // Проверяем, что счетчик split_counter_2 разбит на 3 части (90000 -> 60000 -> 30000 -> 0, обе границы попадают в диапазон)
                 const splitCounter2Parts = splitCounterNames.filter(name => name.startsWith('split_counter_2'));
                 if (splitCounter2Parts.length !== 3) {
                     throw new Error(`Счетчик split_counter_2 должен быть разбит на 3 части, найдено: ${splitCounter2Parts.length}. Части: ${splitCounter2Parts.join(', ')}`);
                 }
                 this.logger.debug(`   ✓ Счетчик split_counter_2 разбит на ${splitCounter2Parts.length} части: ${splitCounter2Parts.join(', ')}`);
+
+                // Проверяем конкретные значения fromTimeMs и toTimeMs для разбитых частей split_counter_2
+                // Исходный счетчик: fromTimeMs=90000, toTimeMs=0
+                // Интервалы: [30000, 60000]
+                // Ожидаемое разбиение:
+                // - split_counter_2#0: toTimeMs=0, fromTimeMs=30000
+                // - split_counter_2#1: toTimeMs=30000, fromTimeMs=60000
+                // - split_counter_2#2: toTimeMs=60000, fromTimeMs=90000
+                const expectedSplitCounter2Values = {
+                    'split_counter_2#0': { fromTimeMs: 30000, toTimeMs: 0 },
+                    'split_counter_2#1': { fromTimeMs: 60000, toTimeMs: 30000 },
+                    'split_counter_2#2': { fromTimeMs: 90000, toTimeMs: 60000 }
+                };
+
+                for (const partName of splitCounter2Parts) {
+                    const counter = testMongoCounters.getCounterDescription(partName);
+                    if (!counter) {
+                        throw new Error(`Счетчик ${partName} не найден в CounterProducer`);
+                    }
+                    const expected = expectedSplitCounter2Values[partName];
+                    if (!expected) {
+                        throw new Error(`Неожиданная часть счетчика: ${partName}`);
+                    }
+                    if (counter.fromTimeMs !== expected.fromTimeMs || counter.toTimeMs !== expected.toTimeMs) {
+                        throw new Error(`Счетчик ${partName} имеет некорректные границы: ожидалось fromTimeMs=${expected.fromTimeMs}, toTimeMs=${expected.toTimeMs}, получено fromTimeMs=${counter.fromTimeMs}, toTimeMs=${counter.toTimeMs}`);
+                    }
+                    this.logger.debug(`   ✓ Счетчик ${partName} имеет корректные границы: fromTimeMs=${counter.fromTimeMs}, toTimeMs=${counter.toTimeMs}`);
+                }
 
                 // Проверяем, что есть группы счетчиков (должны быть с постфиксом #N в имени индекса)
                 let foundSplitGroups = false;
@@ -3928,6 +3984,81 @@ class MongoProviderTest {
                             }
                         }
                     }
+                }
+
+                // Проверяем конкретные значения fromTimeMs и toTimeMs для разбитых счетчиков
+                // split_counter_1 разбит на 3 части: #0 (30000->0), #1 (60000->30000), #2 (120000->60000)
+                // split_counter_2 разбит на 3 части: #0 (30000->0), #1 (60000->30000), #2 (90000->60000)
+                // Эти части могут быть в разных группах, и indexLimits должен содержать правильные границы для каждой группы
+                
+                // Находим все группы, которые содержат разбитые счетчики
+                const splitGroups = {};
+                for (const indexTypeName of indexTypeNames) {
+                    if (indexTypeName.includes('#')) {
+                        const counters = Object.keys(result.indexFacetStages[indexTypeName]);
+                        const splitCountersInGroup = counters.filter(name => name.includes('#'));
+                        if (splitCountersInGroup.length > 0) {
+                            splitGroups[indexTypeName] = {
+                                counters: splitCountersInGroup,
+                                limits: result.indexLimits[indexTypeName]
+                            };
+                        }
+                    }
+                }
+
+                // Проверяем, что для каждой группы с разбитыми счетчиками indexLimits содержит корректные границы
+                for (const [groupName, groupInfo] of Object.entries(splitGroups)) {
+                    const limits = groupInfo.limits;
+                    if (!limits) {
+                        throw new Error(`Группа ${groupName} не имеет indexLimits`);
+                    }
+
+                    // Проверяем, что границы установлены
+                    if (limits.fromTimeMs === undefined || limits.toTimeMs === undefined) {
+                        throw new Error(`Группа ${groupName} имеет неполные границы времени: fromTimeMs=${limits.fromTimeMs}, toTimeMs=${limits.toTimeMs}`);
+                    }
+
+                    // Проверяем, что границы корректны (fromTimeMs > toTimeMs)
+                    if (limits.fromTimeMs <= limits.toTimeMs) {
+                        throw new Error(`Группа ${groupName} имеет некорректные границы: fromTimeMs=${limits.fromTimeMs} <= toTimeMs=${limits.toTimeMs}`);
+                    }
+
+                    // Проверяем, что границы соответствуют счетчикам в группе
+                    // fromTimeMs должен быть максимумом из всех fromTimeMs счетчиков в группе
+                    // toTimeMs вычисляется как минимум из всех toTimeMs счетчиков в группе (включая 0)
+                    let maxFromTimeMs = 0;
+                    let minToTimeMs = Infinity;
+                    
+                    for (const counterName of groupInfo.counters) {
+                        // Получаем счетчик из CounterProducer по его имени (с суффиксом #N)
+                        const counter = testMongoCounters.getCounterDescription(counterName);
+                        if (counter) {
+                            if (counter.fromTimeMs !== undefined) {
+                                maxFromTimeMs = Math.max(maxFromTimeMs, counter.fromTimeMs);
+                            }
+                            if (counter.toTimeMs !== undefined) {
+                                minToTimeMs = Math.min(minToTimeMs, counter.toTimeMs);
+                            }
+                        } else {
+                            this.logger.debug(`   ⚠️  Счетчик ${counterName} не найден в CounterProducer`);
+                        }
+                    }
+
+                    // Вычисляем ожидаемое toTimeMs по новой логике из mongoProvider.js
+                    // toTimeMs = Math.min(все toTimeMs счетчиков в группе), включая 0
+                    const expectedToTimeMs = minToTimeMs !== Infinity ? minToTimeMs : 0;
+
+                    // Проверяем, что fromTimeMs в indexLimits равен максимуму
+                    if (maxFromTimeMs > 0 && limits.fromTimeMs !== maxFromTimeMs) {
+                        throw new Error(`Группа ${groupName} имеет некорректный fromTimeMs: ожидалось ${maxFromTimeMs} (максимум из счетчиков в группе), получено ${limits.fromTimeMs}. Счетчики в группе: ${groupInfo.counters.join(', ')}`);
+                    }
+
+                    // Проверяем, что toTimeMs в indexLimits соответствует ожидаемому значению (минимум из всех счетчиков)
+                    if (minToTimeMs !== Infinity && limits.toTimeMs !== expectedToTimeMs) {
+                        throw new Error(`Группа ${groupName} имеет некорректный toTimeMs: ожидалось ${expectedToTimeMs} (минимум из счетчиков в группе), получено ${limits.toTimeMs}. Счетчики в группе: ${groupInfo.counters.join(', ')}`);
+                    }
+
+                    this.logger.debug(`   ✓ Группа ${groupName} имеет корректные границы: fromTimeMs=${limits.fromTimeMs}, toTimeMs=${limits.toTimeMs}`);
                 }
 
                 // Проверяем, что счетчики правильно разделены на группы при наличии splitIntervals
@@ -4025,6 +4156,33 @@ class MongoProviderTest {
                     throw new Error(`Счетчик boundary_inside_30000_60000 должен быть разбит на 2 части (только по границе 30000), найдено: ${boundaryInsideParts.length}. Части: ${boundaryInsideParts.join(', ')}`);
                 }
                 this.logger.debug(`   ✓ Счетчик boundary_inside_30000_60000 разбит на ${boundaryInsideParts.length} части: ${boundaryInsideParts.join(', ')}`);
+
+                // Проверяем конкретные значения fromTimeMs и toTimeMs для разбитых частей boundary_inside_30000_60000
+                // Исходный счетчик: fromTimeMs=50000, toTimeMs=10000
+                // Интервалы: [30000, 60000]
+                // Попадающая граница: 30000 (30000 > 10000 && 30000 < 50000)
+                // Ожидаемое разбиение:
+                // - boundary_inside_30000_60000#0: toTimeMs=10000, fromTimeMs=30000
+                // - boundary_inside_30000_60000#1: toTimeMs=30000, fromTimeMs=50000
+                const expectedBoundaryInsideValues = {
+                    'boundary_inside_30000_60000#0': { fromTimeMs: 30000, toTimeMs: 10000 },
+                    'boundary_inside_30000_60000#1': { fromTimeMs: 50000, toTimeMs: 30000 }
+                };
+
+                for (const partName of boundaryInsideParts) {
+                    const counter = testMongoCounters.getCounterDescription(partName);
+                    if (!counter) {
+                        throw new Error(`Счетчик ${partName} не найден в CounterProducer`);
+                    }
+                    const expected = expectedBoundaryInsideValues[partName];
+                    if (!expected) {
+                        throw new Error(`Неожиданная часть счетчика: ${partName}`);
+                    }
+                    if (counter.fromTimeMs !== expected.fromTimeMs || counter.toTimeMs !== expected.toTimeMs) {
+                        throw new Error(`Счетчик ${partName} имеет некорректные границы: ожидалось fromTimeMs=${expected.fromTimeMs}, toTimeMs=${expected.toTimeMs}, получено fromTimeMs=${counter.fromTimeMs}, toTimeMs=${counter.toTimeMs}`);
+                    }
+                    this.logger.debug(`   ✓ Счетчик ${partName} имеет корректные границы: fromTimeMs=${counter.fromTimeMs}, toTimeMs=${counter.toTimeMs}`);
+                }
 
                 // Проверяем логику разделения на группы
                 // Если счетчик пересекается с границей интервала, он должен быть в новой группе
