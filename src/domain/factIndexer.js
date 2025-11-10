@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const fs = require('fs');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 const ConditionEvaluator = require('../utils/conditionEvaluator');
 const ShortNameMapper = require('./shortNameMapper');
 

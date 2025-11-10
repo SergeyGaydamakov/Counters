@@ -1,6 +1,6 @@
 const http = require('http');
-const logger = require('../logger');
-const config = require('../config');
+const logger = require('../common/logger');
+const config = require('../common/config');
 const { MongoProvider, CounterProducer } = require('../index');
 
 /**

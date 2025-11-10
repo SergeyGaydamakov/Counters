@@ -2,9 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 const { MongoProvider, FactService, CounterProducer } = require('../index');
-const config = require('../config');
+const config = require('../common/config');
 const { createRoutes } = require('./routes');
 const { 
     requestLogger, 

@@ -1,4 +1,4 @@
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 const xml2js = require('xml2js');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');

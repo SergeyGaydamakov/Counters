@@ -1,6 +1,6 @@
 const { FactIndexer, MessageGenerator, FactMapper } = require('../index');
-const Logger = require('../logger');
-const config = require('../config');
+const Logger = require('../common/logger');
+const config = require('../common/config');
 
 /**
  * Тесты для класса FactIndexer (создание индексных значений)

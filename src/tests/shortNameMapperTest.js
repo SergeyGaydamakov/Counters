@@ -1,5 +1,5 @@
 const ShortNameMapper = require('../domain/shortNameMapper');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 
 /**
  * Тесты для модуля ShortNameMapper

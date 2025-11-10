@@ -1,8 +1,8 @@
 const MessageGenerator = require('../domain/messageGenerator');
 const FactIndexer = require('../domain/factIndexer');
 const FactMapper = require('../domain/factMapper');
-const Logger = require('../logger');
-const config = require('../config');
+const Logger = require('../common/logger');
+const config = require('../common/config');
 
 /**
  * Класс-сервис для управления фактами и их индексными значениями

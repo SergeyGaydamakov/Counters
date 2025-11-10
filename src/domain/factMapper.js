@@ -1,8 +1,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const Logger = require('../logger');
-const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG, ERROR_WRONG_KEY_TYPE } = require('../errors');
+const Logger = require('../common/logger');
+const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG, ERROR_WRONG_KEY_TYPE } = require('../common/errors');
 const ShortNameMapper = require('./shortNameMapper');
 
 /**

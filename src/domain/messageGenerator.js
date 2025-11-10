@@ -1,8 +1,8 @@
 const { ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
-const {ERROR_WRONG_MESSAGE_TYPE} = require('../errors')
-const Logger = require('../logger');
+const {ERROR_WRONG_MESSAGE_TYPE} = require('../common/errors')
+const Logger = require('../common/logger');
 
 /**
  * Класс для генерации случайных тестовых данных

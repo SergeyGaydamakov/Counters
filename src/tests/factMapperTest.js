@@ -1,8 +1,8 @@
 const FactMapper = require('../domain/factMapper');
 const fs = require('fs');
 const path = require('path');
-const Logger = require('../logger');
-const { ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG } = require('../errors');
+const Logger = require('../common/logger');
+const { ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG } = require('../common/errors');
 
 /**
  * Тесты для модуля FactMapper

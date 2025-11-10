@@ -6,7 +6,7 @@ const ConditionEvaluator = require('../utils/conditionEvaluator');
  */
 class ComputationConditionsTest {
     constructor() {
-        this.logger = require('../logger').fromEnv('LOG_LEVEL', 'INFO');
+        this.logger = require('../common/logger').fromEnv('LOG_LEVEL', 'INFO');
         this.testResults = [];
     }
 

@@ -5,9 +5,9 @@
  * Запуск: node src/utils/runDiagnostics.js
  */
 
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 const Diagnostics = require('./diagnostics');
-const config = require('../config');
+const config = require('../common/config');
 
 // Загружаем переменные окружения
 const dotenv = require('dotenv');

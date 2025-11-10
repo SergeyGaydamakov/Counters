@@ -1,4 +1,4 @@
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 
 class ConditionEvaluator {
     constructor(logger = null, debugMode = false) {

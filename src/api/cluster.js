@@ -1,7 +1,7 @@
 const cluster = require('cluster');
 const os = require('os');
 const http = require('http');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 const ClusterMetricsAggregator = require('../monitoring/clusterMetricsAggregator');
 
 // Загружаем переменные окружения
@@ -50,7 +50,7 @@ if (cluster.isMaster) {
     });
     
     // Выводим информацию о разрешенных типах сообщений
-    const config = require('../config');
+    const config = require('../common/config');
     logger.info(`📨 Обрабатываемые типы сообщений:`);
     if (config.messageTypes.allowedTypes && config.messageTypes.allowedTypes.length > 0) {
         logger.info(`   - Разрешенные типы: ${config.messageTypes.allowedTypes.join(', ')}`);

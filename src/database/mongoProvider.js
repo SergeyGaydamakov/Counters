@@ -3,10 +3,10 @@
  * https://www.mongodb.com/docs/drivers/node/current/
  */
 const { MongoClient, ObjectId } = require('mongodb');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 const fs = require('fs');
 const path = require('path');
-const config = require('../config');
+const config = require('../common/config');
 const connectionPoolStatus = require('./connectionPool');
 const QueryDispatcher = require('./queryDispatcher');
 

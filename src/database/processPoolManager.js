@@ -7,7 +7,7 @@
 
 const { fork } = require('child_process');
 const path = require('path');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 
 /**
  * Проверяет, является ли строка ISO 8601 датой

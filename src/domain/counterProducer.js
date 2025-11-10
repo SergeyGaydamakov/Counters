@@ -1,6 +1,6 @@
 const fs = require('fs');
-const Logger = require('../logger');
-const config = require('../config');
+const Logger = require('../common/logger');
+const config = require('../common/config');
 const ConditionEvaluator = require('../utils/conditionEvaluator');
 const ShortNameMapper = require('./shortNameMapper');
 

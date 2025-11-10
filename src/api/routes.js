@@ -1,10 +1,10 @@
 const express = require('express');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 const xml2js = require('xml2js');
 const { ObjectId } = require('mongodb');
 
-const { ERROR_WRONG_MESSAGE_TYPE } = require('../errors');
-const config = require('../config');
+const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
+const config = require('../common/config');
 const { getRegister, collectPrometheusMetrics } = require('../monitoring/metrics');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');

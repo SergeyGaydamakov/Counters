@@ -1,5 +1,5 @@
 const CounterProducer = require('../domain/counterProducer');
-const Logger = require('../logger');
+const Logger = require('../common/logger');
 
 /**
  * Тесты для класса CounterProducer
@@ -411,7 +411,7 @@ class CounterProducerTest {
     testSplitIntervals(title) {
         this.logger.info(title);
         try {
-            const config = require('../config');
+            const config = require('../common/config');
             const originalSplitIntervals = config.facts.splitIntervals;
 
             // Тест 1: Разбиение счетчика с одним интервалом

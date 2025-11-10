@@ -1,5 +1,5 @@
 // Импортируем систему логирования
-const Logger = require('./utils/logger');
+const Logger = require('./common/logger');
 const axios = require('axios');
 const config = require('./common/config');
 const MessageGenerator = require('./generators/messageGenerator');
