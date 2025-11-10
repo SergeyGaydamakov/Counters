@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const Logger = require('../logger');
 const { ERROR_WRONG_MESSAGE_STRUCTURE, ERROR_MISSING_KEY_IN_MESSAGE, ERROR_MISSING_KEY_IN_CONFIG, ERROR_WRONG_KEY_TYPE } = require('../errors');
-const FieldNameMapper = require('./fieldNameMapper');
+const ShortNameMapper = require('./shortNameMapper');
 
 /**
  * Формат файла fieldConfigs.json
@@ -40,7 +40,7 @@ class FactMapper {
         
         if (!configPathOrMapArray) {
             this.logger.info('Конфигурация не задана. Маппинг не будет производиться.');
-            this.fieldNameMapper = new FieldNameMapper([], useShortNames);
+            this.fieldNameMapper = new ShortNameMapper([], useShortNames);
             return;
         }
         // Определяем способ инициализации
@@ -55,12 +55,12 @@ class FactMapper {
             this._mappingConfig = this._loadConfig(configPath);
         } else {
             this.logger.info('Конфигурация не задана. Маппинг не будет производиться.');
-            this.fieldNameMapper = new FieldNameMapper([], useShortNames);
+            this.fieldNameMapper = new ShortNameMapper([], useShortNames);
             return;
         }
         
-        // Инициализируем FieldNameMapper после загрузки конфигурации
-        this.fieldNameMapper = new FieldNameMapper(this._mappingConfig, useShortNames);
+        // Инициализируем ShortNameMapper после загрузки конфигурации
+        this.fieldNameMapper = new ShortNameMapper(this._mappingConfig, useShortNames);
         if (useShortNames) {
             this.logger.info('Используются короткие имена полей (shortDst)');
         }

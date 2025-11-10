@@ -6,9 +6,9 @@ const Logger = require('../logger');
  * Класс для преобразования имен полей между dst и shortDst
  * Используется для оптимизации размера JSON документов путем использования коротких имен полей
  */
-class FieldNameMapper {
+class ShortNameMapper {
     /**
-     * Создает экземпляр FieldNameMapper
+     * Создает экземпляр ShortNameMapper
      * @param {Array|string} messageConfigPathOrMapArray - Конфигурация маппинга полей (массив правил или путь к файлу)
      * @param {boolean} useShortNames - Использовать ли короткие имена полей
      */
@@ -443,5 +443,5 @@ class FieldNameMapper {
     }
 }
 
-module.exports = FieldNameMapper;
+module.exports = ShortNameMapper;
 

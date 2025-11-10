@@ -1,10 +1,10 @@
-const FieldNameMapper = require('../domain/fieldNameMapper');
+const ShortNameMapper = require('../domain/shortNameMapper');
 const Logger = require('../logger');
 
 /**
- * Тесты для модуля FieldNameMapper
+ * Тесты для модуля ShortNameMapper
  */
-class FieldNameMapperTest {
+class ShortNameMapperTest {
     constructor() {
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
         this.testResults = {
@@ -32,7 +32,7 @@ class FieldNameMapperTest {
      * Запускает все тесты
      */
     runAllTests() {
-        this.logger.info('=== Запуск тестов FieldNameMapper ===\n');
+        this.logger.info('=== Запуск тестов ShortNameMapper ===\n');
 
         this.testConstructor('1. Тест конструктора...');
         this.testGetFieldName('2. Тест getFieldName...');
@@ -62,15 +62,15 @@ class FieldNameMapperTest {
                 { src: 'field2', dst: 'long_field_two', shortDst: 'f2', message_types: [1] }
             ];
             
-            const mapper = new FieldNameMapper(config, false);
-            this.assert(mapper instanceof FieldNameMapper, 'Конструктор создает экземпляр FieldNameMapper');
+            const mapper = new ShortNameMapper(config, false);
+            this.assert(mapper instanceof ShortNameMapper, 'Конструктор создает экземпляр ShortNameMapper');
             this.assert(!mapper.useShortNames, 'useShortNames установлен в false');
             
-            const mapper2 = new FieldNameMapper(config, true);
-            this.assert(mapper2 instanceof FieldNameMapper, 'Конструктор с useShortNames=true');
+            const mapper2 = new ShortNameMapper(config, true);
+            this.assert(mapper2 instanceof ShortNameMapper, 'Конструктор с useShortNames=true');
             this.assert(mapper2.useShortNames, 'useShortNames установлен в true');
         } catch (error) {
-            this.assert(false, `Ошибка при создании FieldNameMapper: ${error.message}`);
+            this.assert(false, `Ошибка при создании ShortNameMapper: ${error.message}`);
         }
     }
 
@@ -85,10 +85,10 @@ class FieldNameMapperTest {
                 { src: 'field2', dst: 'long_field_two', shortDst: 'f2', message_types: [1] }
             ];
             
-            const mapperFalse = new FieldNameMapper(config, false);
+            const mapperFalse = new ShortNameMapper(config, false);
             this.assert(mapperFalse.getFieldName('long_field_one') === 'long_field_one', 'getFieldName возвращает dst при useShortNames=false');
             
-            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperTrue = new ShortNameMapper(config, true);
             this.assert(mapperTrue.getFieldName('long_field_one') === 'f1', 'getFieldName возвращает shortDst при useShortNames=true');
             this.assert(mapperTrue.getFieldName('long_field_two') === 'f2', 'getFieldName возвращает shortDst для второго поля');
             this.assert(mapperTrue.getFieldName('unknown_field') === 'unknown_field', 'getFieldName возвращает исходное имя для неизвестного поля');
@@ -107,10 +107,10 @@ class FieldNameMapperTest {
                 { src: 'field1', dst: 'long_field_one', shortDst: 'f1', message_types: [1] }
             ];
             
-            const mapperFalse = new FieldNameMapper(config, false);
+            const mapperFalse = new ShortNameMapper(config, false);
             this.assert(mapperFalse.transformFieldPath('d.long_field_one') === 'd.long_field_one', 'transformFieldPath не изменяет путь при useShortNames=false');
             
-            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperTrue = new ShortNameMapper(config, true);
             this.assert(mapperTrue.transformFieldPath('d.long_field_one') === 'd.f1', 'transformFieldPath преобразует путь при useShortNames=true');
             this.assert(mapperTrue.transformFieldPath('long_field_one') === 'long_field_one', 'transformFieldPath не изменяет путь без префикса d.');
             this.assert(mapperTrue.transformFieldPath('t') === 't', 'transformFieldPath не изменяет верхнеуровневые поля');
@@ -130,12 +130,12 @@ class FieldNameMapperTest {
                 { src: 'field2', dst: 'amount', shortDst: 'amt', message_types: [1] }
             ];
             
-            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperTrue = new ShortNameMapper(config, true);
             this.assert(mapperTrue.transformMongoPath('$d.long_field_one') === '$d.f1', 'transformMongoPath преобразует $d.path');
             this.assert(mapperTrue.transformMongoPath('$d.amount') === '$d.amt', 'transformMongoPath преобразует $d.amount');
             this.assert(mapperTrue.transformMongoPath('$d.unknown') === '$d.unknown', 'transformMongoPath не изменяет неизвестные поля');
             
-            const mapperFalse = new FieldNameMapper(config, false);
+            const mapperFalse = new ShortNameMapper(config, false);
             this.assert(mapperFalse.transformMongoPath('$d.long_field_one') === '$d.long_field_one', 'transformMongoPath не изменяет при useShortNames=false');
         } catch (error) {
             this.assert(false, `Ошибка в testTransformMongoPath: ${error.message}`);
@@ -153,7 +153,7 @@ class FieldNameMapperTest {
                 { src: 'amount', dst: 'transaction_amount', shortDst: 'amt', message_types: [1] }
             ];
             
-            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperTrue = new ShortNameMapper(config, true);
             
             const condition1 = {
                 'd.long_field_one': { '$in': ['value1', 'value2'] },
@@ -187,7 +187,7 @@ class FieldNameMapperTest {
                 { src: 'date', dst: 'transaction_date', shortDst: 'dt', message_types: [1] }
             ];
             
-            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperTrue = new ShortNameMapper(config, true);
             
             const expr1 = {
                 '$gte': ['$d.transaction_amount', 100]
@@ -225,7 +225,7 @@ class FieldNameMapperTest {
                 { src: 'amount', dst: 'transaction_amount', shortDst: 'amt', message_types: [1] }
             ];
             
-            const mapperTrue = new FieldNameMapper(config, true);
+            const mapperTrue = new ShortNameMapper(config, true);
             
             const attributes = {
                 'sum_amount': { '$sum': '$d.transaction_amount' },
@@ -254,8 +254,8 @@ class FieldNameMapperTest {
                 { src: 'date', dst: 'transaction_date', shortDst: 'dt', message_types: [1] }
             ];
             
-            const mapperTrue = new FieldNameMapper(config, true);
-            const mapperFalse = new FieldNameMapper(config, false);
+            const mapperTrue = new ShortNameMapper(config, true);
+            const mapperFalse = new ShortNameMapper(config, false);
             
             // Тест 1: Простое преобразование переменной $$d.fieldName
             const attributes1 = {
@@ -359,8 +359,8 @@ class FieldNameMapperTest {
                 { src: 'merchant', dst: 'MerchantId', shortDst: 'merchantId', message_types: [1] }
             ];
             
-            const mapperTrue = new FieldNameMapper(config, true);
-            const mapperFalse = new FieldNameMapper(config, false);
+            const mapperTrue = new ShortNameMapper(config, true);
+            const mapperFalse = new ShortNameMapper(config, false);
             
             // Тест 1: Простые evaluationConditions с переменными $$d.fieldName
             const evaluation1 = {
@@ -432,8 +432,8 @@ class FieldNameMapperTest {
                 { src: 'field1', dst: 'long_field_one', shortDst: 'f1', message_types: [1] }
             ];
             
-            const mapper1 = new FieldNameMapper(configWithShortDst, true);
-            this.assert(mapper1 instanceof FieldNameMapper, 'Валидация проходит для конфигурации с shortDst');
+            const mapper1 = new ShortNameMapper(configWithShortDst, true);
+            this.assert(mapper1 instanceof ShortNameMapper, 'Валидация проходит для конфигурации с shortDst');
             
             const configWithoutShortDst = [
                 { src: 'field1', dst: 'long_field_one', message_types: [1] }
@@ -441,7 +441,7 @@ class FieldNameMapperTest {
             
             let errorThrown = false;
             try {
-                new FieldNameMapper(configWithoutShortDst, true);
+                new ShortNameMapper(configWithoutShortDst, true);
             } catch (error) {
                 errorThrown = true;
                 this.assert(error.message.includes('shortDst'), 'Валидация выбрасывает ошибку при отсутствии shortDst');
@@ -469,7 +469,7 @@ class FieldNameMapperTest {
                 { src: 'field7', dst: 'some_long_field8', shortDst: 'd84', message_types: [1] }
             ];
             
-            const mapper = new FieldNameMapper(config, true);
+            const mapper = new ShortNameMapper(config, true);
             
             // Тест 1: Простое условие с MessageTypeID (из indexConfig.json строка 10)
             const condition1 = {
@@ -552,7 +552,7 @@ class FieldNameMapperTest {
                 { src: 'field9', dst: 'some_long_field3', shortDst: 'a5a', message_types: [1] }
             ];
             
-            const mapper = new FieldNameMapper(config, true);
+            const mapper = new ShortNameMapper(config, true);
             
             // Тест 1: Простое computationConditions (из countersConfig.json строка 6-8)
             const computation1 = {
@@ -635,7 +635,7 @@ class FieldNameMapperTest {
                 { src: 'field4', dst: 'some_long_field5', shortDst: 'c83', message_types: [1] }
             ];
             
-            const mapper = new FieldNameMapper(config, true);
+            const mapper = new ShortNameMapper(config, true);
             
             // Тест 1: Сложное $expr выражение с преобразованием полей
             const expr1 = {
@@ -745,7 +745,7 @@ class FieldNameMapperTest {
      * Выводит результаты тестирования
      */
     printResults() {
-        this.logger.info('\n=== Результаты тестирования FieldNameMapper ===');
+        this.logger.info('\n=== Результаты тестирования ShortNameMapper ===');
         this.logger.info(`Пройдено: ${this.testResults.passed}`);
         this.logger.info(`Провалено: ${this.testResults.failed}`);
         
@@ -761,9 +761,9 @@ class FieldNameMapperTest {
 
 // Запуск тестов, если файл выполняется напрямую
 if (require.main === module) {
-    const test = new FieldNameMapperTest();
+    const test = new ShortNameMapperTest();
     test.runAllTests();
 }
 
-module.exports = FieldNameMapperTest;
+module.exports = ShortNameMapperTest;
 

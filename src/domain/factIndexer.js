@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const Logger = require('../logger');
 const ConditionEvaluator = require('../utils/conditionEvaluator');
-const FieldNameMapper = require('./fieldNameMapper');
+const ShortNameMapper = require('./shortNameMapper');
 
 /**
  * Формат файла indexConfig.json
@@ -39,8 +39,8 @@ class FactIndexer {
         this._conditionEvaluator = new ConditionEvaluator(this.logger);
         this._useShortNames = useShortNames;
         
-        // Инициализируем FieldNameMapper
-        this.fieldNameMapper = new FieldNameMapper(messageConfig, useShortNames);
+        // Инициализируем ShortNameMapper
+        this.fieldNameMapper = new ShortNameMapper(messageConfig, useShortNames);
         
         try {
             if (Array.isArray(configPathOrMapArray)) {

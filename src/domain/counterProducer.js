@@ -2,7 +2,7 @@ const fs = require('fs');
 const Logger = require('../logger');
 const config = require('../config');
 const ConditionEvaluator = require('../utils/conditionEvaluator');
-const FieldNameMapper = require('./fieldNameMapper');
+const ShortNameMapper = require('./shortNameMapper');
 
 /**
  * Класс для создания счетчиков на основе конфигурации и фактов
@@ -54,8 +54,8 @@ class CounterProducer {
         this._conditionEvaluator = new ConditionEvaluator(this.logger, this._debugMode);
         this._useShortNames = useShortNames;
         
-        // Инициализируем FieldNameMapper
-        this.fieldNameMapper = new FieldNameMapper(messageConfig, useShortNames);
+        // Инициализируем ShortNameMapper
+        this.fieldNameMapper = new ShortNameMapper(messageConfig, useShortNames);
         
         if (!configPathOrConfigArray) {
             this.logger.warn('Конфигурация счетчиков не задана. Счетчики не будут создаваться.');
