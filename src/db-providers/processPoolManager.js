@@ -560,10 +560,17 @@ class ProcessPoolManager {
     
     /**
      * Получение списка свободных (готовых) воркеров
-     * @returns {Array<Object>} Массив готовых воркеров
+     * @returns {Array<Object>} Массив готовых воркеров в случайном порядке
      */
     getReadyWorkers() {
-        return this.workers.filter(w => w.isReady);
+        const readyWorkers = this.workers.filter(w => w.isReady);
+        // Перемешиваем массив для уменьшения взаимных блокировок
+        // Используем алгоритм Fisher-Yates shuffle
+        for (let i = readyWorkers.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [readyWorkers[i], readyWorkers[j]] = [readyWorkers[j], readyWorkers[i]];
+        }
+        return readyWorkers;
     }
 
     /**

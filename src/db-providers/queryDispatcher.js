@@ -46,7 +46,6 @@ class QueryDispatcher {
      * @param {string} [options.databaseName]
      * @param {Object} [options.databaseOptions]
      * @param {number} [options.defaultTimeoutMs]
-     * @param {number} [options.maxConcurrency]
      * @param {Logger} [options.logger]
      * @param {number} [options.workerInitTimeoutMs]
      */
@@ -69,10 +68,6 @@ class QueryDispatcher {
         this.maxWaitForWorkersMs = typeof options.maxWaitForWorkersMs === 'number' && options.maxWaitForWorkersMs > 0
             ? options.maxWaitForWorkersMs
             : (config.queryDispatcher?.maxWaitForWorkersMs || 500);
-        
-        this.maxConcurrency = typeof options.maxConcurrency === 'number' && options.maxConcurrency > 0
-            ? options.maxConcurrency
-            : null;
 
         this.processPoolManager = options.processPoolManager;
         this._ownsProcessPool = false;
@@ -114,7 +109,6 @@ class QueryDispatcher {
      * @param {Array<Object>} requests
      * @param {Object} [options]
      * @param {number} [options.timeoutMs]
-     * @param {number} [options.maxConcurrency]
      * @param {number} [options.maxWaitForWorkersMs] - Максимальное время ожидания освобождения воркеров (по умолчанию 500мс)
      * @returns {Promise<{results: Array, summary: Object}>}
      */
@@ -287,14 +281,6 @@ class QueryDispatcher {
         }
     }
 
-    /**
-     * Алиас для совместимости
-     * @returns {Promise<void>}
-     */
-    async close() {
-        await this.shutdown();
-    }
-
     _normalizeRequest(request) {
         if (!request || typeof request !== 'object') {
             throw new Error('Query request must be an object');
@@ -323,14 +309,6 @@ class QueryDispatcher {
             return timeoutMs;
         }
         return this.defaultTimeoutMs;
-    }
-
-    _resolveConcurrency(maxConcurrencyOption, totalRequests) {
-        let value = this.maxConcurrency || totalRequests;
-        if (typeof maxConcurrencyOption === 'number' && maxConcurrencyOption > 0) {
-            value = maxConcurrencyOption;
-        }
-        return Math.max(1, Math.min(value, totalRequests || 1));
     }
 
     _updateMetrics({ success, queryTime, resultSize, querySize, error }) {
