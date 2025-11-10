@@ -1,6 +1,6 @@
 const { MongoProvider, FactIndexer, MessageGenerator, FactMapper } = require('../index');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const Logger = require('../logger');
+const config = require('../config');
 
 /**
  * Тесты для работы с индексными значениями фактов в MongoDB

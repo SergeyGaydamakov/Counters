@@ -1,4 +1,4 @@
-const Logger = require('../utils/logger');
+const Logger = require('../logger');
 
 /**
  * Тесты для системы логирования Logger

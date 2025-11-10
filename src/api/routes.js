@@ -1,11 +1,11 @@
 const express = require('express');
-const Logger = require('../utils/logger');
+const Logger = require('../logger');
 const xml2js = require('xml2js');
 const { ObjectId } = require('mongodb');
 
-const { ERROR_WRONG_MESSAGE_TYPE } = require('../common/errors');
-const config = require('../common/config');
-const { getRegister, collectPrometheusMetrics } = require('../common/metrics');
+const { ERROR_WRONG_MESSAGE_TYPE } = require('../errors');
+const config = require('../config');
+const { getRegister, collectPrometheusMetrics } = require('../monitoring/metrics');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
@@ -172,12 +172,12 @@ function isMessageTypeAllowed(messageType) {
 
 /**
  * Сохраняет отладочную информацию в лог, если достигнут лимит запросов
- * @param {Object} factController - экземпляр FactController
+ * @param {Object} factService - экземпляр FactService
  * @param {Object} processingTime - время обработки
  * @param {Object} metrics - метрики
  * @param {Object} debugInfo - отладочная информация
  */
-async function saveDebugInfoIfNeeded(factController, message, fact, processingTime, metrics, debugInfo) {
+async function saveDebugInfoIfNeeded(factService, message, fact, processingTime, metrics, debugInfo) {
     try {
         // Получаем частоту сохранения из конфигурации
         const logSaveFrequency = config.logging.saveFrequency;
@@ -212,10 +212,10 @@ async function saveDebugInfoIfNeeded(factController, message, fact, processingTi
         
         // Проверяем, достигли ли лимита запросов
         if (stats.requestCounter >= logSaveFrequency) {
-            if (factController && factController.dbProvider) {
+            if (factService && factService.dbProvider) {
                 const processId = process.pid;
                 // Сохраняем в лог
-                await factController.dbProvider.saveLog(processId, stats.maxMessage, stats.maxFact, stats.maxProcessingTime, stats.maxMetrics, stats.maxDebugInfo);
+                await factService.dbProvider.saveLog(processId, stats.maxMessage, stats.maxFact, stats.maxProcessingTime, stats.maxMetrics, stats.maxDebugInfo);
                 
                 logger.debug(`Отладочная информация сохранена в лог для потока ${processId}`);
             }
@@ -238,10 +238,10 @@ async function saveDebugInfoIfNeeded(factController, message, fact, processingTi
 
 /**
  * Создает маршруты API
- * @param {Object} factController - экземпляр FactController
+ * @param {Object} factService - экземпляр FactService
  * @returns {Object} Express router
  */
-function createRoutes(factController) {
+function createRoutes(factService) {
     const router = express.Router();
 
     // Health check endpoint
@@ -344,20 +344,20 @@ function createRoutes(factController) {
             logger.debug(`Обработка JSON события типа: ${messageTypeNumber}`, { messageData });
 
             // Проверяем, что контроллер инициализирован
-            if (!factController) {
-                logger.error('FactController не инициализирован');
+            if (!factService) {
+                logger.error('FactService не инициализирован');
                 return res.status(500).json({
                     success: false,
                     error: 'Сервис не готов',
-                    message: 'FactController не инициализирован'
+                    message: 'FactService не инициализирован'
                 });
             }
 
             // Обрабатываем сообщение через контроллер
-            const result = await factController.processMessageWithCounters(message, debugMode);
+            const result = await factService.processMessageWithCounters(message, debugMode);
 
             // Асинхронно сохраняем отладочную информацию (не блокируем ответ)
-            saveDebugInfoIfNeeded(factController, message, result.fact, result.processingTime, result.metrics, result.debug)
+            saveDebugInfoIfNeeded(factService, message, result.fact, result.processingTime, result.metrics, result.debug)
                 .catch(error => {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });
@@ -552,7 +552,7 @@ function createRoutes(factController) {
             messageData.MessageTypeID = messageType;
             messageData.MessageId = messageId;
 
-            // Создаем сообщение в формате для FactController
+            // Создаем сообщение в формате для FactService
             const message = {
                 t: messageType,
                 d: messageData
@@ -561,12 +561,12 @@ function createRoutes(factController) {
             logger.debug(`Обработка IRIS события типа: ${messageType}`, { message });
 
             // Проверяем, что контроллер инициализирован
-            if (!factController) {
-                logger.error('FactController не инициализирован');
+            if (!factService) {
+                logger.error('FactService не инициализирован');
                 return res.status(500).json({
                     success: false,
                     error: 'Сервис не готов',
-                    message: 'FactController не инициализирован'
+                    message: 'FactService не инициализирован'
                 });
             }
 
@@ -619,7 +619,7 @@ function createRoutes(factController) {
             }
 
             // Обрабатываем сообщение через контроллер
-            const result = await factController.processMessageWithCounters(message, debugMode);
+            const result = await factService.processMessageWithCounters(message, debugMode);
             
             // После успешного вызова processMessageWithCounters устанавливаем время первого вызова
             if (config.startDelay > 0 && !irisFirstCallProcessed) {
@@ -629,7 +629,7 @@ function createRoutes(factController) {
             }
 
             // Асинхронно сохраняем отладочную информацию (не блокируем ответ)
-            saveDebugInfoIfNeeded(factController, message, result.fact, result.processingTime, result.metrics, result.debug)
+            saveDebugInfoIfNeeded(factService, message, result.fact, result.processingTime, result.metrics, result.debug)
                 .catch(error => {
                     logger.error('Ошибка при сохранении отладочной информации:', error);
                 });
@@ -784,7 +784,7 @@ function createRoutes(factController) {
             }
 
             // Генерируем сообщение указанного типа
-            const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
+            const generatedMessage = factService.messageGenerator.generateMessage(messageTypeNumber);
             const formattedMessageData = formatDatesInObject(generatedMessage.d, 'iso');
 
             // Создаем XML вручную для корректного форматирования
@@ -856,7 +856,7 @@ function createRoutes(factController) {
             }
 
             // Генерируем сообщение указанного типа
-            const generatedMessage = factController.messageGenerator.generateMessage(messageTypeNumber);
+            const generatedMessage = factService.messageGenerator.generateMessage(messageTypeNumber);
             
             logger.debug(`Сообщение типа ${messageTypeNumber} успешно сгенерировано`);
 

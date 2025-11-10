@@ -1,5 +1,5 @@
-const FieldNameMapper = require('../generators/fieldNameMapper');
-const Logger = require('../utils/logger');
+const FieldNameMapper = require('../domain/fieldNameMapper');
+const Logger = require('../logger');
 
 /**
  * Тесты для модуля FieldNameMapper

@@ -16,3 +16,4 @@ module.exports = {
     ERROR_MISSING_KEY_IN_CONFIG,
     ERROR_WRONG_KEY_TYPE
 };
+

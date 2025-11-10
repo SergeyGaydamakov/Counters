@@ -1,6 +1,6 @@
 const { MongoProvider, MessageGenerator, FactIndexer, FactMapper, CounterProducer } = require('../index');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const Logger = require('../logger');
+const config = require('../config');
 
 /**
  * Тесты для всех методов MongoProvider

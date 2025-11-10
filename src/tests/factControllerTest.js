@@ -1,6 +1,6 @@
-const { MongoProvider, FactController } = require('../index');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const { MongoProvider, FactService } = require('../index');
+const Logger = require('../logger');
+const config = require('../config');
 
 /**
  * Тесты для всех методов FactController
@@ -111,7 +111,7 @@ class FactControllerTest {
         );
 
 
-        this.controller = new FactController(this.provider, this._testFieldConfig, this._testIndexConfig, 500, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
+        this.controller = new FactService(this.provider, this._testFieldConfig, this._testIndexConfig, 500, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
         this.testResults = {
             passed: 0,
             failed: 0,
@@ -566,7 +566,7 @@ class FactControllerTest {
                 saveFactIndexList: () => { throw new Error('Тестовая ошибка saveFactIndexList'); }
             };
 
-            const testController = new FactController(invalidProvider, this._testFieldConfig, this._testIndexConfig, 500, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
+            const testController = new FactService(invalidProvider, this._testFieldConfig, this._testIndexConfig, 500, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
 
             // Пытаемся выполнить метод run
             try {
@@ -595,7 +595,7 @@ class FactControllerTest {
         this.logger.debug(title);
 
         try {
-            const realController = new FactController(this.provider, config.facts.fieldConfigPath, config.facts.indexConfigPath, config.facts.targetSize, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
+            const realController = new FactService(this.provider, config.facts.fieldConfigPath, config.facts.indexConfigPath, config.facts.targetSize, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
             const message = {
                 "t": 1,
                 "d": {

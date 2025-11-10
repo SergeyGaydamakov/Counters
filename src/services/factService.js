@@ -1,25 +1,25 @@
-const MessageGenerator = require('../generators/messageGenerator');
-const FactIndexer = require('../generators/factIndexer');
-const FactMapper = require('../generators/factMapper');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const MessageGenerator = require('../domain/messageGenerator');
+const FactIndexer = require('../domain/factIndexer');
+const FactMapper = require('../domain/factMapper');
+const Logger = require('../logger');
+const config = require('../config');
 
 /**
- * Класс-контроллер для управления фактами и их индексными значениями
+ * Класс-сервис для управления фактами и их индексными значениями
  * Обеспечивает создание фактов с автоматической генерацией и сохранением индексных значений
  * Работает с абстрактным dbProvider, который должен реализовывать интерфейс для работы с данными
  */
-class FactController {
+class FactService {
     MAX_DEPTH_LIMIT = 1000;
     MAX_DEPTH_FROM_DATE = new Date(Date.now() - 300 * 24 * 60 * 60 * 1000);
 
     constructor(dbProvider, fieldConfigPathOrObject, indexConfigPathOrObject, targetSize, includeFactDataToIndex, maxDepthLimit) {
         if (!dbProvider) {
-            throw new Error('dbProvider обязателен для инициализации FactController');
+            throw new Error('dbProvider обязателен для инициализации FactService');
         }
         this.MAX_DEPTH_LIMIT = maxDepthLimit;
 
-        // Создаем логгер для этого контроллера
+        // Создаем логгер для этого сервиса
         this.logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
         // Проверяем, что dbProvider имеет необходимые методы
@@ -160,4 +160,5 @@ class FactController {
     }
 }
 
-module.exports = FactController;
+module.exports = FactService;
+

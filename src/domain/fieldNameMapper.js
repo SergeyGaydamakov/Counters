@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const Logger = require('../utils/logger');
+const Logger = require('../logger');
 
 /**
  * Класс для преобразования имен полей между dst и shortDst

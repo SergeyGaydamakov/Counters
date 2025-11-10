@@ -2,9 +2,9 @@
  * Тесты для ProcessPoolManager - менеджера пула процессов для выполнения MongoDB запросов
  */
 
-const { ProcessPoolManager } = require('../db-providers/processPoolManager');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const { ProcessPoolManager } = require('../database/processPoolManager');
+const Logger = require('../logger');
+const config = require('../config');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 

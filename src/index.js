@@ -1,10 +1,10 @@
 // Основные экспорты проекта
-const MessageGenerator = require('./generators/messageGenerator');
-const FactIndexer = require('./generators/factIndexer');
-const FactMapper = require('./generators/factMapper');
-const CounterProducer = require('./generators/counterProducer');
-const MongoProvider = require('./db-providers/mongoProvider');
-const FactController = require('./controllers/factController');
+const MessageGenerator = require('./domain/messageGenerator');
+const FactIndexer = require('./domain/factIndexer');
+const FactMapper = require('./domain/factMapper');
+const CounterProducer = require('./domain/counterProducer');
+const MongoProvider = require('./database/mongoProvider');
+const FactService = require('./services/factService');
 
 module.exports = {
     MessageGenerator,
@@ -12,6 +12,7 @@ module.exports = {
     FactMapper,
     CounterProducer,
     MongoProvider,
-    FactController
+    FactService,
+    // Обратная совместимость
+    FactController: FactService
 };
-

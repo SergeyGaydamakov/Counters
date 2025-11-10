@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
-const Logger = require('../utils/logger');
-const ConditionEvaluator = require('../common/conditionEvaluator');
+const Logger = require('../logger');
+const ConditionEvaluator = require('../utils/conditionEvaluator');
 const FieldNameMapper = require('./fieldNameMapper');
 
 /**

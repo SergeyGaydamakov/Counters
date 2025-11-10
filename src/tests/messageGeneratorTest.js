@@ -1,4 +1,4 @@
-const MessageGenerator = require('../generators/messageGenerator');
+const MessageGenerator = require('../domain/messageGenerator');
 // const Logger = require('../utils/logger');
 
 /**

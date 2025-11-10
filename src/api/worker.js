@@ -2,9 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const Logger = require('../utils/logger');
-const { MongoProvider, FactController, CounterProducer } = require('../index');
-const config = require('../common/config');
+const Logger = require('../logger');
+const { MongoProvider, FactService, CounterProducer } = require('../index');
+const config = require('../config');
 const { createRoutes } = require('./routes');
 const { 
     requestLogger, 
@@ -15,7 +15,7 @@ const {
     responseMetadata 
 } = require('./middleware');
 const Diagnostics = require('../utils/diagnostics');
-const { initializeMetricsCollector, getMetricsCollector, destroyMetricsCollector } = require('../common/metrics');
+const { initializeMetricsCollector, getMetricsCollector, destroyMetricsCollector } = require('../monitoring/metrics');
 
 // Загружаем переменные окружения
 const dotenv = require('dotenv');
@@ -51,7 +51,7 @@ process.on('warning', (warning) => {
 // Переменные для хранения экземпляров провайдера и контроллера
 // Каждый Worker имеет свои собственные экземпляры для изоляции
 let mongoProvider = null;
-let factController = null;
+let factService = null;
 let mongoCounters = null;
 
 // Переменные для управления задержкой запуска (прогрев сервиса)
@@ -240,8 +240,8 @@ async function initialize() {
         }
 
         // Создаем собственный экземпляр контроллера фактов для этого Worker'а
-        logger.info(`🔧 Инициализирую FactController...`);
-        factController = new FactController(
+        logger.info(`🔧 Инициализирую FactService...`);
+        factService = new FactService(
             mongoProvider, 
             config.facts.fieldConfigPath, 
             config.facts.indexConfigPath, 
@@ -249,11 +249,11 @@ async function initialize() {
             config.facts.includeFactDataToIndex,
             config.facts.maxDepthLimit
         );
-        logger.info(`✅ FactController инициализирован в воркере ${process.pid}`);
+        logger.info(`✅ FactService инициализирован в воркере ${process.pid}`);
 
         // Подключаем API маршруты с инициализированным контроллером
         logger.info(`🔧 Настраиваю API маршруты...`);
-        app.use(createRoutes(factController));
+        app.use(createRoutes(factService));
 
         // 404 handler
         app.use(notFoundHandler);

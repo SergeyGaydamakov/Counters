@@ -1,4 +1,4 @@
-const ConditionEvaluator = require('../common/conditionEvaluator');
+const ConditionEvaluator = require('../utils/conditionEvaluator');
 
 /**
  * Модуль тестирования для computationConditions в CounterProducer
@@ -6,7 +6,7 @@ const ConditionEvaluator = require('../common/conditionEvaluator');
  */
 class ComputationConditionsTest {
     constructor() {
-        this.logger = require('../utils/logger').fromEnv('LOG_LEVEL', 'INFO');
+        this.logger = require('../logger').fromEnv('LOG_LEVEL', 'INFO');
         this.testResults = [];
     }
 

@@ -1,8 +1,8 @@
 const cluster = require('cluster');
 const os = require('os');
 const http = require('http');
-const Logger = require('../utils/logger');
-const ClusterMetricsAggregator = require('../common/clusterMetricsAggregator');
+const Logger = require('../logger');
+const ClusterMetricsAggregator = require('../monitoring/clusterMetricsAggregator');
 
 // Загружаем переменные окружения
 const dotenv = require('dotenv');
@@ -50,7 +50,7 @@ if (cluster.isMaster) {
     });
     
     // Выводим информацию о разрешенных типах сообщений
-    const config = require('../common/config');
+    const config = require('../config');
     logger.info(`📨 Обрабатываемые типы сообщений:`);
     if (config.messageTypes.allowedTypes && config.messageTypes.allowedTypes.length > 0) {
         logger.info(`   - Разрешенные типы: ${config.messageTypes.allowedTypes.join(', ')}`);
@@ -316,6 +316,6 @@ if (cluster.isMaster) {
 } else {
     // Запускаем воркер
     // Каждый Worker работает в отдельном процессе Node.js
-    // и создает свои собственные экземпляры MongoProvider, FactController и CounterProducer
+    // и создает свои собственные экземпляры MongoProvider, FactService и CounterProducer
     require('./worker.js');
 }

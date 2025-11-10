@@ -4,8 +4,8 @@
 
 const { fork } = require('child_process');
 const path = require('path');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const Logger = require('../logger');
+const config = require('../config');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const { MongoProvider, FactIndexer, FactMapper, CounterProducer } = require('../index');
@@ -252,16 +252,32 @@ class QueryWorkerTest {
      * Создание и инициализация worker процесса
      */
     async createWorker() {
-        const workerPath = path.join(__dirname, '../db-providers/queryWorker.js');
+        const workerPath = path.join(__dirname, '../database/queryWorker.js');
         const worker = fork(workerPath, [], {
             silent: true,
             stdio: ['pipe', 'pipe', 'pipe', 'ipc']
         });
         
+        // Обработка stderr для диагностики
+        let stderrOutput = '';
+        worker.stderr.on('data', (data) => {
+            stderrOutput += data.toString();
+            this.logger.debug(`Worker stderr: ${data.toString()}`);
+        });
+        
+        // Обработка stdout для диагностики
+        let stdoutOutput = '';
+        worker.stdout.on('data', (data) => {
+            stdoutOutput += data.toString();
+            this.logger.debug(`Worker stdout: ${data.toString()}`);
+        });
+        
         // Ожидание сообщения READY
         await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-                reject(new Error('Timeout waiting for worker READY'));
+                const errorMsg = `Timeout waiting for worker READY. Worker stderr: ${stderrOutput}. Worker stdout: ${stdoutOutput}`;
+                this.logger.error(errorMsg);
+                reject(new Error(errorMsg));
             }, 30000);
             
             worker.once('message', (msg) => {
@@ -269,23 +285,37 @@ class QueryWorkerTest {
                 if (msg && msg.type === 'READY') {
                     resolve();
                 } else if (msg && msg.type === 'ERROR') {
-                    reject(new Error(msg.message || 'Worker initialization failed'));
+                    const errorMsg = msg.message || 'Worker initialization failed';
+                    if (msg.error) {
+                        this.logger.error(`Worker error details: ${JSON.stringify(msg.error)}`);
+                    }
+                    reject(new Error(errorMsg));
                 } else {
-                    reject(new Error('Unexpected message from worker'));
+                    reject(new Error(`Unexpected message from worker: ${JSON.stringify(msg)}`));
                 }
             });
             
             worker.once('error', (error) => {
                 clearTimeout(timeout);
+                this.logger.error(`Worker process error: ${error.message}`);
                 reject(error);
             });
             
-            // Отправляем INIT сообщение
-            worker.send({
-                type: 'INIT',
-                connectionString: this.connectionString,
-                databaseName: this.databaseName,
-                databaseOptions: this.databaseOptions
+            // Ждем, пока worker будет готов к получению сообщений
+            // Отправляем INIT сообщение после небольшой задержки
+            setImmediate(() => {
+                try {
+                    worker.send({
+                        type: 'INIT',
+                        connectionString: this.connectionString,
+                        databaseName: this.databaseName,
+                        databaseOptions: this.databaseOptions
+                    });
+                } catch (error) {
+                    clearTimeout(timeout);
+                    this.logger.error(`Error sending INIT to worker: ${error.message}`);
+                    reject(error);
+                }
             });
         });
         
@@ -334,7 +364,7 @@ class QueryWorkerTest {
         
         let worker = null;
         try {
-            const workerPath = path.join(__dirname, '../db-providers/queryWorker.js');
+            const workerPath = path.join(__dirname, '../database/queryWorker.js');
             worker = fork(workerPath, [], {
                 silent: true,
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc']

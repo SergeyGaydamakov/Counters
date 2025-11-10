@@ -2,10 +2,10 @@
  * Тесты для QueryDispatcher — диспетчера запросов поверх ProcessPoolManager
  */
 
-const QueryDispatcher = require('../db-providers/queryDispatcher');
+const QueryDispatcher = require('../database/queryDispatcher');
 const { MongoProvider, FactIndexer, CounterProducer } = require('../index');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const Logger = require('../logger');
+const config = require('../config');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 

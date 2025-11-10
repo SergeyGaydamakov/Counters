@@ -10,8 +10,8 @@
  */
 
 const { MongoClient } = require('mongodb');
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const Logger = require('../logger');
+const config = require('../config');
 
 const DEBUG_METRICS_ENABLED = config.logging?.debugMode === true;
 

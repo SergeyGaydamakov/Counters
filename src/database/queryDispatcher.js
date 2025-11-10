@@ -6,8 +6,8 @@
  * обработки ошибок и сбора метрик.
  */
 
-const Logger = require('../utils/logger');
-const config = require('../common/config');
+const Logger = require('../logger');
+const config = require('../config');
 const { ProcessPoolManager } = require('./processPoolManager');
 
 /**

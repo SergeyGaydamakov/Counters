@@ -1,5 +1,5 @@
 const client = require('prom-client');
-const Logger = require('../utils/logger');
+const Logger = require('../logger');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 

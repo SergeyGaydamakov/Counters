@@ -1,7 +1,7 @@
 // Импортируем систему логирования
-const Logger = require('./utils/logger');
-const { MongoProvider, FactController, CounterProducer } = require('./index');
-const config = require('./common/config');
+const Logger = require('./logger');
+const { MongoProvider, FactService, CounterProducer } = require('./index');
+const config = require('./config');
 
 // Загружаем переменные окружения из .env файла
 const dotenv = require('dotenv');
@@ -128,14 +128,14 @@ async function main(){
         mongoProvider = new MongoProvider(config.database.connectionString, config.database.databaseName, config.database.options, mongoCounters, config.facts.includeFactDataToIndex, config.facts.lookupFacts, config.facts.indexBulkUpdate);
         await mongoProvider.connect();
             
-        // Создаем экземпляр контроллера с dbProvider
-        const factController = new FactController(mongoProvider, config.facts.fieldConfigPath, config.facts.indexConfigPath, config.facts.targetSize, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
+        // Создаем экземпляр сервиса с dbProvider
+        const factService = new FactService(mongoProvider, config.facts.fieldConfigPath, config.facts.indexConfigPath, config.facts.targetSize, config.facts.includeFactDataToIndex, config.facts.maxDepthLimit);
         const CYCLE_OUTPUT = 100;
         let startCycleTime = Date.now();
         let processingTime = initProcessingTime();
         // Функция с бесконечным циклом запуска run
         async function run(){
-            const result = await factController.runWithCounters();
+            const result = await factService.runWithCounters();
             // Подсчитываем минимальное, максимальное и среднее время обработки фактов
             processingTime = updateProcessingTime(processingTime, result.processingTime);
 
