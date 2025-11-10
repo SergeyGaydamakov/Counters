@@ -20,10 +20,10 @@
     "test:api": "set LOG_LEVEL=INFO && node src/tests/webTest.js",
     "test:api:collision": "set LOG_LEVEL=INFO && node src/tests/webTest.js --test-query-id-collisions",
     "test:api:collision:load": "set LOG_LEVEL=INFO && node src/tests/webTest.js --test-query-id-collisions --requests=200 --concurrency=4",
-    "start:workload": "set LOG_LEVEL=INFO && node src/start.js",
+    "start:workload": "set LOG_LEVEL=INFO && node src/utils/workload.js",
     "start:service": "set LOG_LEVEL=INFO && node src/api/cluster.js",
     "start:worker": "node src/api/worker.js",
-    "start:test": "set LOG_LEVEL=INFO && node src/serviceTest.js",
+    "start:test": "set LOG_LEVEL=INFO && node src/utils/serviceTest.js",
     "diagnose": "set LOG_LEVEL=INFO && node src/utils/runDiagnostics.js"
   },
   "dependencies": {

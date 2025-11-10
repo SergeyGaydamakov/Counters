@@ -1,4 +1,4 @@
-const ConditionEvaluator = require('../utils/conditionEvaluator');
+const ConditionEvaluator = require('../common/conditionEvaluator');
 
 /**
  * Модуль тестирования для computationConditions в CounterProducer

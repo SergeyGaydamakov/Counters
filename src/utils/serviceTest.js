@@ -1,8 +1,8 @@
 // Импортируем систему логирования
-const Logger = require('./common/logger');
+const Logger = require('../common/logger');
 const axios = require('axios');
-const config = require('./common/config');
-const MessageGenerator = require('./generators/messageGenerator');
+const config = require('../common/config');
+const MessageGenerator = require('../domain/messageGenerator');
 
 // Загружаем переменные окружения из .env файла
 const dotenv = require('dotenv');

@@ -1,7 +1,7 @@
 // Импортируем систему логирования
-const Logger = require('./common/logger');
-const { MongoProvider, FactService, CounterProducer } = require('./index');
-const config = require('./common/config');
+const Logger = require('../common/logger');
+const { MongoProvider, FactService, CounterProducer } = require('../index');
+const config = require('../common/config');
 
 // Загружаем переменные окружения из .env файла
 const dotenv = require('dotenv');
