@@ -1031,21 +1031,42 @@ class MongoProvider {
                     intervalNumber: 0, // Номер интервала в запросе
                     fromTimeMs: splitIntervals ? splitIntervals[0] : 0, // Время начала интервала в прошлом
                     toTimeMs: 0, // Время конца интервала в прошлом
+                    minCountersCountInGroup: Infinity, // Минимальное значение countersCountInGroup среди всех счетчиков в группе
                 };
             }
-            countersGroupCount[counter.indexTypeName].countersCount++;
+            // Обновляем минимальное значение countersCountInGroup для группы перед проверкой
+            let currentMinCountersCountInGroup = countersGroupCount[counter.indexTypeName].minCountersCountInGroup;
+            if (countersCountInGroup > 0) {
+                currentMinCountersCountInGroup = Math.min(
+                    countersGroupCount[counter.indexTypeName].minCountersCountInGroup,
+                    countersCountInGroup
+                );
+            }
+            // Проверяем, нужно ли создать новую группу ДО добавления текущего счетчика
             let groupNumberAlreadyIncremented = false;
+            const currentCountersCount = countersGroupCount[counter.indexTypeName].countersCount;
             if ((
                     config.facts.maxCountersPerRequest > 0 
-                    && countersGroupCount[counter.indexTypeName].countersCount > config.facts.maxCountersPerRequest
+                    && currentCountersCount >= config.facts.maxCountersPerRequest
                 ) || (
-                    countersCountInGroup > 0 
-                    && countersCountInGroup <= countersGroupCount[counter.indexTypeName].countersCount
+                    currentMinCountersCountInGroup !== Infinity
+                    && currentMinCountersCountInGroup > 0 
+                    && currentCountersCount >= currentMinCountersCountInGroup
             )) {
                 // Если достигнуто максимальное количество счетчиков в группе или для очередного счетчика в группе нет места, то увеличиваем номер группы
                 countersGroupCount[counter.indexTypeName].groupNumber++;
                 groupNumberAlreadyIncremented = true;
-                countersGroupCount[counter.indexTypeName].countersCount = 1;
+                countersGroupCount[counter.indexTypeName].countersCount = 0;
+                countersGroupCount[counter.indexTypeName].minCountersCountInGroup = Infinity;
+            }
+            // Теперь добавляем счетчик в группу
+            countersGroupCount[counter.indexTypeName].countersCount++;
+            // Обновляем минимальное значение countersCountInGroup для группы
+            if (countersCountInGroup > 0) {
+                countersGroupCount[counter.indexTypeName].minCountersCountInGroup = Math.min(
+                    countersGroupCount[counter.indexTypeName].minCountersCountInGroup,
+                    countersCountInGroup
+                );
             }
             // Если счетчик пересекается с предыдущим интервалом, то увеличиваем номер группы и счетчик счетчиков в группе
             if (splitIntervals &&
@@ -1055,6 +1076,7 @@ class MongoProvider {
                     countersGroupCount[counter.indexTypeName].groupNumber++;
                 }
                 countersGroupCount[counter.indexTypeName].countersCount = 1;
+                countersGroupCount[counter.indexTypeName].minCountersCountInGroup = countersCountInGroup > 0 ? countersCountInGroup : Infinity;
                 countersGroupCount[counter.indexTypeName].intervalNumber++;
                 countersGroupCount[counter.indexTypeName].toTimeMs = countersGroupCount[counter.indexTypeName].fromTimeMs;
                 countersGroupCount[counter.indexTypeName].fromTimeMs = splitIntervals[countersGroupCount[counter.indexTypeName].intervalNumber];

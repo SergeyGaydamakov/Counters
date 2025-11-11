@@ -4253,9 +4253,9 @@ class MongoProviderTest {
 
                 // Создаем тестовые счетчики с разными maxEvaluatedRecords
                 // Структура countersCount:
-                // - limit: 0, count: 10  -> для счетчиков с maxEvaluatedRecords <= 0 (или до 20)
-                // - limit: 20, count: 5  -> для счетчиков с maxEvaluatedRecords <= 20 (но > 0)
-                // - limit: 30, count: 2  -> для счетчиков с maxEvaluatedRecords <= 30 (но > 20)
+                // - limit: 0, count: 10  -> для счетчиков с maxEvaluatedRecords >= 0 и < 20
+                // - limit: 20, count: 5  -> для счетчиков с maxEvaluatedRecords >= 20 и < 30
+                // - limit: 30, count: 2  -> для счетчиков с maxEvaluatedRecords >= 30 и < 40
                 const testCountersConfig = [
                     {
                         name: "counter_1",
@@ -4377,9 +4377,9 @@ class MongoProviderTest {
                     {
                         indexTypeName: "test_type_1",
                         countersCount: [
-                            { "limit": 0, "count": 10 },   // Для счетчиков с maxEvaluatedRecords <= 0
-                            { "limit": 20, "count": 5 },    // Для счетчиков с maxEvaluatedRecords <= 20
-                            { "limit": 30, "count": 2 }     // Для счетчиков с maxEvaluatedRecords <= 30
+                            { "limit": 0, "count": 10 },   // Для счетчиков с maxEvaluatedRecords >= 0, но < 20
+                            { "limit": 20, "count": 5 },    // Для счетчиков с maxEvaluatedRecords >= 20, но < 30
+                            { "limit": 30, "count": 2 }     // Для счетчиков с maxEvaluatedRecords >= 30, но < 40
                         ]
                     }
                 ];
@@ -4447,58 +4447,56 @@ class MongoProviderTest {
 
                 // Ожидаемая группировка на основе логики:
                 // Логика: для каждого счетчика определяется countersCountInGroup на основе maxEvaluatedRecords
-                // Если countersCountInGroup > 0 и countersCountInGroup <= текущее количество счетчиков в группе,
+                // Группа ограничивается минимальным значением countersCountInGroup среди всех счетчиков в группе
+                // Сначала увеличивается countersCount, затем проверяется условие:
+                // Если minCountersCountInGroup > 0 и minCountersCountInGroup <= текущее количество счетчиков в группе,
                 // то создается новая группа
                 // 
-                // - counter_1: maxEvaluatedRecords = 5 -> countersCountInGroup = 10, countersCount = 1 -> группа #1
-                // - counter_2: maxEvaluatedRecords = 10 -> countersCountInGroup = 10, countersCount = 2 -> группа #1
-                // - counter_3: maxEvaluatedRecords = 15 -> countersCountInGroup = 10, countersCount = 3 -> группа #1
-                // - counter_4: maxEvaluatedRecords = 20 -> countersCountInGroup = 5, countersCount = 4 -> группа #1 (5 <= 4 = false)
-                // - counter_5: maxEvaluatedRecords = 25 -> countersCountInGroup = 5, countersCount = 5 -> группа #2 (5 <= 5 = true)
-                // - counter_6: maxEvaluatedRecords = 30 -> countersCountInGroup = 2, countersCount = 1 -> группа #2 (2 <= 1 = false)
-                // - counter_7: maxEvaluatedRecords = 35 -> countersCountInGroup = 2, countersCount = 2 -> группа #3 (2 <= 2 = true)
-                // - counter_8: maxEvaluatedRecords = 40 -> countersCountInGroup = 2, countersCount = 1 -> группа #3 (2 <= 1 = false)
+                // - counter_1: maxEvaluatedRecords = 5 -> countersCountInGroup = 10, minCountersCountInGroup = 10, countersCount++ = 1 -> группа #1 (10 <= 1 = false)
+                // - counter_2: maxEvaluatedRecords = 10 -> countersCountInGroup = 10, minCountersCountInGroup = 10, countersCount++ = 2 -> группа #1 (10 <= 2 = false)
+                // - counter_3: maxEvaluatedRecords = 15 -> countersCountInGroup = 10, minCountersCountInGroup = 10, countersCount++ = 3 -> группа #1 (10 <= 3 = false)
+                // - counter_4: maxEvaluatedRecords = 20 -> countersCountInGroup = 5, minCountersCountInGroup = 5, countersCount++ = 4 -> группа #1 (5 <= 4 = false)
+                // - counter_5: maxEvaluatedRecords = 25 -> countersCountInGroup = 5, minCountersCountInGroup = 5, countersCount++ = 5 -> группа #1 (5 <= 5 = true, создается новая)
+                // - counter_6: maxEvaluatedRecords = 30 -> countersCountInGroup = 2, minCountersCountInGroup = 2, countersCount++ = 1 -> группа #2 (2 <= 1 = false)
+                // - counter_7: maxEvaluatedRecords = 35 -> countersCountInGroup = 2, minCountersCountInGroup = 2, countersCount++ = 2 -> группа #2 (2 <= 2 = true, создается новая)
+                // - counter_8: maxEvaluatedRecords = 40 -> countersCountInGroup = 2, minCountersCountInGroup = 2, countersCount++ = 1 -> группа #3 (2 <= 1 = false)
                 //
                 // Ожидаемый результат:
-                // Группа #1: counter_1, counter_2, counter_3, counter_4
-                // Группа #2: counter_5, counter_6
-                // Группа #3: counter_7, counter_8
+                // Группа #1: counter_1, counter_2, counter_3, counter_4, counter_5
+                // Группа #2: counter_6, counter_7
+                // Группа #3: counter_8
                 
-                // Проверяем, что счетчики с maxEvaluatedRecords <= 20 попадают в группу #1
-                // (counter_1, counter_2, counter_3, counter_4 должны быть в группе #1)
+                // Проверяем, что счетчики с maxEvaluatedRecords <= 25 попадают в группу #1
+                // (counter_1, counter_2, counter_3, counter_4, counter_5 должны быть в группе #1)
                 const group1Counters = testType1Groups[1] || [];
-                const expectedGroup1Counters = ['counter_1', 'counter_2', 'counter_3', 'counter_4'];
+                const expectedGroup1Counters = ['counter_1', 'counter_2', 'counter_3', 'counter_4', 'counter_5'];
                 for (const expectedCounter of expectedGroup1Counters) {
                     if (!group1Counters.includes(expectedCounter)) {
                         throw new Error(`Счетчик ${expectedCounter} должен быть в группе #1, но найден в других группах. Группа #1: ${group1Counters.join(', ')}`);
                     }
                 }
-                // Проверяем, что в группе #1 не более 10 счетчиков (count = 10 для limit = 0)
-                // Но на самом деле counter_4 имеет count = 5, поэтому группа может быть ограничена 5 счетчиками
-                // Однако counter_4 добавляется когда countersCount = 4, и 5 <= 4 = false, поэтому он попадает в группу #1
-                this.logger.debug(`   ✓ Группа #1 содержит счетчики с maxEvaluatedRecords <= 20: ${group1Counters.join(', ')}`);
+                // Проверяем, что в группе #1 не более 5 счетчиков (minCountersCountInGroup = 5 после добавления counter_4)
+                if (group1Counters.length > 5) {
+                    throw new Error(`Группа #1 содержит ${group1Counters.length} счетчиков, но должно быть не более 5. Счетчики: ${group1Counters.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Группа #1 содержит счетчики с maxEvaluatedRecords <= 25: ${group1Counters.join(', ')}`);
 
-                // Проверяем, что counter_5 и counter_6 находятся в группе #2
+                // Проверяем, что counter_6 и counter_7 находятся в группе #2
                 const group2Counters = testType1Groups[2] || [];
-                if (!group2Counters.includes('counter_5')) {
-                    throw new Error(`Счетчик counter_5 должен быть в группе #2, но найден в других группах. Группа #2: ${group2Counters.join(', ')}`);
+                const expectedGroup2Counters = ['counter_6', 'counter_7'];
+                for (const expectedCounter of expectedGroup2Counters) {
+                    if (!group2Counters.includes(expectedCounter)) {
+                        throw new Error(`Счетчик ${expectedCounter} должен быть в группе #2, но найден в других группах. Группа #2: ${group2Counters.join(', ')}`);
+                    }
                 }
-                if (!group2Counters.includes('counter_6')) {
-                    throw new Error(`Счетчик counter_6 должен быть в группе #2, но найден в других группах. Группа #2: ${group2Counters.join(', ')}`);
-                }
-                // Проверяем, что в группе #2 не более 5 счетчиков (count = 5 для limit = 20)
-                // Но counter_6 имеет count = 2, поэтому группа может быть ограничена 2 счетчиками
-                // Однако counter_6 добавляется когда countersCount = 1, и 2 <= 1 = false, поэтому он попадает в группу #2
-                if (group2Counters.length > 5) {
-                    throw new Error(`Группа #2 содержит ${group2Counters.length} счетчиков, но должно быть не более 5. Счетчики: ${group2Counters.join(', ')}`);
+                // Проверяем, что в группе #2 не более 2 счетчиков (count = 2 для limit = 30)
+                if (group2Counters.length > 2) {
+                    throw new Error(`Группа #2 содержит ${group2Counters.length} счетчиков, но должно быть не более 2. Счетчики: ${group2Counters.join(', ')}`);
                 }
                 this.logger.debug(`   ✓ Группа #2 содержит счетчики: ${group2Counters.join(', ')}`);
 
-                // Проверяем, что counter_7 и counter_8 находятся в группе #3
+                // Проверяем, что counter_8 находится в группе #3
                 const group3Counters = testType1Groups[3] || [];
-                if (!group3Counters.includes('counter_7')) {
-                    throw new Error(`Счетчик counter_7 должен быть в группе #3, но найден в других группах. Группа #3: ${group3Counters.join(', ')}`);
-                }
                 if (!group3Counters.includes('counter_8')) {
                     throw new Error(`Счетчик counter_8 должен быть в группе #3, но найден в других группах. Группа #3: ${group3Counters.join(', ')}`);
                 }
