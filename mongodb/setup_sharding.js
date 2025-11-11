@@ -1,15 +1,21 @@
 // Скрипт для настройки шардирования коллекций fact и factIndex
 // Использование: mongosh --file setup_sharding.js
 
-print("=== Настройка шардирования для коллекций fact и factIndex ===");
-
 // Конфигурация
 const DATABASE_NAME = "counters"; // Замените на нужное имя базы данных
-const SHARD_ZONES_COUNT = 2;
+const SHARD_ZONES_COUNT = 3;
 const FACTS_COLLECTION = "facts";
 const FACT_INDEX_COLLECTION = "factIndex";
 const LOG_COLLECTION = "log";
+const CLUSTERED_INDEX_KEY = true; // true - использовать сложный ключ для индекса, false - использовать простой ключ
 
+print("=== Настройка шардирования для коллекций fact и factIndex ===");
+print("DATABASE_NAME: "+DATABASE_NAME);
+print("SHARD_ZONES_COUNT: "+SHARD_ZONES_COUNT);
+print("FACTS_COLLECTION: "+FACTS_COLLECTION);
+print("FACT_INDEX_COLLECTION: "+FACT_INDEX_COLLECTION);
+print("LOG_COLLECTION: "+LOG_COLLECTION);
+print("CLUSTERED_INDEX_KEY: "+CLUSTERED_INDEX_KEY);
 
 // Управление выполняется в admin базе данных
 const adminDb = db.getSiblingDB("admin");
@@ -146,6 +152,7 @@ try {
         validationLevel: "off",
         validationAction: "warn"
     };
+
     // Тестовая среда
     const testCreateOptions = {
         validator: factsSchema,
@@ -281,6 +288,11 @@ try {
             additionalProperties: false
         }
     };
+    if (CLUSTERED_INDEX_KEY) {
+        // В случае кластерного ключа, поле _id должно быть строкового типа
+        factIndexSchema['$jsonSchema']['properties']['_id']['bsonType'] = "string";
+        factIndexSchema['$jsonSchema']['properties']['_id']['description'] = "Кластерный ключ индексного значения = h + ':' + dt.toISOString() + ':' + f";
+    }
 
     const factIndexDb = db.getSiblingDB(DATABASE_NAME);
     const factIndexCollections = factIndexDb.getCollectionInfos({ name: FACT_INDEX_COLLECTION });
@@ -298,6 +310,13 @@ try {
         validationLevel: "off",
         validationAction: "warn"
     };
+    if (CLUSTERED_INDEX_KEY) {
+        productionCreateOptions.clusteredIndex = {
+            key: { "_id": 1 },
+            unique: true,
+            name: "clustered_key" 
+        };
+    }
     // Тестовая среда
     const testCreateOptions = {
         validator: factIndexSchema,
@@ -341,14 +360,17 @@ try {
                 unique: true
             }
         },
-        {
+    ];
+    if (!CLUSTERED_INDEX_KEY) {
+        // Если нет кластерного ключа, то создаем индекс по полям h и dt
+        indexesToCreate.push({
             key: { "h": 1, "dt": 1 },
             options: {
                 name: 'idx_h_dt',
                 background: true
             }
-        }
-    ];
+        });
+    }
     for (const indexSpec of indexesToCreate) {
         if (factIndexIndexes.find(index => JSON.stringify(index.key) === JSON.stringify(indexSpec.key)) === undefined) {
             factIndexCollection.createIndex(indexSpec.key, indexSpec.options);

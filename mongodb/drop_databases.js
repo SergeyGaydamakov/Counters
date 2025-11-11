@@ -1,0 +1,7 @@
+db.getSiblingDB('counters').dropDatabase()
+db.getSiblingDB('debugLoggingTestDB').dropDatabase()
+db.getSiblingDB('factControllerTestDB').dropDatabase()
+db.getSiblingDB('factTestDB').dropDatabase()
+db.getSiblingDB('mongoProviderTestDB').dropDatabase()
+db.getSiblingDB('queryDispatcherTestDB').dropDatabase()
+db.getSiblingDB('queryWorkerTestDB').dropDatabase()

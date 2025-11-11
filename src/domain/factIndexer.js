@@ -3,6 +3,7 @@ const fs = require('fs');
 const Logger = require('../common/logger');
 const ConditionEvaluator = require('../common/conditionEvaluator');
 const ShortNameMapper = require('./shortNameMapper');
+const config = require('../common/config');
 
 /**
  * Формат файла indexConfig.json
@@ -18,10 +19,11 @@ const ShortNameMapper = require('./shortNameMapper');
  * Класс для создания индексных значений из фактов
  * 
  * Структура индексного значения (factIndex):
+ * @property {string} _id - В зависимости от настройки CLUSTERED_INDEX_KEY может быть objectId или кластерный ключ индексного значения = h + ':' + dt.toISOString()
  * @property {string} h - Хеш значение типа + поля факта
  * @property {number} it - Номер индексируемого поля (из названия поля fN)
  * @property {string} v - Значение индексируемого поля
- * @property {string} _id - Идентификатор факта
+ * @property {string} f - Идентификатор факта
  * @property {number} t - Тип факта
  * @property {Date} dt - Дата факта
  * @property {Object} d - JSON объект с данными факта (необязательное поле, зависит от настроек)
@@ -255,6 +257,17 @@ class FactIndexer {
     }
 
     /**
+     * Создает кластерный ключ индексного значения
+     * @param {string} indexValue - значение индекса
+     * @param {Date} indexDate - дата индекса
+     * @param {string} factId - идентификатор факта
+     * @returns {string} кластерный ключ индексного значения
+     */
+    _getClusteredIndexKey(indexValue, indexDate, factId) {
+        return `${indexValue}:${indexDate.toISOString()}:${factId}`;
+    }
+
+    /**
      * Преобразует значение в Date, если это возможно
      * @param {any} value - значение для преобразования
      * @returns {Date|null} объект Date или null, если преобразование невозможно
@@ -364,6 +377,9 @@ class FactIndexer {
                     "v": String(fact.d[fieldName]),    // значение поля из факта
                     "t": fact.t,                       // тип факта
                 };
+                if (config.facts.clusteredIndexKey) {
+                    indexData["_id"] = this._getClusteredIndexKey(indexValue, indexDate, fact._id);
+                }
                 if (this.includeFactData) {
                     indexData["d"] = fact.d;       // JSON объект с данными факта
                 }
