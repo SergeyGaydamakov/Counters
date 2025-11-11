@@ -913,7 +913,7 @@ class MongoProvider {
             return null;
         }
         // this.logger.debug(`factCounters: ${JSON.stringify(factCounters)}`);
-        const maxDepthLimit = config.facts.maxDepthLimit;
+        const maxDepthLimit = config.facts.maxDepthLimit ?? 2000;
         // Интервалы разбивки счетчиков на группы по возрастанию времени в прошлое от текущего времени
         const splitIntervals = config.facts.splitIntervals;
         // Список условий по каждому типу индекса.
@@ -2025,8 +2025,7 @@ class MongoProvider {
                 "h": 1,
                 "dt": -1
             };
-            const limitValue = indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords ? (indexInfo.index.limit ? Math.max(indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords, indexInfo.index.limit) : indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords) : (indexInfo.index.limit ? indexInfo.index.limit : 100);
-            const limit = Math.min(limitValue, depthLimit);
+            const limit = (!indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords || indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords > depthLimit) ? depthLimit : indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords;
             const aggregateIndexQuery = [
                 { "$match": match },
                 { "$sort": sort }
