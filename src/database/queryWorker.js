@@ -121,6 +121,10 @@ async function startQueryWorker() {
     // Параметры подключения будут получены через INIT сообщение
     let connectionString, databaseName, databaseOptions;
     
+    // Активные батчи для параллельной обработки
+    // Map<batchId, Promise> - отслеживание активных батчей
+    const activeBatches = new Map();
+    
     /**
      * Подключение к MongoDB
      * Создает MongoDB клиент один раз при инициализации и подключается к базе данных
@@ -311,6 +315,17 @@ async function startQueryWorker() {
         
         logger.debug('QueryWorker: Начало graceful shutdown');
         
+        // Ждем завершения всех активных батчей
+        if (activeBatches.size > 0) {
+            logger.debug(`QueryWorker: Ожидание завершения ${activeBatches.size} активных батчей`);
+            try {
+                await Promise.all(Array.from(activeBatches.values()));
+            } catch (error) {
+                logger.warn(`QueryWorker: Ошибка при ожидании завершения батчей: ${error.message}`);
+            }
+            activeBatches.clear();
+        }
+        
         try {
             if (mongoClient && isConnected) {
                 await mongoClient.close();
@@ -420,21 +435,33 @@ async function startQueryWorker() {
                     return;
                 }
 
-                try {
-                    const batchResults = await executeQueryBatch(batchId, requests);
-                    sendBatchResult(batchId, batchResults);
-                } catch (error) {
-                    logger.error(`QueryWorker: Ошибка выполнения батча ${batchId}: ${error.message}`);
-                    const fallbackResults = Array.isArray(requests)
-                        ? requests.map((request, index) => ({
-                            id: request?.id || `${batchId}_${index}`,
-                            result: null,
-                            error: serializeError(error),
-                            metrics: { queryTime: 0, querySize: 0, resultSize: 0 }
-                        }))
-                        : [];
-                    sendBatchResult(batchId, fallbackResults);
-                }
+                // Запускаем обработку батча асинхронно, не блокируя обработчик сообщений
+                // Это позволяет воркеру обрабатывать несколько батчей параллельно
+                const batchPromise = (async () => {
+                    try {
+                        const batchResults = await executeQueryBatch(batchId, requests);
+                        sendBatchResult(batchId, batchResults);
+                        return batchResults;
+                    } catch (error) {
+                        logger.error(`QueryWorker: Ошибка выполнения батча ${batchId}: ${error.message}`);
+                        const fallbackResults = Array.isArray(requests)
+                            ? requests.map((request, index) => ({
+                                id: request?.id || `${batchId}_${index}`,
+                                result: null,
+                                error: serializeError(error),
+                                metrics: { queryTime: 0, querySize: 0, resultSize: 0 }
+                            }))
+                            : [];
+                        sendBatchResult(batchId, fallbackResults);
+                        return fallbackResults;
+                    } finally {
+                        // Удаляем батч из активных после завершения
+                        activeBatches.delete(batchId);
+                    }
+                })();
+                
+                // Сохраняем промис для отслеживания активных батчей
+                activeBatches.set(batchId, batchPromise);
             } else if (message.type === 'SHUTDOWN') {
                 await shutdown();
             } else if (message.type !== 'INIT') {

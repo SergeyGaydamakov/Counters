@@ -102,7 +102,6 @@ class ProcessPoolManager {
         this.currentWorkerIndex = 0;
         this.pendingQueries = new Map(); // Map<queryId, {resolve, reject, timeout}>
         this.timedOutQueries = new Set(); // Set<queryId> - для отслеживания таймаутированных запросов (чтобы игнорировать поздние результаты без предупреждений)
-        this.busyWorkers = new Set(); // Set<worker> - для синхронизации занятых воркеров между параллельными вызовами
         this.stats = {
             totalQueries: 0,
             successfulQueries: 0,
@@ -502,9 +501,6 @@ class ProcessPoolManager {
         // Очищаем Set таймаутированных запросов
         this.timedOutQueries.clear();
         
-        // Очищаем Set занятых воркеров
-        this.busyWorkers.clear();
-        
         // Закрываем все worker процессы
         const shutdownPromises = this.workers.map(async (worker) => {
             return new Promise((resolve) => {
@@ -563,14 +559,7 @@ class ProcessPoolManager {
      * @returns {Array<Object>} Массив готовых воркеров в случайном порядке
      */
     getReadyWorkers() {
-        const readyWorkers = this.workers.filter(w => w.isReady);
-        // Перемешиваем массив для уменьшения взаимных блокировок
-        // Используем алгоритм Fisher-Yates shuffle
-        for (let i = readyWorkers.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [readyWorkers[i], readyWorkers[j]] = [readyWorkers[j], readyWorkers[i]];
-        }
-        return readyWorkers;
+        return this.workers.filter(w => w.isReady);
     }
 
     /**
@@ -728,13 +717,12 @@ class ProcessPoolManager {
     }
 
     /**
-     * Выполнение множественных батчей с динамическим распределением по воркерам
-     * Батчи распределяются по мере освобождения воркеров (work queue pattern)
-     * Защищен от race condition при параллельных вызовах через глобальный Set занятых воркеров
+     * Выполнение множественных батчей с немедленным распределением по воркерам
+     * Батчи распределяются сразу по всем доступным воркерам (round-robin)
+     * Воркеры могут обрабатывать несколько батчей параллельно
      * @param {Array<Array<Object>>} batches - Массив батчей запросов
      * @param {Object} [options] - Опции выполнения
      * @param {number} [options.timeoutMs] - Таймаут для каждого запроса
-     * @param {number} [options.maxWaitForWorkersMs] - Максимальное время ожидания воркеров (мс)
      * @returns {Promise<Array<Array>>} Массив результатов для каждого батча в том же порядке
      */
     async executeBatchesAsync(batches, options = {}) {
@@ -755,86 +743,79 @@ class ProcessPoolManager {
         }
 
         const timeoutMs = typeof options.timeoutMs === 'number' && options.timeoutMs > 0 ? options.timeoutMs : 60000;
-        const maxWaitForWorkersMs = typeof options.maxWaitForWorkersMs === 'number' && options.maxWaitForWorkersMs > 0 
-            ? options.maxWaitForWorkersMs 
-            : 500;
 
-        // Очередь батчей для обработки
-        // Сохраняем время добавления батча в очередь для вычисления waitTime
-        const batchQueue = batches.map((batch, index) => ({
+        // Получаем список готовых воркеров
+        const readyWorkers = this.getReadyWorkers();
+        if (readyWorkers.length === 0) {
+            throw new Error('No ready workers available');
+        }
+
+        // Сохраняем время поступления батчей для вычисления waitTime
+        // При немедленном распределении waitTime будет близок к 0, так как батчи сразу отправляются воркерам
+        const batchEnqueuedAt = Date.now();
+        const batchInfos = batches.map((batch, index) => ({
             batchIndex: index,
-            batch,
-            enqueuedAt: Date.now() // Время добавления батча в очередь
+            batch
         }));
         const batchResults = new Map(); // Map<batchIndex, result>
         
-        // Функция для атомарного получения и резервирования свободного воркера
-        // Защищает от race condition при параллельных вызовах
-        const getAndReserveWorker = () => {
-            const readyWorkers = this.getReadyWorkers();
-            let raceConditionCount = 0;
-            // Ищем первого доступного воркера и атомарно резервируем его
-            for (const worker of readyWorkers) {
-                if (worker.isReady && !this.busyWorkers.has(worker)) {
-                    // Атомарно пытаемся добавить воркера в Set занятых
-                    // Если воркер уже был добавлен другим параллельным вызовом, Set не изменится
-                    // и мы попробуем следующего воркера
-                    const previousSize = this.busyWorkers.size;
-                    this.busyWorkers.add(worker);
-                    // Если размер увеличился, значит воркер успешно зарезервирован
-                    if (this.busyWorkers.size > previousSize) {
-                        if (raceConditionCount > 0) {
-                            this.logger.debug(
-                                `ProcessPoolManager: Обнаружена race condition при резервировании воркера ` +
-                                `(попыток: ${raceConditionCount + 1}, воркер ${worker.index})`
-                            );
-                        }
-                        return worker;
-                    } else {
-                        raceConditionCount++;
-                    }
-                }
-            }
-            
-            if (raceConditionCount > 0) {
-                this.logger.debug(
-                    `ProcessPoolManager: Все доступные воркеры были заняты другими параллельными вызовами ` +
-                    `(попыток резервирования: ${raceConditionCount}, занято воркеров: ${this.busyWorkers.size})`
-                );
-            }
-            
-            return null;
-        };
-        
         // Функция для обработки батча воркером
-        // Воркер уже должен быть зарезервирован в busyWorkers перед вызовом этой функции
+        // Воркер может обрабатывать несколько батчей параллельно
+        // Примечание: воркеры уже отфильтрованы через getReadyWorkers(), но проверка isReady
+        // в executeBatchOnWorker защищает от race condition (worker может упасть между выбором и отправкой)
         const processBatch = async (worker, batchInfo) => {
             if (!batchInfo || !worker) {
-                // Если параметры неверны, освобождаем воркера если он был зарезервирован
-                if (worker) {
-                    this.busyWorkers.delete(worker);
+                if (batchInfo) {
+                    const errorResults = batchInfo.batch.map((request) => ({
+                        id: request.id || `query_${batchInfo.batchIndex}_${Math.random().toString(36).slice(2, 9)}`,
+                        result: null,
+                        error: new Error('Invalid worker or batch info'),
+                        metrics: {
+                            queryTime: 0,
+                            querySize: 0,
+                            resultSize: 0,
+                            waitTime: 0
+                        }
+                    }));
+                    batchResults.set(batchInfo.batchIndex, errorResults);
                 }
                 return null;
             }
             
-            // Время начала обработки батча (после получения воркера)
-            const startedAt = Date.now();
-            // Вычисляем waitTime - время ожидания от добавления в очередь до начала обработки
-            const waitTime = Math.max(0, startedAt - (batchInfo.enqueuedAt || startedAt));
+            // Время отправки батча воркеру (момент начала обработки)
+            const sentToWorkerAt = Date.now();
+            // Вычисляем waitTime - время от поступления батча до отправки воркеру
+            // При немедленном распределении это время минимально (только время на выбор воркера)
+            const waitTime = Math.max(0, sentToWorkerAt - batchEnqueuedAt);
             
-            // Воркер уже зарезервирован в getAndReserveWorker, просто проверяем
-            if (!this.busyWorkers.has(worker)) {
-                // Если воркер не в Set, что-то пошло не так - критическая ситуация
+            try {
+                const { batchIndex, batch } = batchInfo;
+                
+                // Выполняем батч на воркере
+                const results = await this.executeBatchOnWorker(worker, batch, { timeoutMs });
+                
+                // Добавляем waitTime в метрики каждого результата
+                const resultsWithMetrics = results.map((result) => ({
+                    ...result,
+                    metrics: {
+                        ...result.metrics,
+                        waitTime: waitTime
+                    }
+                }));
+                
+                batchResults.set(batchIndex, resultsWithMetrics);
+                return { batchIndex, results: resultsWithMetrics };
+            } catch (error) {
                 this.logger.error(
-                    `ProcessPoolManager: Воркер ${worker.index} не был зарезервирован перед обработкой батча ${batchInfo.batchIndex}. ` +
-                    `Это может указывать на проблему синхронизации.`
+                    `ProcessPoolManager: Ошибка обработки батча ${batchInfo.batchIndex} на воркере ${worker.index}: ${error.message}`,
+                    { error: error.stack, batchSize: batchInfo.batch.length }
                 );
                 const errorResults = batchInfo.batch.map((request) => ({
                     id: request.id || `query_${batchInfo.batchIndex}_${Math.random().toString(36).slice(2, 9)}`,
                     result: null,
-                    error: new Error('Worker was not properly reserved'),
+                    error: error instanceof Error ? error : new Error(error?.message || 'Batch execution failed'),
                     metrics: {
-                        queryTime: 0,
+                        queryTime: timeoutMs || 0,
                         querySize: 0,
                         resultSize: 0,
                         waitTime: waitTime
@@ -843,176 +824,25 @@ class ProcessPoolManager {
                 batchResults.set(batchInfo.batchIndex, errorResults);
                 return { batchIndex: batchInfo.batchIndex, results: errorResults };
             }
-            
-            try {
-                const { batchIndex, batch } = batchInfo;
-                
-                // Дополнительная проверка перед отправкой
-                if (!worker.isReady) {
-                    this.logger.warn(
-                        `ProcessPoolManager: Воркер ${worker.index} стал недоступен после резервирования ` +
-                        `(батч ${batchIndex}, запросов: ${batch.length})`
-                    );
-                    const errorResults = batch.map((request) => ({
-                        id: request.id || `query_${batchIndex}_${Math.random().toString(36).slice(2, 9)}`,
-                        result: null,
-                        error: new Error('Worker is not ready'),
-                        metrics: {
-                            queryTime: 0,
-                            querySize: 0,
-                            resultSize: 0,
-                            waitTime: waitTime
-                        }
-                    }));
-                    batchResults.set(batchIndex, errorResults);
-                    return { batchIndex, results: errorResults };
-                }
-                
-                try {
-                    // Выполняем батч на воркере
-                    // queryTime для каждого запроса уже вычисляется внутри executeBatchOnWorker
-                    const results = await this.executeBatchOnWorker(worker, batch, { timeoutMs });
-                    
-                    // Добавляем waitTime в метрики каждого результата
-                    // queryTime уже есть в result.metrics от executeBatchOnWorker
-                    const resultsWithMetrics = results.map((result) => ({
-                        ...result,
-                        metrics: {
-                            ...result.metrics,
-                            waitTime: waitTime // Время ожидания до начала обработки батча
-                        }
-                    }));
-                    
-                    batchResults.set(batchIndex, resultsWithMetrics);
-                    return { batchIndex, results: resultsWithMetrics };
-                } catch (error) {
-                    this.logger.error(
-                        `ProcessPoolManager: Ошибка обработки батча ${batchIndex} на воркере ${worker.index}: ${error.message}`,
-                        { error: error.stack, batchSize: batch.length }
-                    );
-                    const errorResults = batch.map((request) => ({
-                        id: request.id || `query_${batchIndex}_${Math.random().toString(36).slice(2, 9)}`,
-                        result: null,
-                        error: error instanceof Error ? error : new Error(error?.message || 'Batch execution failed'),
-                        metrics: {
-                            queryTime: timeoutMs || 0,
-                            querySize: 0,
-                            resultSize: 0,
-                            waitTime: waitTime
-                        }
-                    }));
-                    batchResults.set(batchIndex, errorResults);
-                    return { batchIndex, results: errorResults };
-                }
-            } finally {
-                // Освобождаем воркер после завершения (всегда, даже при ошибке)
-                this.busyWorkers.delete(worker);
-            }
         };
         
-        // Основной цикл обработки батчей по мере освобождения воркеров
-        // Используем event-based подход: ждем завершения промисов через Promise.race
-        // без polling задержек для максимальной производительности
-        const activePromises = new Map(); // Map<promise, batchInfo> для отслеживания активных промисов
-        const startTime = Date.now();
-        let hasTimedOut = false;
+        // Немедленно распределяем все батчи по воркерам (round-robin)
+        // Каждый воркер может обрабатывать несколько батчей параллельно
+        const activePromises = [];
+        let workerIndex = 0;
         
-        // Функция для запуска батчей на доступных воркерах
-        const tryStartBatches = () => {
-            while (batchQueue.length > 0) {
-                const worker = getAndReserveWorker();
-                if (!worker) {
-                    // Нет свободных воркеров
-                    break;
-                }
-                
-                const batchInfo = batchQueue.shift();
-                if (!batchInfo) {
-                    // Если батча нет, освобождаем воркера
-                    this.busyWorkers.delete(worker);
-                    break;
-                }
-                
-                // Запускаем обработку батча (воркер уже зарезервирован в getAndReserveWorker)
-                const promise = processBatch(worker, batchInfo);
-                activePromises.set(promise, batchInfo);
-                
-                // Удаляем промис из Map после завершения (успешного или с ошибкой)
-                promise.finally(() => {
-                    activePromises.delete(promise);
-                });
-            }
-        };
-        
-        // Запускаем начальные батчи на доступных воркерах
-        tryStartBatches();
-        
-        // Продолжаем пока есть батчи или активные промисы
-        while (batchQueue.length > 0 || activePromises.size > 0) {
-            // Если есть активные промисы, ждем завершения любого из них через Promise.race
-            // Это позволяет немедленно запустить следующий батч при освобождении воркера
-            if (activePromises.size > 0) {
-                // Ждем завершения любого промиса - это event-based подход без polling задержек
-                await Promise.race(activePromises.keys());
-                
-                // После завершения промиса сразу пытаемся запустить новые батчи
-                // Это происходит без задержек, так как промис уже завершился
-                tryStartBatches();
-            } else if (batchQueue.length > 0) {
-                // Если нет активных промисов в текущем вызове, но есть батчи в очереди,
-                // значит все воркеры заняты другими параллельными вызовами
-                // Проверяем таймаут только если нет активной работы вообще (нет занятых воркеров)
-                const elapsedTime = Date.now() - startTime;
-                if (elapsedTime >= maxWaitForWorkersMs) {
-                    // Если нет занятых воркеров (busyWorkers.size === 0), значит что-то не так
-                    // Таймаут должен срабатывать только если нет никакой активности
-                    if (this.busyWorkers.size === 0) {
-                        // Нет ни активных промисов, ни занятых воркеров, но есть батчи - таймаут
-                        hasTimedOut = true;
-                        break;
-                    }
-                    // Если busyWorkers.size > 0, значит воркеры работают на других вызовах - продолжаем ждать
-                }
-                
-                // Если воркеры заняты другими вызовами, делаем активную проверку с минимальной задержкой
-                // Это важно для параллельных вызовов, чтобы не накапливать задержки
-                // Используем минимальную задержку 1ms вместо setImmediate для лучшей производительности
-                // setImmediate может создавать слишком частые итерации event loop, что медленнее
-                // 1ms - оптимальный баланс между отзывчивостью и нагрузкой на CPU
-                await new Promise(resolve => setTimeout(resolve, 1));
-                tryStartBatches();
-            }
-        }
-        
-        // Если был таймаут, обрабатываем оставшиеся батчи с ошибкой
-        if (hasTimedOut && batchQueue.length > 0) {
-            const remainingBatches = batchQueue.length;
-            this.logger.warn(
-                `ProcessPoolManager: Таймаут ожидания воркеров (${maxWaitForWorkersMs}мс). ` +
-                `Осталось необработанных батчей: ${remainingBatches}, занято воркеров: ${this.busyWorkers.size}, ` +
-                `активных промисов: ${activePromises.size}`
-            );
+        for (const batchInfo of batchInfos) {
+            // Выбираем воркер по round-robin
+            const worker = readyWorkers[workerIndex % readyWorkers.length];
+            workerIndex++;
             
-            while (batchQueue.length > 0) {
-                const batchInfo = batchQueue.shift();
-                const errorResults = batchInfo.batch.map((request) => ({
-                    id: request.id || `query_${batchInfo.batchIndex}_${Math.random().toString(36).slice(2, 9)}`,
-                    result: null,
-                    error: new Error(`No available workers after timeout (${maxWaitForWorkersMs}ms)`),
-                    metrics: {
-                        queryTime: 0,
-                        querySize: 0,
-                        resultSize: 0
-                    }
-                }));
-                batchResults.set(batchInfo.batchIndex, errorResults);
-            }
+            // Запускаем обработку батча (не ждем завершения)
+            const promise = processBatch(worker, batchInfo);
+            activePromises.push(promise);
         }
         
-        // Ждем завершения всех активных промисов
-        if (activePromises.size > 0) {
-            await Promise.all(Array.from(activePromises.keys()));
-        }
+        // Ждем завершения всех батчей
+        await Promise.all(activePromises);
         
         // Возвращаем результаты в правильном порядке
         return batches.map((_, index) => batchResults.get(index) || []);

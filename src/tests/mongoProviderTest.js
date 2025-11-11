@@ -3505,6 +3505,8 @@ class MongoProviderTest {
                         const countersQueryTime = result.metrics?.countersQueryTime || 0;
                         const countersQueryCount = result.metrics?.countersQueryCount || 1;
                         const avgQueryTime = countersQueryCount > 0 ? countersQueryTime / countersQueryCount : 0;
+                        // waitTime из метрик - время ожидания воркеров (теперь близко к 0 при немедленном распределении)
+                        const waitTime = result.metrics?.countersWaitTime || 0;
                         
                         results.push({
                             requestId: i,
@@ -3513,8 +3515,9 @@ class MongoProviderTest {
                             hasError: hasError,
                             errorMessage: errorMessage,
                             countersCount: result.result ? Object.keys(result.result).length : 0,
-                            processingTime: result.processingTime || 0, // Общее время обработки (включая ожидание)
+                            processingTime: result.processingTime || 0, // Время выполнения запросов (countersQueryTime)
                             avgQueryTime: avgQueryTime, // Среднее время выполнения запросов (без ожидания)
+                            waitTime: waitTime, // Время ожидания воркеров
                             queryTime: countersQueryTime, // Общее время выполнения всех запросов
                             queryCount: countersQueryCount // Количество запросов
                         });
@@ -3543,7 +3546,8 @@ class MongoProviderTest {
                             hasError: true,
                             errorMessage: error.message,
                             countersCount: 0,
-                            processingTime: 0
+                            processingTime: 0,
+                            waitTime: 0
                         });
                         return null;
                     });
@@ -3617,22 +3621,23 @@ class MongoProviderTest {
             
             // Анализируем компоненты времени для успешных запросов
             if (successfulRequests.length > 0) {
-                const avgProcessingTimeWithWait = Math.round(
-                    successfulRequests.reduce((sum, r) => sum + (r.processingTime || 0), 0) / successfulRequests.length
-                );
                 const avgQueryTime = Math.round(
                     successfulRequests.reduce((sum, r) => sum + (r.avgQueryTime || 0), 0) / successfulRequests.length
                 );
-                const avgWaitTime = avgProcessingTimeWithWait - avgQueryTime;
+                // Используем waitTime из метрик, который теперь правильно вычисляется как время от поступления батча до отправки воркеру
+                const avgWaitTime = Math.round(
+                    successfulRequests.reduce((sum, r) => sum + (r.waitTime || 0), 0) / successfulRequests.length
+                );
                 
-                this.logger.debug(`      Среднее время обработки (с ожиданием): ${avgProcessingTimeWithWait}ms`);
-                this.logger.debug(`      Среднее время выполнения запросов (без ожидания): ${avgQueryTime}ms`);
+                this.logger.debug(`      Среднее время выполнения запросов: ${avgQueryTime}ms`);
                 if (avgWaitTime > 0) {
                     this.logger.debug(`      Среднее время ожидания воркеров: ~${avgWaitTime}ms`);
                     if (avgWaitTime > avgQueryTime * 2) {
                         this.logger.debug(`      ⚠️  Время ожидания воркеров значительно превышает время выполнения запросов`);
                         this.logger.debug(`         Это нормально для параллельных запросов, но можно оптимизировать, увеличив количество воркеров`);
                     }
+                } else {
+                    this.logger.debug(`      Среднее время ожидания воркеров: ~0ms (немедленное распределение)`);
                 }
             }
             

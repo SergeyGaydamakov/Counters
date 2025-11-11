@@ -60,14 +60,6 @@ class QueryDispatcher {
         this.defaultTimeoutMs = typeof options.defaultTimeoutMs === 'number'
             ? options.defaultTimeoutMs
             : (config.queryDispatcher?.timeoutMs || 60000);
-        
-        this.minWorkers = typeof options.minWorkers === 'number' && options.minWorkers > 0
-            ? options.minWorkers
-            : (config.queryDispatcher?.minWorkers || 2);
-        
-        this.maxWaitForWorkersMs = typeof options.maxWaitForWorkersMs === 'number' && options.maxWaitForWorkersMs > 0
-            ? options.maxWaitForWorkersMs
-            : (config.queryDispatcher?.maxWaitForWorkersMs || 500);
 
         this.processPoolManager = options.processPoolManager;
         this._ownsProcessPool = false;
@@ -103,13 +95,12 @@ class QueryDispatcher {
     }
 
     /**
-     * Выполнение массива запросов с оптимизированным распределением по воркерам
-     * Использует work queue pattern - батчи распределяются по воркерам по мере их освобождения
-     * Запросы делятся на батчи (не более this.minWorkers и не более количества запросов), которые обрабатываются динамически
+     * Выполнение массива запросов с немедленным распределением по воркерам
+     * Каждый запрос передается как отдельный батч, который распределяется round-robin по всем воркерам
+     * Воркеры обрабатывают несколько батчей параллельно, поэтому деление на батчи не требуется
      * @param {Array<Object>} requests
      * @param {Object} [options]
      * @param {number} [options.timeoutMs]
-     * @param {number} [options.maxWaitForWorkersMs] - Максимальное время ожидания освобождения воркеров (по умолчанию 500мс)
      * @returns {Promise<{results: Array, summary: Object}>}
      */
     async executeQueries(requests, options = {}) {
@@ -122,9 +113,6 @@ class QueryDispatcher {
         }
 
         const timeoutMs = this._resolveTimeout(options.timeoutMs);
-        const maxWaitForWorkersMs = typeof options.maxWaitForWorkersMs === 'number' && options.maxWaitForWorkersMs > 0
-            ? options.maxWaitForWorkersMs
-            : this.maxWaitForWorkersMs;
         
         // Измеряем время инициализации пула (ожидаем только один раз при первом вызове)
         const poolInitStartTime = Date.now();
@@ -138,30 +126,20 @@ class QueryDispatcher {
         // Нормализуем запросы
         const batchPreparationStartTime = Date.now();
         const preparedRequests = requests.map((request) => this._normalizeRequest(request));
-        
-        // Делим запросы на батчи (не более this.minWorkers и не более количества запросов)
-        const batches = [];
-        const actualBatchCount = Math.min(this.minWorkers, preparedRequests.length);
-        const requestsPerBatch = Math.ceil(preparedRequests.length / actualBatchCount);
-        
-        for (let i = 0; i < preparedRequests.length; i += requestsPerBatch) {
-            batches.push(preparedRequests.slice(i, i + requestsPerBatch));
-        }
         const batchPreparationTime = Date.now() - batchPreparationStartTime;
         
-        // Выполняем батчи через ProcessPoolManager с динамическим распределением
-        // waitTime и queryTime вычисляются внутри executeBatchesAsync для каждого батча
+        // Передаем каждый запрос как отдельный батч для равномерного распределения round-robin по воркерам
+        // executeBatchesAsync распределит батчи по всем доступным воркерам
         const batchExecutionStartTime = Date.now();
         const batchResultsArray = await this.processPoolManager.executeBatchesAsync(
-            batches.map(batch => batch.map((prepared) => ({
+            preparedRequests.map((prepared) => [{
                 id: prepared.id,
                 query: prepared.query,
                 collectionName: prepared.collectionName,
                 options: prepared.options
-            }))),
+            }]),
             {
-                timeoutMs,
-                maxWaitForWorkersMs
+                timeoutMs
             }
         );
         const batchExecutionTime = Date.now() - batchExecutionStartTime;
