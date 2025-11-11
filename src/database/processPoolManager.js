@@ -590,6 +590,14 @@ class ProcessPoolManager {
             return [];
         }
 
+        // Время реальной отправки батча воркеру (момент вызова worker.process.send)
+        // Это правильный момент для вычисления waitTime
+        const sentToWorkerAt = Date.now();
+        const batchEnqueuedAt = options.batchEnqueuedAt || sentToWorkerAt;
+        // Вычисляем waitTime - время от поступления батча до реальной отправки воркеру
+        // При немедленном распределении это время минимально (только время на выбор воркера и подготовку)
+        const waitTime = Math.max(0, sentToWorkerAt - batchEnqueuedAt);
+
         const normalizedRequests = requests.map((request, index) => {
             if (!request || !Array.isArray(request.query)) {
                 throw new Error(`Invalid batch request at index ${index}: query must be an array`);
@@ -635,7 +643,8 @@ class ProcessPoolManager {
                         metrics: {
                             queryTime: timeoutMs,
                             querySize: 0,
-                            resultSize: 0
+                            resultSize: 0,
+                            waitTime: waitTime
                         }
                     });
                 }, timeoutMs);
@@ -646,11 +655,15 @@ class ProcessPoolManager {
                     resolve: (payload) => {
                         clearTimeout(timeoutHandle);
                         const metrics = payload?.metrics && typeof payload.metrics === 'object' ? payload.metrics : {};
+                        // Добавляем waitTime в метрики результата
                         resolve({
                             id: request.id,
                             result: payload?.result ?? null,
                             error: payload?.error ?? null,
-                            metrics
+                            metrics: {
+                                ...metrics,
+                                waitTime: waitTime
+                            }
                         });
                     },
                     reject: (payload) => {
@@ -659,11 +672,15 @@ class ProcessPoolManager {
                             ? payload.error
                             : createErrorFromSerialized(payload?.error) || new Error('Unknown error');
                         const metrics = payload?.metrics && typeof payload.metrics === 'object' ? payload.metrics : {};
+                        // Добавляем waitTime в метрики результата даже при ошибке
                         resolve({
                             id: request.id,
                             result: null,
                             error: errorObj,
-                            metrics
+                            metrics: {
+                                ...metrics,
+                                waitTime: waitTime
+                            }
                         });
                     }
                 });
@@ -707,7 +724,8 @@ class ProcessPoolManager {
                     metrics: {
                         queryTime: 0,
                         querySize: 0,
-                        resultSize: 0
+                        resultSize: 0,
+                        waitTime: waitTime
                     }
                 });
             });
@@ -782,34 +800,25 @@ class ProcessPoolManager {
                 return null;
             }
             
-            // Время отправки батча воркеру (момент начала обработки)
-            const sentToWorkerAt = Date.now();
-            // Вычисляем waitTime - время от поступления батча до отправки воркеру
-            // При немедленном распределении это время минимально (только время на выбор воркера)
-            const waitTime = Math.max(0, sentToWorkerAt - batchEnqueuedAt);
-            
             try {
                 const { batchIndex, batch } = batchInfo;
                 
-                // Выполняем батч на воркере
-                const results = await this.executeBatchOnWorker(worker, batch, { timeoutMs });
+                // Выполняем батч на воркере, передаем batchEnqueuedAt для правильного вычисления waitTime
+                // waitTime будет вычислен в executeBatchOnWorker в момент реальной отправки воркеру
+                const results = await this.executeBatchOnWorker(worker, batch, { 
+                    timeoutMs,
+                    batchEnqueuedAt 
+                });
                 
-                // Добавляем waitTime в метрики каждого результата
-                const resultsWithMetrics = results.map((result) => ({
-                    ...result,
-                    metrics: {
-                        ...result.metrics,
-                        waitTime: waitTime
-                    }
-                }));
-                
-                batchResults.set(batchIndex, resultsWithMetrics);
-                return { batchIndex, results: resultsWithMetrics };
+                batchResults.set(batchIndex, results);
+                return { batchIndex, results };
             } catch (error) {
                 this.logger.error(
                     `ProcessPoolManager: Ошибка обработки батча ${batchInfo.batchIndex} на воркере ${worker.index}: ${error.message}`,
                     { error: error.stack, batchSize: batchInfo.batch.length }
                 );
+                // Вычисляем waitTime для ошибок - время от поступления до момента ошибки
+                const errorWaitTime = Math.max(0, Date.now() - batchEnqueuedAt);
                 const errorResults = batchInfo.batch.map((request) => ({
                     id: request.id || `query_${batchInfo.batchIndex}_${Math.random().toString(36).slice(2, 9)}`,
                     result: null,
@@ -818,7 +827,7 @@ class ProcessPoolManager {
                         queryTime: timeoutMs || 0,
                         querySize: 0,
                         resultSize: 0,
-                        waitTime: waitTime
+                        waitTime: errorWaitTime
                     }
                 }));
                 batchResults.set(batchInfo.batchIndex, errorResults);
@@ -828,13 +837,17 @@ class ProcessPoolManager {
         
         // Немедленно распределяем все батчи по воркерам (round-robin)
         // Каждый воркер может обрабатывать несколько батчей параллельно
+        // Используем this.currentWorkerIndex для глобального round-robin между вызовами
+        // В Node.js операции выполняются последовательно в event loop, поэтому инкремент
+        // this.currentWorkerIndex безопасен даже при параллельных вызовах через Promise.all
         const activePromises = [];
-        let workerIndex = 0;
         
         for (const batchInfo of batchInfos) {
-            // Выбираем воркер по round-robin
-            const worker = readyWorkers[workerIndex % readyWorkers.length];
-            workerIndex++;
+            // Выбираем воркер по round-robin с использованием глобального индекса
+            // Это обеспечивает равномерное распределение даже при множественных вызовах
+            // Инкремент this.currentWorkerIndex атомарен в контексте Node.js event loop
+            const worker = readyWorkers[this.currentWorkerIndex % readyWorkers.length];
+            this.currentWorkerIndex = (this.currentWorkerIndex + 1) % readyWorkers.length;
             
             // Запускаем обработку батча (не ждем завершения)
             const promise = processBatch(worker, batchInfo);

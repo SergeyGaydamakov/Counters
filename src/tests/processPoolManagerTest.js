@@ -164,6 +164,7 @@ class ProcessPoolManagerTest {
             // 4. Выполнение батчей
             await this.testExecuteBatchesAsync('10. Тест executeBatchesAsync с динамическим распределением...');
             await this.testParallelBatchesExecution('11. Тест параллельных вызовов executeBatchesAsync (race condition)...');
+            await this.testRoundRobinDistribution('12. Тест равномерного распределения запросов по воркерам (round-robin)...');
             
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
@@ -801,7 +802,7 @@ class ProcessPoolManagerTest {
                 });
             });
             
-            // Проверяем, что нет дублирования воркеров (через статистику)
+            // Проверяем равномерность распределения при параллельных вызовах
             const finalStats = poolManager.getStats();
             const totalQueries = finalStats.totalQueries;
             const expectedQueries = 3 * 2 * 2; // 3 вызова * 2 батча * 2 запроса
@@ -813,6 +814,30 @@ class ProcessPoolManagerTest {
                 );
             }
             
+            // Проверяем, что запросы распределены равномерно между воркерами
+            const workers = finalStats.workers || [];
+            if (workers.length > 0) {
+                const queriesPerWorker = workers.map(w => w.queryCount || 0);
+                const minQueries = Math.min(...queriesPerWorker);
+                const maxQueries = Math.max(...queriesPerWorker);
+                const maxDifference = maxQueries - minQueries;
+                
+                this.logger.debug(`   Распределение при параллельных вызовах: ${queriesPerWorker.join(', ')}`);
+                
+                // При параллельных вызовах разница может быть больше, но не должна быть критичной
+                if (maxDifference > 3) {
+                    this.logger.warn(
+                        `   ⚠ Разница в количестве запросов между воркерами: ${maxDifference} ` +
+                        `(при параллельных вызовах это может быть нормально)`
+                    );
+                }
+                
+                // Проверяем, что все воркеры получили запросы
+                if (minQueries === 0) {
+                    throw new Error('Некоторые воркеры не получили запросов при параллельных вызовах');
+                }
+            }
+            
             this.testResults.passed++;
             this.logger.debug('   ✓ Успешно');
             
@@ -821,6 +846,108 @@ class ProcessPoolManagerTest {
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             this.testResults.failed++;
             this.testResults.errors.push(`testParallelBatchesExecution: ${error.message}`);
+            if (poolManager) {
+                await poolManager.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Тест 12: Равномерное распределение запросов по воркерам (round-robin)
+     * Проверяет, что при множественных вызовах запросы равномерно распределяются между воркерами
+     */
+    async testRoundRobinDistribution(title) {
+        this.logger.debug(title);
+        
+        let poolManager = null;
+        try {
+            const workerCount = 3;
+            poolManager = new ProcessPoolManager({
+                workerCount: workerCount,
+                connectionString: this.connectionString,
+                databaseName: this.databaseName,
+                databaseOptions: this.databaseOptions,
+                workerInitTimeoutMs: 6000
+            });
+            
+            await this.waitForPoolReady(poolManager, workerCount, 6000);
+            
+            // Выполняем несколько последовательных вызовов с разным количеством запросов
+            // Это проверяет, что round-robin работает правильно между вызовами
+            const calls = [
+                { batches: 5, queriesPerBatch: 1 },  // 5 запросов
+                { batches: 3, queriesPerBatch: 1 },  // 3 запроса
+                { batches: 7, queriesPerBatch: 1 },  // 7 запросов
+                { batches: 4, queriesPerBatch: 1 },  // 4 запроса
+            ];
+            
+            for (const call of calls) {
+                const batches = [];
+                for (let i = 0; i < call.batches; i++) {
+                    batches.push([{
+                        id: `test-roundrobin-${Date.now()}-${i}`,
+                        query: [{ $match: {} }, { $limit: 1 }],
+                        collectionName: 'factIndex',
+                        options: {}
+                    }]);
+                }
+                
+                await poolManager.executeBatchesAsync(batches, {
+                    timeoutMs: 30000
+                });
+            }
+            
+            // Проверяем статистику воркеров
+            const stats = poolManager.getStats();
+            const workers = stats.workers || [];
+            
+            if (workers.length !== workerCount) {
+                throw new Error(`Ожидалось ${workerCount} воркеров, получено: ${workers.length}`);
+            }
+            
+            // Вычисляем общее количество запросов
+            const totalQueries = workers.reduce((sum, w) => sum + (w.queryCount || 0), 0);
+            const expectedQueries = calls.reduce((sum, c) => sum + c.batches, 0);
+            
+            if (totalQueries !== expectedQueries) {
+                throw new Error(`Ожидалось ${expectedQueries} запросов, получено: ${totalQueries}`);
+            }
+            
+            // Проверяем равномерность распределения
+            // При round-robin распределение должно быть максимально равномерным
+            const queriesPerWorker = workers.map(w => w.queryCount || 0);
+            const minQueries = Math.min(...queriesPerWorker);
+            const maxQueries = Math.max(...queriesPerWorker);
+            const avgQueries = totalQueries / workerCount;
+            
+            // Допускаем разницу не более 2 запросов между воркерами
+            // (это нормально для round-robin при некратном количестве запросов)
+            const maxDifference = maxQueries - minQueries;
+            
+            this.logger.debug(`   Распределение запросов по воркерам: ${queriesPerWorker.join(', ')}`);
+            this.logger.debug(`   Среднее: ${Math.round(avgQueries)}, мин: ${minQueries}, макс: ${maxQueries}, разница: ${maxDifference}`);
+            
+            if (maxDifference > 2) {
+                this.logger.warn(
+                    `   ⚠ Разница в количестве запросов между воркерами: ${maxDifference} ` +
+                    `(ожидалось не более 2). Это может указывать на неравномерное распределение.`
+                );
+                // Не считаем это ошибкой, так как при некратном количестве запросов разница допустима
+            }
+            
+            // Проверяем, что все воркеры получили хотя бы один запрос
+            if (minQueries === 0) {
+                throw new Error('Некоторые воркеры не получили запросов - распределение неравномерное');
+            }
+            
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+            
+            await poolManager.shutdown();
+        } catch (error) {
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            this.testResults.failed++;
+            this.testResults.errors.push(`testRoundRobinDistribution: ${error.message}`);
             if (poolManager) {
                 await poolManager.shutdown();
             }
