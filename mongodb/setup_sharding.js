@@ -142,16 +142,16 @@ try {
     // Параметры создания коллекции для производственной среды
     const productionCreateOptions = {
         validator: factsSchema,
-        /* Замедляет работу
-        clusteredIndex: {
-            key: { "_id": 1 },
-            unique: true,
-            name: "facts clustered key" 
-        },
-        */
         validationLevel: "off",
         validationAction: "warn"
     };
+    if (CLUSTERED_INDEX_KEY) {
+        productionCreateOptions.clusteredIndex = {
+            key: { "_id": 1 },
+            unique: true,
+            name: "clustered_key" 
+        };
+    }
 
     // Тестовая среда
     const testCreateOptions = {
@@ -159,6 +159,14 @@ try {
         validationLevel: "strict",
         validationAction: "error"
     };
+    if (CLUSTERED_INDEX_KEY) {
+        testCreateOptions.clusteredIndex = {
+            key: { "_id": 1 },
+            unique: true,
+            name: "clustered_key" 
+        };
+    }
+
     if (factsCollections.length > 0) {
         // Коллекция существует, обновляем схему валидации
         factsDb.runCommand({
@@ -300,13 +308,6 @@ try {
     // Параметры создания коллекции для производственной среды
     const productionCreateOptions = {
         validator: factIndexSchema,
-        /* Замедляет работу
-        clusteredIndex: {
-            key: { "_id": 1 },
-            unique: true,
-            name: "factIndex clustered key"
-        },
-        */
         validationLevel: "off",
         validationAction: "warn"
     };
@@ -323,6 +324,14 @@ try {
         validationLevel: "strict",
         validationAction: "error"
     };
+    if (CLUSTERED_INDEX_KEY) {
+        testCreateOptions.clusteredIndex = {
+            key: { "_id": 1 },
+            unique: true,
+            name: "clustered_key" 
+        };
+    }
+
     if (factIndexCollections.length > 0) {
         // Коллекция существует, обновляем схему валидации
         factIndexDb.runCommand({

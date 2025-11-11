@@ -217,6 +217,7 @@ class MongoProviderTest {
 
             // Тесты создания базы данных
             await this.testCreateDatabase('5. Тест создания базы данных...');
+
             // Тесты работы с фактами
             await this.testInsertFact('6. Тест вставки одного факта...');
             await this.testBulkInsert('7. Тест массовой вставки фактов...');
@@ -240,7 +241,6 @@ class MongoProviderTest {
             await this.testGetRelevantFactsWithDepthLimit('19. Тест получения релевантных фактов с ограничением глубины...');
             await this.testGetRelevantFactsWithDepthFromDate('20. Тест получения релевантных фактов с глубиной от даты...');
             await this.testGetRelevantFactsWithBothParameters('21. Тест получения релевантных фактов с обоими параметрами...');
-
             // Тесты получения релевантных счетчиков фактов
             await this.testGetRelevantFactCounters('22. Тест получения и проверки релевантных счетчиков фактов...');
             await this.testGetRelevantFactCountersWithMultipleFields('23. Тест получения релевантных счетчиков с множественными полями...');

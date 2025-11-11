@@ -870,7 +870,7 @@ class MongoProvider {
             facet.push(limitStage);
         }
         facet.push(groupStage);
-        if (config.facts.splitIntervals) {
+        if (!config.facts.splitIntervals) {
             // Добавление подсчета уникальных значений для счетчика, но только если нет сплитования интервалов, иначе не сможем потом выполнить подсчет
             const addFieldsStage = {};
             Object.keys(counter.attributes).forEach(counterName => {
@@ -1997,20 +1997,14 @@ class MongoProvider {
                 "h": indexInfo.hashValue
             };
             if (config.facts.clusteredIndexKey) {
-                // Если есть кластерный ключ, то используем поле _id
-                if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0) {
-                    const fromDateTime = indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0 ? nowDate - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs : (depthFromDate ? depthFromDate.getTime() : nowDate);
-                    if (!match["_id"]) {
-                        match["_id"] = {};
-                    }
-                    match["_id"]["$gte"] = indexInfo.hashValue + ":" + new Date(fromDateTime).toISOString();
+                // Если есть кластерный ключ, то используем поле _id и обязательно фильтруем с двух сторон, чтобы использовать кластерный индекс
+                if (!match["_id"]) {
+                    match["_id"] = {};
                 }
-                if (indexLimits[indexTypeNameWithGroupNumber].toTimeMs > 0) {
-                    if (!match["_id"]) {
-                        match["_id"] = {};
-                    }
-                    match["_id"]["$lt"] = indexInfo.hashValue + ":" + new Date(nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs).toISOString();
-                }
+                const fromDateTime = nowDate - indexLimits[indexTypeNameWithGroupNumber].fromTimeMs ?? 0;
+                match["_id"]["$gte"] = indexInfo.hashValue + ":" + (indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0 ? new Date(fromDateTime).toISOString(): "");
+                const toDateTime = nowDate - indexLimits[indexTypeNameWithGroupNumber].toTimeMs ?? 0;
+                match["_id"]["$lt"] = indexInfo.hashValue + ":" + new Date(toDateTime).toISOString();
             } else {
                 // Если нет кластерного ключа, то используем поля h и dt
                 if (depthFromDate || indexLimits[indexTypeNameWithGroupNumber].fromTimeMs > 0) {
@@ -2039,10 +2033,7 @@ class MongoProvider {
                     */
                 }
             }
-            const sort = {
-                "h": 1,
-                "dt": -1
-            };
+            const sort = config.facts.clusteredIndexKey ? {"_id": -1} : {"h": 1, "dt": -1};
             const limit = (!indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords || indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords > depthLimit) ? depthLimit : indexLimits[indexTypeNameWithGroupNumber].maxEvaluatedRecords;
             const aggregateIndexQuery = [
                 { "$match": match },
@@ -2884,21 +2875,29 @@ class MongoProvider {
                 // Параметры создания коллекции для производственной среды
                 const productionCreateOptions = {
                     validator: schema,
-                    /* Замедляет работу
-                    clusteredIndex: {
-                        key: { "_id": 1 },
-                        unique: true
-                    },
-                    */
                     validationLevel: "off",
                     validationAction: "warn"
                 };
+                if (config.facts.clusteredIndexKey) {
+                    productionCreateOptions.clusteredIndex = {
+                        key: { "_id": 1 },
+                        unique: true,
+                        name: "clustered_key" 
+                    };
+                }
                 // Тестовая среда
                 const testCreateOptions = {
                     validator: schema,
                     validationLevel: "strict",
                     validationAction: "error"
                 };
+                if (config.facts.clusteredIndexKey) {
+                    testCreateOptions.clusteredIndex = {
+                        key: { "_id": 1 },
+                        unique: true,
+                        name: "clustered_key" 
+                    };
+                }
                 await this._counterDb.createCollection(this.FACT_COLLECTION_NAME, testCreateOptions);
             }
 
