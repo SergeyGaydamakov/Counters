@@ -4373,14 +4373,17 @@ class MongoProviderTest {
                 };
 
                 // Создаем factIndexInfos с countersCount
+                // Структура изменилась: теперь требуется index.indexTypeName вместо indexTypeName
                 const factIndexInfos = [
                     {
-                        indexTypeName: "test_type_1",
-                        countersCount: [
-                            { "limit": 0, "count": 10 },   // Для счетчиков с maxEvaluatedRecords >= 0, но < 20
-                            { "limit": 20, "count": 5 },    // Для счетчиков с maxEvaluatedRecords >= 20, но < 30
-                            { "limit": 30, "count": 2 }     // Для счетчиков с maxEvaluatedRecords >= 30, но < 40
-                        ]
+                        index: {
+                            indexTypeName: "test_type_1",
+                            countersCount: [
+                                { "limit": 0, "count": 10 },   // Для счетчиков с maxEvaluatedRecords >= 0, но < 20
+                                { "limit": 20, "count": 5 },    // Для счетчиков с maxEvaluatedRecords >= 20, но < 30
+                                { "limit": 30, "count": 2 }     // Для счетчиков с maxEvaluatedRecords >= 30, но < 40
+                            ]
+                        }
                     }
                 ];
 
