@@ -93,7 +93,11 @@
       "sum_amount": {
         "$sum": "$d.a"
       }
-    }
+    },
+    "fromTimeMs": 31536000000,
+    "toTimeMs": 0,
+    "maxEvaluatedRecords": 1000,
+    "maxMatchingRecords": 10    
   },
   {
     "name": "test_counter_2_f2_enum_filter",
@@ -114,11 +118,7 @@
             }
           }
         ]
-      },
-      "fromTimeMs": 31536000000,
-      "toTimeMs": 0,
-      "maxEvaluatedRecords": 1000,
-      "maxMatchingRecords": 10
+      }
     },
     "evaluationConditions": {
       "d.f2": {

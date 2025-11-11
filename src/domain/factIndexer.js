@@ -146,10 +146,6 @@ class FactIndexer {
             throw new Error('Конфигурация не может быть пустым массивом');
         }
 
-
-        // Регулярное выражение для проверки названий полей f1-f23
-        const fieldNamePattern = /^f([1-9]|1[0-9]|2[0-3])$/;
-
         indexConfig.forEach((configItem, index) => {
             // Проверяем, что элемент конфигурации является объектом
             if (!configItem || typeof configItem !== 'object') {
@@ -202,16 +198,56 @@ class FactIndexer {
                 throw new Error(`Элемент конфигурации ${index}: поле 'dateName' должно быть строкой`);
             }
 
-            // Проверяем на наличие лишних полей
-            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName', 'limit', 'comment', 'computationConditions'];
-            const extraFields = Object.keys(configItem).filter(key => !allowedFields.includes(key));
-            if (extraFields.length > 0) {
-                throw new Error(`Элемент конфигурации ${index}: содержит недопустимые поля: ${extraFields.join(', ')}`);
-            }
-
             // Валидация computationConditions (если указано)
             if ('computationConditions' in configItem && configItem.computationConditions !== null && typeof configItem.computationConditions !== 'object') {
                 throw new Error(`Элемент конфигурации ${index}: поле 'computationConditions' должно быть объектом или null`);
+            }
+
+            // Валидация countersCount (если указано)
+            if ('countersCount' in configItem) {
+                if (!Array.isArray(configItem.countersCount)) {
+                    throw new Error(`Элемент конфигурации ${index}: поле 'countersCount' должно быть массивом`);
+                }
+                
+                configItem.countersCount.forEach((counterItem, counterIndex) => {
+                    if (!counterItem || typeof counterItem !== 'object') {
+                        throw new Error(`Элемент конфигурации ${index}: элемент countersCount[${counterIndex}] должен быть объектом`);
+                    }
+                    
+                    // Проверяем наличие обязательных полей
+                    if (!('limit' in counterItem)) {
+                        throw new Error(`Элемент конфигурации ${index}: элемент countersCount[${counterIndex}] должен содержать поле 'limit'`);
+                    }
+                    
+                    if (!('count' in counterItem)) {
+                        throw new Error(`Элемент конфигурации ${index}: элемент countersCount[${counterIndex}] должен содержать поле 'count'`);
+                    }
+                    
+                    // Проверяем типы полей
+                    if (typeof counterItem.limit !== 'number') {
+                        throw new Error(`Элемент конфигурации ${index}: элемент countersCount[${counterIndex}]: поле 'limit' должно быть числом`);
+                    }
+                    
+                    if (typeof counterItem.count !== 'number') {
+                        throw new Error(`Элемент конфигурации ${index}: элемент countersCount[${counterIndex}]: поле 'count' должно быть числом`);
+                    }
+                    
+                    // Проверяем, что значения являются положительными целыми числами
+                    if (!Number.isInteger(counterItem.limit) || counterItem.limit < 0) {
+                        throw new Error(`Элемент конфигурации ${index}: элемент countersCount[${counterIndex}]: поле 'limit' должно быть положительным целым числом, получено: ${counterItem.limit}`);
+                    }
+                    
+                    if (!Number.isInteger(counterItem.count) || counterItem.count <= 0) {
+                        throw new Error(`Элемент конфигурации ${index}: элемент countersCount[${counterIndex}]: поле 'count' должно быть положительным целым числом, получено: ${counterItem.count}`);
+                    }
+                });
+            }
+
+            // Проверяем на наличие лишних полей
+            const allowedFields = ['fieldName', 'indexTypeName', 'indexType', 'indexValue', 'dateName', 'limit', 'comment', 'computationConditions', 'countersCount'];
+            const extraFields = Object.keys(configItem).filter(key => !allowedFields.includes(key));
+            if (extraFields.length > 0) {
+                throw new Error(`Элемент конфигурации ${index}: содержит недопустимые поля: ${extraFields.join(', ')}`);
             }
         });
 

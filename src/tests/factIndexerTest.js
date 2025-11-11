@@ -901,6 +901,187 @@ class FactIndexerTest {
                 }],
                 description: 'неправильное значение indexValue',
                 shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 10, count: 10 },
+                        { limit: 20, count: 5 }
+                    ]
+                }],
+                description: 'валидная конфигурация с countersCount',
+                shouldThrow: false
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: 'not an array'
+                }],
+                description: 'countersCount не массив',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        'not an object'
+                    ]
+                }],
+                description: 'элемент countersCount не объект',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { count: 10 }
+                    ]
+                }],
+                description: 'отсутствует поле limit в countersCount',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 10 }
+                    ]
+                }],
+                description: 'отсутствует поле count в countersCount',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 'not a number', count: 10 }
+                    ]
+                }],
+                description: 'limit в countersCount не число',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 10, count: 'not a number' }
+                    ]
+                }],
+                description: 'count в countersCount не число',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: -5, count: 10 }
+                    ]
+                }],
+                description: 'limit в countersCount отрицательное число',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 10, count: -5 }
+                    ]
+                }],
+                description: 'count в countersCount отрицательное число',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 10.5, count: 10 }
+                    ]
+                }],
+                description: 'limit в countersCount не целое число',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 10, count: 10.5 }
+                    ]
+                }],
+                description: 'count в countersCount не целое число',
+                shouldThrow: true
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 0, count: 10 }
+                    ]
+                }],
+                description: 'limit в countersCount равен нулю',
+                shouldThrow: false
+            },
+            {
+                config: [{
+                    fieldName: 'f1',
+                    dateName: 'dt',
+                    indexTypeName: 'test',
+                    indexType: 1,
+                    indexValue: 1,
+                    countersCount: [
+                        { limit: 10, count: 0 }
+                    ]
+                }],
+                description: 'count в countersCount равен нулю',
+                shouldThrow: true
             }
         ];
 

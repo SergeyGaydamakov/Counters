@@ -13,7 +13,12 @@
         "$options": "i"
       }
     },
-    "limit": 1000
+    "limit": 1000,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": ["f2", "f2_dst"],
@@ -24,7 +29,12 @@
     "computationConditions": {
       "t": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     },
-    "limit": 500
+    "limit": 500,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": ["f3", "f3_dst"],
@@ -33,7 +43,12 @@
     "indexType": 3,
     "indexValue": 1,
     "computationConditions": null,
-    "limit": 1000
+    "limit": 1000,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": "f4",
@@ -41,7 +56,12 @@
     "indexTypeName": "idx_f4",
     "indexType": 4,
     "indexValue": 1,
-    "limit": 1000
+    "limit": 1000,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": "f5",
@@ -49,7 +69,12 @@
     "indexTypeName": "idx_f5",
     "indexType": 5,
     "indexValue": 1,
-    "limit": 200
+    "limit": 200,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": "f6",
@@ -57,7 +82,12 @@
     "indexTypeName": "idx_f6",
     "indexType": 6,
     "indexValue": 1,
-    "limit": 500
+    "limit": 500,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": "f7",
@@ -65,7 +95,12 @@
     "indexTypeName": "idx_f7",
     "indexType": 7,
     "indexValue": 1,
-    "limit": 1000
+    "limit": 1000,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": "f8",
@@ -73,7 +108,12 @@
     "indexTypeName": "idx_f8",
     "indexType": 8,
     "indexValue": 1,
-    "limit": 1000
+    "limit": 1000,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": "f9",
@@ -81,7 +121,12 @@
     "indexTypeName": "idx_f9",
     "indexType": 9,
     "indexValue": 1,
-    "limit": 1000
+    "limit": 1000,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   },
   {
     "fieldName": "f10",
@@ -89,6 +134,11 @@
     "indexTypeName": "idx_f10",
     "indexType": 10,
     "indexValue": 1,
-    "limit": 1000
+    "limit": 1000,
+    "countersCount": [
+      {"limit": 0, "count": 10},
+      {"limit": 20, "count": 5},
+      {"limit": 30, "count": 2}
+    ]
   }
   ]

@@ -206,7 +206,7 @@ class MongoProviderTest {
      * Запуск всех тестов
      */
     async runAllTests() {
-        this.logger.debug('=== Тестирование всех методов MongoProvider (38 тестов) ===\n');
+        this.logger.debug('=== Тестирование всех методов MongoProvider (39 тестов) ===\n');
 
         try {
             // Тесты подключения
@@ -265,6 +265,7 @@ class MongoProviderTest {
             await this.testCounterEdgeCases('36. Тест граничных случаев счетчиков...');
             await this.testQueryIdCollisionsUnderLoad('37. Тест конфликтов идентификаторов запросов под нагрузкой...');
             await this.testGetFactIndexCountersInfoWithSplitIntervals('38. Тест getFactIndexCountersInfo с splitIntervals...');
+            await this.testGetFactIndexCountersInfoWithCountersCount('39. Тест getFactIndexCountersInfo с группировкой по maxEvaluatedRecords...');
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
@@ -4227,6 +4228,311 @@ class MongoProviderTest {
         } catch (error) {
             this.testResults.failed++;
             this.testResults.errors.push(`testGetFactIndexCountersInfoWithSplitIntervals: ${error.message}`);
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            if (error.stack) {
+                this.logger.error(`   Stack: ${error.stack}`);
+            }
+        }
+    }
+
+    /**
+     * Тест getFactIndexCountersInfo с группировкой по maxEvaluatedRecords
+     */
+    async testGetFactIndexCountersInfoWithCountersCount(title) {
+        this.logger.debug(title);
+
+        try {
+            const originalMaxCountersProcessing = config.facts.maxCountersProcessing;
+            const originalMaxCountersPerRequest = config.facts.maxCountersPerRequest;
+            let testProvider = null;
+
+            try {
+                // Отключаем ограничение на количество счетчиков для теста
+                config.facts.maxCountersProcessing = 0;
+                config.facts.maxCountersPerRequest = 0;
+
+                // Создаем тестовые счетчики с разными maxEvaluatedRecords
+                // Структура countersCount:
+                // - limit: 0, count: 10  -> для счетчиков с maxEvaluatedRecords <= 0 (или до 20)
+                // - limit: 20, count: 5  -> для счетчиков с maxEvaluatedRecords <= 20 (но > 0)
+                // - limit: 30, count: 2  -> для счетчиков с maxEvaluatedRecords <= 30 (но > 20)
+                const testCountersConfig = [
+                    {
+                        name: "counter_1",
+                        comment: "Счетчик с maxEvaluatedRecords = 5",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 5  // Попадает в группу с count = 10 (limit = 0)
+                    },
+                    {
+                        name: "counter_2",
+                        comment: "Счетчик с maxEvaluatedRecords = 10",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 10  // Попадает в группу с count = 10 (limit = 0)
+                    },
+                    {
+                        name: "counter_3",
+                        comment: "Счетчик с maxEvaluatedRecords = 15",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 15  // Попадает в группу с count = 10 (limit = 0)
+                    },
+                    {
+                        name: "counter_4",
+                        comment: "Счетчик с maxEvaluatedRecords = 20",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 20  // Попадает в группу с count = 5 (limit = 20)
+                    },
+                    {
+                        name: "counter_5",
+                        comment: "Счетчик с maxEvaluatedRecords = 25",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 25  // Попадает в группу с count = 5 (limit = 20)
+                    },
+                    {
+                        name: "counter_6",
+                        comment: "Счетчик с maxEvaluatedRecords = 30",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 30  // Попадает в группу с count = 2 (limit = 30)
+                    },
+                    {
+                        name: "counter_7",
+                        comment: "Счетчик с maxEvaluatedRecords = 35",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 35  // Попадает в группу с count = 2 (limit = 30)
+                    },
+                    {
+                        name: "counter_8",
+                        comment: "Счетчик с maxEvaluatedRecords = 40",
+                        indexTypeName: "test_type_1",
+                        computationConditions: { t: [1] },
+                        evaluationConditions: null,
+                        attributes: { "count": { "$sum": 1 } },
+                        fromTimeMs: 60000,
+                        toTimeMs: 0,
+                        maxEvaluatedRecords: 40  // Попадает в группу с count = 2 (limit = 30)
+                    }
+                ];
+
+                const testMongoCounters = new CounterProducer(testCountersConfig);
+                testProvider = new MongoProvider(
+                    config.database.connectionString,
+                    'mongoProviderTestDB',
+                    config.database.options,
+                    testMongoCounters,
+                    config.facts.includeFactDataToIndex,
+                    config.facts.lookupFacts,
+                    config.facts.indexBulkUpdate
+                );
+                await testProvider.connect();
+
+                // Создаем тестовый факт
+                const testFact = {
+                    _id: 'test-fact-counters-count',
+                    t: 1,
+                    c: new Date(),
+                    d: {
+                        amount: 100,
+                        dt: new Date(),
+                        f1: 'value1',
+                        f2: 'value2'
+                    }
+                };
+
+                // Создаем factIndexInfos с countersCount
+                const factIndexInfos = [
+                    {
+                        indexTypeName: "test_type_1",
+                        countersCount: [
+                            { "limit": 0, "count": 10 },   // Для счетчиков с maxEvaluatedRecords <= 0
+                            { "limit": 20, "count": 5 },    // Для счетчиков с maxEvaluatedRecords <= 20
+                            { "limit": 30, "count": 2 }     // Для счетчиков с maxEvaluatedRecords <= 30
+                        ]
+                    }
+                ];
+
+                // Вызываем getFactIndexCountersInfo с factIndexInfos
+                const result = testProvider.getFactIndexCountersInfo(testFact, "dt", factIndexInfos);
+
+                // Проверяем результат
+                if (!result) {
+                    throw new Error('getFactIndexCountersInfo вернул null');
+                }
+
+                if (!result.indexFacetStages) {
+                    throw new Error('Отсутствует indexFacetStages в результате');
+                }
+
+                if (!result.indexLimits) {
+                    throw new Error('Отсутствует indexLimits в результате');
+                }
+
+                // Анализируем группировку счетчиков
+                const indexTypeNames = Object.keys(result.indexFacetStages);
+                this.logger.debug(`   Найдено типов индексов: ${indexTypeNames.length}`);
+                this.logger.debug(`   Типы индексов: ${indexTypeNames.join(', ')}`);
+
+                // Группируем счетчики по группам
+                const groupsByIndexType = {};
+                for (const indexTypeName of indexTypeNames) {
+                    const match = indexTypeName.match(/^(.+)#(\d+)$/);
+                    if (match) {
+                        const baseIndexType = match[1];
+                        const groupNumber = parseInt(match[2]);
+                        if (!groupsByIndexType[baseIndexType]) {
+                            groupsByIndexType[baseIndexType] = {};
+                        }
+                        if (!groupsByIndexType[baseIndexType][groupNumber]) {
+                            groupsByIndexType[baseIndexType][groupNumber] = [];
+                        }
+                        const counters = Object.keys(result.indexFacetStages[indexTypeName]);
+                        groupsByIndexType[baseIndexType][groupNumber].push(...counters);
+                    } else {
+                        // Счетчики без номера группы (группа #1)
+                        const baseIndexType = indexTypeName;
+                        if (!groupsByIndexType[baseIndexType]) {
+                            groupsByIndexType[baseIndexType] = {};
+                        }
+                        if (!groupsByIndexType[baseIndexType][1]) {
+                            groupsByIndexType[baseIndexType][1] = [];
+                        }
+                        const counters = Object.keys(result.indexFacetStages[indexTypeName]);
+                        groupsByIndexType[baseIndexType][1].push(...counters);
+                    }
+                }
+
+                // Проверяем группировку для test_type_1
+                const testType1Groups = groupsByIndexType["test_type_1"];
+                if (!testType1Groups) {
+                    throw new Error('Не найдены группы для test_type_1');
+                }
+
+                this.logger.debug(`   Найдено групп для test_type_1: ${Object.keys(testType1Groups).length}`);
+                for (const [groupNumber, counters] of Object.entries(testType1Groups)) {
+                    this.logger.debug(`   Группа #${groupNumber}: ${counters.length} счетчиков - ${counters.join(', ')}`);
+                }
+
+                // Ожидаемая группировка на основе логики:
+                // Логика: для каждого счетчика определяется countersCountInGroup на основе maxEvaluatedRecords
+                // Если countersCountInGroup > 0 и countersCountInGroup <= текущее количество счетчиков в группе,
+                // то создается новая группа
+                // 
+                // - counter_1: maxEvaluatedRecords = 5 -> countersCountInGroup = 10, countersCount = 1 -> группа #1
+                // - counter_2: maxEvaluatedRecords = 10 -> countersCountInGroup = 10, countersCount = 2 -> группа #1
+                // - counter_3: maxEvaluatedRecords = 15 -> countersCountInGroup = 10, countersCount = 3 -> группа #1
+                // - counter_4: maxEvaluatedRecords = 20 -> countersCountInGroup = 5, countersCount = 4 -> группа #1 (5 <= 4 = false)
+                // - counter_5: maxEvaluatedRecords = 25 -> countersCountInGroup = 5, countersCount = 5 -> группа #2 (5 <= 5 = true)
+                // - counter_6: maxEvaluatedRecords = 30 -> countersCountInGroup = 2, countersCount = 1 -> группа #2 (2 <= 1 = false)
+                // - counter_7: maxEvaluatedRecords = 35 -> countersCountInGroup = 2, countersCount = 2 -> группа #3 (2 <= 2 = true)
+                // - counter_8: maxEvaluatedRecords = 40 -> countersCountInGroup = 2, countersCount = 1 -> группа #3 (2 <= 1 = false)
+                //
+                // Ожидаемый результат:
+                // Группа #1: counter_1, counter_2, counter_3, counter_4
+                // Группа #2: counter_5, counter_6
+                // Группа #3: counter_7, counter_8
+                
+                // Проверяем, что счетчики с maxEvaluatedRecords <= 20 попадают в группу #1
+                // (counter_1, counter_2, counter_3, counter_4 должны быть в группе #1)
+                const group1Counters = testType1Groups[1] || [];
+                const expectedGroup1Counters = ['counter_1', 'counter_2', 'counter_3', 'counter_4'];
+                for (const expectedCounter of expectedGroup1Counters) {
+                    if (!group1Counters.includes(expectedCounter)) {
+                        throw new Error(`Счетчик ${expectedCounter} должен быть в группе #1, но найден в других группах. Группа #1: ${group1Counters.join(', ')}`);
+                    }
+                }
+                // Проверяем, что в группе #1 не более 10 счетчиков (count = 10 для limit = 0)
+                // Но на самом деле counter_4 имеет count = 5, поэтому группа может быть ограничена 5 счетчиками
+                // Однако counter_4 добавляется когда countersCount = 4, и 5 <= 4 = false, поэтому он попадает в группу #1
+                this.logger.debug(`   ✓ Группа #1 содержит счетчики с maxEvaluatedRecords <= 20: ${group1Counters.join(', ')}`);
+
+                // Проверяем, что counter_5 и counter_6 находятся в группе #2
+                const group2Counters = testType1Groups[2] || [];
+                if (!group2Counters.includes('counter_5')) {
+                    throw new Error(`Счетчик counter_5 должен быть в группе #2, но найден в других группах. Группа #2: ${group2Counters.join(', ')}`);
+                }
+                if (!group2Counters.includes('counter_6')) {
+                    throw new Error(`Счетчик counter_6 должен быть в группе #2, но найден в других группах. Группа #2: ${group2Counters.join(', ')}`);
+                }
+                // Проверяем, что в группе #2 не более 5 счетчиков (count = 5 для limit = 20)
+                // Но counter_6 имеет count = 2, поэтому группа может быть ограничена 2 счетчиками
+                // Однако counter_6 добавляется когда countersCount = 1, и 2 <= 1 = false, поэтому он попадает в группу #2
+                if (group2Counters.length > 5) {
+                    throw new Error(`Группа #2 содержит ${group2Counters.length} счетчиков, но должно быть не более 5. Счетчики: ${group2Counters.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Группа #2 содержит счетчики: ${group2Counters.join(', ')}`);
+
+                // Проверяем, что counter_7 и counter_8 находятся в группе #3
+                const group3Counters = testType1Groups[3] || [];
+                if (!group3Counters.includes('counter_7')) {
+                    throw new Error(`Счетчик counter_7 должен быть в группе #3, но найден в других группах. Группа #3: ${group3Counters.join(', ')}`);
+                }
+                if (!group3Counters.includes('counter_8')) {
+                    throw new Error(`Счетчик counter_8 должен быть в группе #3, но найден в других группах. Группа #3: ${group3Counters.join(', ')}`);
+                }
+                // Проверяем, что в группе #3 не более 2 счетчиков (count = 2 для limit = 30)
+                if (group3Counters.length > 2) {
+                    throw new Error(`Группа #3 содержит ${group3Counters.length} счетчиков, но должно быть не более 2. Счетчики: ${group3Counters.join(', ')}`);
+                }
+                this.logger.debug(`   ✓ Группа #3 содержит счетчики: ${group3Counters.join(', ')}`);
+
+                // Проверяем, что все счетчики распределены по группам
+                const allCountersInGroups = [];
+                for (const [groupNumber, counters] of Object.entries(testType1Groups)) {
+                    allCountersInGroups.push(...counters);
+                }
+                const expectedAllCounters = ['counter_1', 'counter_2', 'counter_3', 'counter_4', 'counter_5', 'counter_6', 'counter_7', 'counter_8'];
+                for (const expectedCounter of expectedAllCounters) {
+                    if (!allCountersInGroups.includes(expectedCounter)) {
+                        throw new Error(`Счетчик ${expectedCounter} не найден ни в одной группе`);
+                    }
+                }
+                this.logger.debug(`   ✓ Все счетчики распределены по группам: ${allCountersInGroups.join(', ')}`);
+
+                this.testResults.passed++;
+                this.logger.debug('   ✓ Успешно: getFactIndexCountersInfo корректно группирует счетчики по maxEvaluatedRecords');
+            } finally {
+                if (testProvider) {
+                    await testProvider.disconnect();
+                }
+                config.facts.maxCountersProcessing = originalMaxCountersProcessing;
+                config.facts.maxCountersPerRequest = originalMaxCountersPerRequest;
+            }
+        } catch (error) {
+            this.testResults.failed++;
+            this.testResults.errors.push(`testGetFactIndexCountersInfoWithCountersCount: ${error.message}`);
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             if (error.stack) {
                 this.logger.error(`   Stack: ${error.stack}`);

@@ -340,13 +340,26 @@ class CounterProducer {
                     this._counterConfigByType[type].push(counter);
                 }
             });
-            // Сортируем счетчики в порядке возрастания toTimeMs и затем по возрастанию fromTimeMs
-            this._counterConfigByType[type].sort((a, b) => {
-                if (a.toTimeMs !== b.toTimeMs) {
-                    return a.toTimeMs - b.toTimeMs;
-                }
-                return a.fromTimeMs - b.fromTimeMs;
-            });
+            if (config.facts.splitIntervals) {
+                // Сортируем счетчики в порядке возрастания toTimeMs и затем по возрастанию fromTimeMs
+                this._counterConfigByType[type].sort((a, b) => {
+                    if (a.toTimeMs !== b.toTimeMs) {
+                        return a.toTimeMs - b.toTimeMs;
+                    }
+                    return a.fromTimeMs - b.fromTimeMs;
+                });
+            } else {
+                // Сортируем счетчики в порядке возрастания limit и затем по возрастанию toTimeMs и затем по возрастанию fromTimeMs
+                this._counterConfigByType[type].sort((a, b) => {
+                    if (a.maxEvaluatedRecords !== b.maxEvaluatedRecords) {
+                        return (a.maxEvaluatedRecords ?? 100000) - (b.maxEvaluatedRecords ?? 100000);
+                    }
+                    if (a.toTimeMs !== b.toTimeMs) {
+                        return a.toTimeMs - b.toTimeMs;
+                    }
+                    return a.fromTimeMs - b.fromTimeMs;
+                });
+            }
         }
         return this._counterConfigByType[type];
     }

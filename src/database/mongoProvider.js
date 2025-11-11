@@ -684,11 +684,17 @@ class MongoProvider {
                 const indexBulk = factIndexCollection.initializeUnorderedBulkOp(bulkWriteOptions);
 
                 factIndexValues.forEach(indexValue => {
-                    // Используем уникальный индекс {h: 1, f: 1} для поиска и обновления
-                    const indexFilter = {
-                        h: indexValue.h,
-                        f: indexValue.f
-                    };
+                    // Если _id задан явно (clusteredIndexKey), используем его для поиска и обновления
+                    // Иначе используем уникальный индекс {h: 1, f: 1}
+                    let indexFilter;
+                    if (indexValue._id !== undefined) {
+                        indexFilter = { _id: indexValue._id };
+                    } else {
+                        indexFilter = {
+                            h: indexValue.h,
+                            f: indexValue.f
+                        };
+                    }
                     indexBulk.find(indexFilter).upsert().updateOne({ $set: indexValue });
                     if (this._debugMode) {
                         this.logger.debug("   indexValue: " + JSON.stringify(indexValue));
@@ -700,6 +706,50 @@ class MongoProvider {
 
                 inserted = indexResult.upsertedCount || 0;
                 updated = indexResult.modifiedCount || 0;
+
+                // Обработка ошибок дубликатов (E11000) для документов с явно заданным _id
+                if (writeErrors.length > 0) {
+                    const duplicateErrors = writeErrors.filter(err => err.code === 11000);
+                    if (duplicateErrors.length > 0) {
+                        // Пытаемся обновить документы с ошибками дубликатов по _id
+                        const retryPromises = duplicateErrors.map(async (error) => {
+                            // Находим индексное значение по индексу ошибки
+                            const errorIndex = error.index;
+                            if (errorIndex >= 0 && errorIndex < factIndexValues.length) {
+                                const indexValue = factIndexValues[errorIndex];
+                                if (indexValue._id !== undefined) {
+                                    try {
+                                        const retryResult = await factIndexCollection.updateOne(
+                                            { _id: indexValue._id },
+                                            { $set: indexValue },
+                                            {
+                                                readConcern: this._databaseOptions.readConcern,
+                                                readPreference: { "mode": "primary" },
+                                                writeConcern: this._databaseOptions.writeConcern,
+                                                upsert: false
+                                            }
+                                        );
+                                        if (retryResult.modifiedCount > 0) {
+                                            updated++;
+                                            // Удаляем ошибку из списка, так как она была успешно обработана
+                                            return null;
+                                        }
+                                    } catch (retryError) {
+                                        this.logger.error(`✗ Ошибка при повторной попытке обновления индексного значения по _id ${indexValue._id}: ${retryError.message}`);
+                                    }
+                                }
+                            }
+                            return error; // Возвращаем ошибку, если не удалось обработать
+                        });
+                        const retryResults = await Promise.all(retryPromises);
+                        // Обновляем список ошибок, удаляя успешно обработанные
+                        writeErrors = writeErrors.filter((err, idx) => {
+                            const duplicateIdx = duplicateErrors.findIndex(de => de === err);
+                            return duplicateIdx === -1 || retryResults[duplicateIdx] !== null;
+                        });
+                    }
+                }
+
                 duplicatesIgnored = factIndexValues.length - inserted - updated;
             } else {
                 const updateOptions = {
@@ -713,8 +763,15 @@ class MongoProvider {
                 const updatePromises = factIndexValues.map(async (indexValue) => {
                     const startTime = Date.now();
                     try {
-                        // Используем уникальный индекс {h: 1, f: 1} для поиска и обновления
-                        const result = await factIndexCollection.updateOne({ h: indexValue.h, f: indexValue.f }, { $set: indexValue }, updateOptions);
+                        // Если _id задан явно (clusteredIndexKey), используем его для поиска и обновления
+                        // Иначе используем уникальный индекс {h: 1, f: 1}
+                        let indexFilter;
+                        if (indexValue._id !== undefined) {
+                            indexFilter = { _id: indexValue._id };
+                        } else {
+                            indexFilter = { h: indexValue.h, f: indexValue.f };
+                        }
+                        const result = await factIndexCollection.updateOne(indexFilter, { $set: indexValue }, updateOptions);
                         return {
                             writeError: result.writeErrors,
                             upsertedCount: result.upsertedCount || 0,
@@ -724,6 +781,26 @@ class MongoProvider {
                             f: indexValue.f
                         };
                     } catch (error) {
+                        // Если возникла ошибка дубликата и _id задан, попробуем обновить по _id
+                        if (error.code === 11000 && indexValue._id !== undefined) {
+                            try {
+                                const result = await factIndexCollection.updateOne(
+                                    { _id: indexValue._id },
+                                    { $set: indexValue },
+                                    { ...updateOptions, upsert: false }
+                                );
+                                return {
+                                    writeError: null,
+                                    upsertedCount: 0,
+                                    modifiedCount: result.modifiedCount || 0,
+                                    processingTime: Date.now() - startTime,
+                                    h: indexValue.h,
+                                    f: indexValue.f
+                                };
+                            } catch (retryError) {
+                                this.logger.error(`✗ Ошибка при повторной попытке обновления индексного значения: ${retryError.message}`);
+                            }
+                        }
                         this.logger.error(`✗ Ошибка при обновлении индексного значения: ${error.message}`);
                         return {
                             writeError: error.message,
@@ -895,7 +972,7 @@ class MongoProvider {
      * @param {string} timeFieldName - имя поля даты факта, по которому будут вычисляться счетчики: либо "c" для факта, либо "dt" для индексных значений
      * @returns {Promise<Array>} выражение для вычисления группы счетчиков для факта и типа индексов
      */
-    getFactIndexCountersInfo(fact, timeFieldName = "dt") {
+    getFactIndexCountersInfo(fact, timeFieldName = "dt", factIndexInfos = undefined) {
         if (!this._counterProducer) {
             this.logger.warn('mongoProvider.mongoCounters не заданы. Счетчики будут создаваться по умолчанию.');
             return this.getDefaultFactIndexCountersInfo();
@@ -933,6 +1010,18 @@ class MongoProvider {
             if (config.facts.maxCountersProcessing > 0 && totalCountersCount > config.facts.maxCountersProcessing) {
                 return;
             }
+            const counterFacetStage = this._getCounterFacetStage(counter, timeFieldName, nowDate);
+            if (!counterFacetStage) {
+                // Пропускаем счетчик, если нет условий фильтрации
+                return;
+            }
+            const counterIndexInfo = factIndexInfos?.find(indexInfo => indexInfo.indexTypeName === counter.indexTypeName);
+            if (!counterIndexInfo) {
+                this.logger.warn(`Для счетчика ${counter.name} нет информации о типе индекса.`);
+            }
+            const countersCountForCounter = counterIndexInfo?.countersCount?.filter(counterCount => counterCount.limit <= counter.maxEvaluatedRecords && counterCount.count > 0).sort((a, b) => b.limit - a.limit)[0];
+            const countersCountInGroup = countersCountForCounter?.count ?? 0;
+
             // Вычисление номера группы счетчиков в запросе и названия индекса с номером группы
             //
             if (!countersGroupCount[counter.indexTypeName]) {
@@ -946,7 +1035,14 @@ class MongoProvider {
             }
             countersGroupCount[counter.indexTypeName].countersCount++;
             let groupNumberAlreadyIncremented = false;
-            if (config.facts.maxCountersPerRequest > 0 && countersGroupCount[counter.indexTypeName].countersCount > config.facts.maxCountersPerRequest) {
+            if ((
+                    config.facts.maxCountersPerRequest > 0 
+                    && countersGroupCount[counter.indexTypeName].countersCount > config.facts.maxCountersPerRequest
+                ) || (
+                    countersCountInGroup > 0 
+                    && countersCountInGroup <= countersGroupCount[counter.indexTypeName].countersCount
+            )) {
+                // Если достигнуто максимальное количество счетчиков в группе или для очередного счетчика в группе нет места, то увеличиваем номер группы
                 countersGroupCount[counter.indexTypeName].groupNumber++;
                 groupNumberAlreadyIncremented = true;
                 countersGroupCount[counter.indexTypeName].countersCount = 1;
@@ -970,7 +1066,7 @@ class MongoProvider {
             if (!indexFacetStages[indexTypeNameWithGroupNumber]) {
                 indexFacetStages[indexTypeNameWithGroupNumber] = {};
             }
-            indexFacetStages[indexTypeNameWithGroupNumber][counter.name] = this._getCounterFacetStage(counter, timeFieldName, nowDate);
+            indexFacetStages[indexTypeNameWithGroupNumber][counter.name] = counterFacetStage;
             // Добавление максимального количества записей для группы счетчиков
             if (!indexLimits[indexTypeNameWithGroupNumber]) {
                 indexLimits[indexTypeNameWithGroupNumber] = {
@@ -1674,7 +1770,7 @@ class MongoProvider {
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         // Так как счетчики будут по списку фактов, то используем поле "c", а не "dt"
-        const info = this.getFactIndexCountersInfo(fact, "c");
+        const info = this.getFactIndexCountersInfo(fact, "c", factIndexInfos);
 
         if (!info || !info.indexFacetStages || typeof info.indexFacetStages !== 'object') {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
@@ -1963,7 +2059,7 @@ class MongoProvider {
 
         // Получение выражения для вычисления счетчиков и списка уникальных типов индексов
         // Так как счетчики будут по списку фактов, то используем поле "dt", а не "c"
-        const info = this.getFactIndexCountersInfo(fact, "dt");
+        const info = this.getFactIndexCountersInfo(fact, "dt", factIndexInfos);
 
         if (!info || !info.indexFacetStages || typeof info.indexFacetStages !== 'object') {
             this.logger.warn(`Для указанного факта ${fact?._id} с типом ${fact?.t} нет подходящих счетчиков.`);
