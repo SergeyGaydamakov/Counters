@@ -1,5 +1,7 @@
 const Logger = require('../common/logger');
 const xml2js = require('xml2js');
+const config = require('../common/config');
+const { crc32 } = require('../common/crc32');
 
 const logger = Logger.fromEnv('LOG_LEVEL', 'INFO');
 
@@ -66,21 +68,161 @@ const jsonValidator = (req, res, next) => {
 };
 
 /**
+ * Извлекает MessageTypeId из начала XML строки без полного парсинга
+ * @param {string} xmlData - XML строка
+ * @returns {number|null} - MessageTypeId или null, если не найден
+ */
+function extractMessageTypeIdFromXmlStart(xmlData) {
+    // Ищем паттерн <IRIS ... MessageTypeId="число" ...>
+    // Поддерживаем различные варианты расположения атрибутов
+    const match = xmlData.match(/<IRIS[^>]*MessageTypeId\s*=\s*["'](\d+)["'][^>]*>/i);
+    if (match && match[1]) {
+        const messageTypeId = parseInt(match[1], 10);
+        if (!isNaN(messageTypeId)) {
+            return messageTypeId;
+        }
+    }
+    return null;
+}
+
+/**
+ * Извлекает MessageId из начала XML строки без полного парсинга
+ * @param {string} xmlData - XML строка
+ * @returns {string|null} - MessageId или null, если не найден
+ */
+function extractMessageIdFromXmlStart(xmlData) {
+    // Ищем паттерн <IRIS ... MessageId="значение" ...>
+    // Поддерживаем различные варианты расположения атрибутов
+    const match = xmlData.match(/<IRIS[^>]*MessageId\s*=\s*["']([^"']+)["'][^>]*>/i);
+    if (match && match[1]) {
+        return match[1];
+    }
+    return null;
+}
+
+/**
+ * Проверяет, разрешен ли тип сообщения для обработки
+ * @param {number} messageType - тип сообщения
+ * @returns {boolean} true если тип разрешен, false если нет
+ */
+function isMessageTypeAllowed(messageType) {
+    const allowedTypes = config.messageTypes?.allowedTypes;
+    
+    // Если список не задан, обрабатываем все типы
+    if (!allowedTypes || allowedTypes.length === 0) {
+        return true;
+    }
+    
+    // Проверяем, есть ли тип в списке разрешенных
+    return allowedTypes.includes(messageType);
+}
+
+/**
+ * Создает простой XML ответ для неразрешенных типов сообщений
+ * @param {number} messageTypeId - тип сообщения
+ * @param {string} messageId - ID сообщения
+ * @returns {string} XML строка
+ */
+function createRejectedXmlResponse(messageTypeId, messageId = 'unknown') {
+    const allowedTypes = config.messageTypes?.allowedTypes || [];
+    const allowedTypesStr = allowedTypes.length > 0 ? allowedTypes.join(', ') : 'не заданы';
+    
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<IRIS Version="1" Message="ModelResponse" MessageTypeId="${messageTypeId}" MessageId="${messageId}">
+  <status>Тип сообщения ${messageTypeId} не разрешен для обработки. Обрабатываются только типы сообщений: ${allowedTypesStr}</status>
+</IRIS>`;
+}
+
+/**
+ * Создает простой XML ответ для пропущенных запросов из-за уменьшения трафика
+ * @param {number} messageTypeId - тип сообщения
+ * @param {string} messageId - ID сообщения
+ * @returns {string} XML строка
+ */
+function createTrafficReductionXmlResponse(messageTypeId, messageId = 'unknown') {
+    const factor = config.messageTypes?.irisTrafficReductionFactor || 1;
+    const value = config.messageTypes?.irisTrafficReductionValue || 0;
+    
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<IRIS Version="1" Message="ModelResponse" MessageTypeId="${messageTypeId}" MessageId="${messageId}">
+  <status>Запрос пропущен из-за коэффициента уменьшения трафика ${factor} и значения ${value}</status>
+</IRIS>`;
+}
+
+/**
  * Middleware для парсинга XML запросов для IRIS маршрутов
  * Должен быть размещен ДО express.json()
+ * Включает раннюю фильтрацию по MessageTypeId для ускорения обработки
+ * Проверяет только начало строки без полного парсинга XML
  */
 const irisXmlParser = (req, res, next) => {
     // Проверяем, что это IRIS маршрут и Content-Type XML
     if (req.path.includes('/iris') && req.method === 'POST' && 
         (req.is('application/xml') || req.is('text/xml'))) {
         let data = '';
+        let requestRejected = false;
         
         req.on('data', chunk => {
-            data += chunk;
+            if (!requestRejected) {
+                data += chunk;
+                
+                // Проверяем начало строки, как только получили открывающий тег IRIS с закрывающей скобкой
+                // Это позволяет отбросить запрос максимально быстро, не дожидаясь всего body
+                if (data.includes('<IRIS') && data.includes('>')) {
+                    const messageTypeId = extractMessageTypeIdFromXmlStart(data);
+                    const messageId = extractMessageIdFromXmlStart(data) || 'unknown';
+                    
+                    if (messageTypeId !== null) {
+                        // Проверяем, разрешен ли этот тип сообщения
+                        if (!isMessageTypeAllowed(messageTypeId)) {
+                            requestRejected = true;
+                            
+                            logger.warn(`Тип IRIS сообщения ${messageTypeId} не разрешен для обработки - ранняя фильтрация (проверка начала строки)`, {
+                                allowedTypes: config.messageTypes?.allowedTypes,
+                                messageType: messageTypeId
+                            });
+                            
+                            // Возвращаем простой XML ответ без парсинга XML
+                            res.set('Content-Type', 'application/xml');
+                            res.status(200).send(createRejectedXmlResponse(messageTypeId, messageId));
+                            return;
+                        }
+                        
+                        // Проверяем уменьшение трафика (только если тип разрешен)
+                        if (config.messageTypes?.irisTrafficReductionFactor > 1) {
+                            const messageIdCRC32 = crc32(messageId);
+                            const shouldProcess = (messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor) === config.messageTypes.irisTrafficReductionValue;
+                            
+                            if (!shouldProcess) {
+                                requestRejected = true;
+                                
+                                logger.debug(`IRIS запрос с MessageId ${messageId} пропущен из-за коэффициента уменьшения трафика ${config.messageTypes.irisTrafficReductionFactor} - ранняя фильтрация (проверка начала строки)`, {
+                                    messageId,
+                                    messageTypeId,
+                                    messageIdCRC32,
+                                    remainder: messageIdCRC32 % config.messageTypes.irisTrafficReductionFactor,
+                                    irisTrafficReductionValue: config.messageTypes.irisTrafficReductionValue
+                                });
+                                
+                                // Возвращаем простой XML ответ без парсинга XML
+                                res.set('Content-Type', 'application/xml');
+                                res.status(200).send(createTrafficReductionXmlResponse(messageTypeId, messageId));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
         });
         
         req.on('end', () => {
+            // Если запрос уже был отклонен, ничего не делаем
+            if (requestRejected) {
+                return;
+            }
+            
             try {
+                // Парсим XML только если тип разрешен или не удалось определить тип
                 const parser = new xml2js.Parser({
                     explicitArray: false,
                     mergeAttrs: true,
