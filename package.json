@@ -15,6 +15,7 @@
     "test:mongo": "set LOG_LEVEL=DEBUG && node src/tests/mongoProviderTest.js",
     "test:controller": "set LOG_LEVEL=DEBUG && node src/tests/factControllerTest.js",
     "test:query-worker": "set LOG_LEVEL=DEBUG && node src/tests/queryWorkerTest.js",
+    "test:ipc-serializer": "set LOG_LEVEL=DEBUG && node src/tests/ipcSerializerTest.js",
     "test:query-pool": "set LOG_LEVEL=DEBUG && node src/tests/processPoolManagerTest.js",
     "test:query-dispatcher": "set LOG_LEVEL=DEBUG && node src/tests/queryDispatcherTest.js",
     "test:api": "set LOG_LEVEL=INFO && node src/tests/webTest.js",
@@ -35,6 +36,7 @@
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "mongodb": "^6.20.0",
+    "msgpackr": "^1.9.4",
     "prom-client": "^15.1.3",
     "snappy": "^7.3.3",
     "xml2js": "^0.6.2"

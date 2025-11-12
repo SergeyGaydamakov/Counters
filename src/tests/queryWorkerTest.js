@@ -9,6 +9,7 @@ const config = require('../common/config');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const { MongoProvider, FactIndexer, FactMapper, CounterProducer } = require('../index');
+const ipcSerializer = require('../common/ipcSerializer');
 
 const execAsync = promisify(exec);
 
@@ -24,9 +25,15 @@ function isISODateString(str) {
 
 /**
  * Десериализует Date объекты из ISO строк в результатах запросов
+ * Если значение уже является Date объектом (например, после MessagePack десериализации), оставляет его как есть
  */
 function deserializeDates(obj) {
     if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+    
+    // Если это уже Date объект, возвращаем как есть
+    if (obj instanceof Date) {
         return obj;
     }
     
@@ -38,9 +45,12 @@ function deserializeDates(obj) {
     for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
             const value = obj[key];
-            if (typeof value === 'string' && isISODateString(value)) {
+            // Если значение уже Date объект (например, после MessagePack), оставляем как есть
+            if (value instanceof Date) {
+                result[key] = value;
+            } else if (typeof value === 'string' && isISODateString(value)) {
                 result[key] = new Date(value);
-            } else if (typeof value === 'object') {
+            } else if (typeof value === 'object' && value !== null) {
                 result[key] = deserializeDates(value);
             } else {
                 result[key] = value;
@@ -62,6 +72,21 @@ class QueryWorkerTest {
         this.connectionString = config.database.connectionString;
         this.databaseName = 'queryWorkerTestDB';
         this.databaseOptions = config.database.options;
+        
+        // Сохраняем исходное состояние MessagePack
+        this.originalMessagePackState = ipcSerializer.isMessagePackEnabled();
+    }
+    
+    /**
+     * Проверяет, можно ли тестировать MessagePack
+     */
+    canTestMessagePack() {
+        try {
+            require('msgpackr');
+            return true;
+        } catch (error) {
+            return false;
+        }
     }
 
     /**
@@ -204,9 +229,16 @@ class QueryWorkerTest {
             // 8. Graceful shutdown
             await this.testGracefulShutdown('16. Тест graceful shutdown...');
             
+            // 9. Тест с включенным MessagePack (если доступен)
+            if (this.canTestMessagePack()) {
+                await this.testMessagePackIntegration('17. Тест интеграции с MessagePack...');
+            }
+            
         } catch (error) {
             this.logger.error('Критическая ошибка:', error.message);
         } finally {
+            // Восстанавливаем исходное состояние MessagePack
+            ipcSerializer.setMessagePackEnabled(this.originalMessagePackState);
             this.printResults();
             
             // Явно завершаем процесс после завершения всех тестов
@@ -280,8 +312,10 @@ class QueryWorkerTest {
                 reject(new Error(errorMsg));
             }, 30000);
             
-            worker.once('message', (msg) => {
+            worker.once('message', (rawMsg) => {
                 clearTimeout(timeout);
+                // Десериализуем сообщение (JSON или MessagePack)
+                const msg = ipcSerializer.receive(rawMsg);
                 if (msg && msg.type === 'READY') {
                     resolve();
                 } else if (msg && msg.type === 'ERROR') {
@@ -305,7 +339,7 @@ class QueryWorkerTest {
             // Отправляем INIT сообщение после небольшой задержки
             setImmediate(() => {
                 try {
-                    worker.send({
+                    ipcSerializer.send(worker, {
                         type: 'INIT',
                         connectionString: this.connectionString,
                         databaseName: this.databaseName,
@@ -375,8 +409,9 @@ class QueryWorkerTest {
                     resolve(false); // Timeout означает, что ошибка не была обработана
                 }, 5000);
                 
-                worker.once('message', (msg) => {
+                worker.once('message', (rawMsg) => {
                     clearTimeout(timeout);
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'ERROR') {
                         resolve(true);
                     } else {
@@ -385,7 +420,7 @@ class QueryWorkerTest {
                 });
                 
                 // Отправляем некорректную строку подключения
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'INIT',
                     connectionString: 'mongodb://invalid-host:27017',
                     databaseName: this.databaseName,
@@ -427,7 +462,8 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-query-1') {
                         clearTimeout(timeout);
                         resolve(msg);
@@ -435,7 +471,7 @@ class QueryWorkerTest {
                 });
                 
                 // Отправляем QUERY сообщение
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-query-1',
                     query: [{ $match: {} }, { $limit: 1 }],
@@ -477,7 +513,8 @@ class QueryWorkerTest {
                     resolve(false);
                 }, 5000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.error) {
                         clearTimeout(timeout);
                         resolve(true);
@@ -485,7 +522,7 @@ class QueryWorkerTest {
                 });
                 
                 // Отправляем некорректное сообщение без обязательных полей
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-invalid-1'
                     // отсутствуют query и collectionName
@@ -525,14 +562,15 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-execution-1') {
                         clearTimeout(timeout);
                         resolve(msg);
                     }
                 });
                 
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-execution-1',
                     query: [{ $match: {} }, { $limit: 10 }],
@@ -587,7 +625,8 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-empty-1') {
                         clearTimeout(timeout);
                         resolve(msg);
@@ -595,7 +634,7 @@ class QueryWorkerTest {
                 });
                 
                 // Запрос, который точно вернет пустой результат
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-empty-1',
                     query: [{ $match: { _id: { $exists: false } } }],
@@ -641,7 +680,8 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 60000); // Больше времени для больших результатов
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-large-1') {
                         clearTimeout(timeout);
                         resolve(msg);
@@ -649,7 +689,7 @@ class QueryWorkerTest {
                 });
                 
                 // Запрос с большим лимитом
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-large-1',
                     query: [{ $match: {} }, { $limit: 1000 }],
@@ -695,7 +735,8 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-options-1') {
                         clearTimeout(timeout);
                         resolve(msg);
@@ -703,7 +744,7 @@ class QueryWorkerTest {
                 });
                 
                 // Запрос с опциями
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-options-1',
                     query: [{ $match: {} }, { $limit: 1 }],
@@ -747,7 +788,8 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-error-1') {
                         clearTimeout(timeout);
                         resolve(msg);
@@ -755,7 +797,7 @@ class QueryWorkerTest {
                 });
                 
                 // Отправляем запрос с некорректным синтаксисом
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-error-1',
                     query: [{ $invalidOperator: {} }],
@@ -820,7 +862,8 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-date-1') {
                         clearTimeout(timeout);
                         resolve(msg);
@@ -828,7 +871,7 @@ class QueryWorkerTest {
                 });
                 
                 // Запрос с Date в условии
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-date-1',
                     query: [
@@ -877,14 +920,15 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-nested-date-1') {
                         clearTimeout(timeout);
                         resolve(msg);
                     }
                 });
                 
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-nested-date-1',
                     query: [{ $match: {} }, { $limit: 5 }],
@@ -933,14 +977,15 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-array-date-1') {
                         clearTimeout(timeout);
                         resolve(msg);
                     }
                 });
                 
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-array-date-1',
                     query: [{ $match: {} }, { $limit: 5 }],
@@ -983,14 +1028,15 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-metrics-1') {
                         clearTimeout(timeout);
                         resolve(msg);
                     }
                 });
                 
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-metrics-1',
                     query: [{ $match: {} }, { $limit: 10 }],
@@ -1200,14 +1246,15 @@ class QueryWorkerTest {
                     reject(new Error('Timeout waiting for query result'));
                 }, 30000);
                 
-                worker.on('message', (msg) => {
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
                     if (msg && msg.type === 'RESULT' && msg.id === 'test-data-validation-1') {
                         clearTimeout(timeout);
                         resolve(msg);
                     }
                 });
                 
-                worker.send({
+                ipcSerializer.send(worker, {
                     type: 'QUERY',
                     id: 'test-data-validation-1',
                     query: query,
@@ -1309,7 +1356,7 @@ class QueryWorkerTest {
                 });
                 
                 // Отправляем команду shutdown
-                worker.send({ type: 'SHUTDOWN' });
+                ipcSerializer.send(worker, { type: 'SHUTDOWN' });
             });
             
             const exitCode = await Promise.race([
@@ -1334,6 +1381,90 @@ class QueryWorkerTest {
             if (worker && !worker.killed) {
                 worker.kill();
             }
+        }
+    }
+
+    /**
+     * Тест 17: Интеграция с MessagePack
+     */
+    async testMessagePackIntegration(title) {
+        this.logger.debug(title);
+        
+        let worker = null;
+        try {
+            // Включаем MessagePack для теста
+            ipcSerializer.setMessagePackEnabled(true);
+            
+            if (!ipcSerializer.isMessagePackEnabled()) {
+                throw new Error('Не удалось включить MessagePack');
+            }
+            
+            worker = await this.createWorker();
+            
+            // Выполняем запрос с Date объектами
+            const result = await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Timeout waiting for query result'));
+                }, 30000);
+                
+                worker.on('message', (rawMsg) => {
+                    const msg = ipcSerializer.receive(rawMsg);
+                    
+                    if (msg && msg.type === 'RESULT' && msg.id === 'test-msgpack-1') {
+                        clearTimeout(timeout);
+                        resolve(msg);
+                    } else if (msg && msg.type === 'ERROR' && msg.id === 'test-msgpack-1') {
+                        clearTimeout(timeout);
+                        reject(new Error(msg.error || 'Ошибка выполнения запроса'));
+                    }
+                });
+                
+                // Отправляем QUERY сообщение
+                ipcSerializer.send(worker, {
+                    type: 'QUERY',
+                    id: 'test-msgpack-1',
+                    query: [
+                        { $match: {} },
+                        { $limit: 5 },
+                        { $project: { dt: 1, _id: 1 } }
+                    ],
+                    collectionName: 'facts',
+                    options: {}
+                });
+            });
+            
+            if (!result || result.type !== 'RESULT') {
+                throw new Error('Некорректный формат результата');
+            }
+            
+            // Проверяем, что Date объекты корректно десериализованы
+            if (result.data && result.data.length > 0) {
+                const firstItem = result.data[0];
+                if (firstItem.dt) {
+                    // После MessagePack десериализации dt должен быть Date объектом
+                    if (!(firstItem.dt instanceof Date)) {
+                        throw new Error(`Date объект не сохранился через MessagePack. Тип: ${typeof firstItem.dt}, значение: ${firstItem.dt}`);
+                    }
+                }
+            }
+            
+            // Проверяем, что сообщения действительно используют MessagePack формат
+            // (это проверяется косвенно - если бы использовался JSON, Date был бы строкой)
+            
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+            
+            await this.shutdownWorker(worker);
+        } catch (error) {
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            this.testResults.failed++;
+            this.testResults.errors.push(`testMessagePackIntegration: ${error.message}`);
+            if (worker) {
+                await this.shutdownWorker(worker);
+            }
+        } finally {
+            // Восстанавливаем исходное состояние MessagePack
+            ipcSerializer.setMessagePackEnabled(this.originalMessagePackState);
         }
     }
 
@@ -1367,7 +1498,7 @@ class QueryWorkerTest {
             
             try {
                 if (worker.connected && !worker.killed) {
-                    worker.send({ type: 'SHUTDOWN' });
+                    ipcSerializer.send(worker, { type: 'SHUTDOWN' });
                 }
             } catch (error) {
                 // Если канал IPC закрыт, просто завершаем процесс

@@ -12,6 +12,7 @@
 const { MongoClient } = require('mongodb');
 const Logger = require('../common/logger');
 const config = require('../common/config');
+const ipcSerializer = require('../common/ipcSerializer');
 
 const DEBUG_METRICS_ENABLED = config.logging?.debugMode === true;
 
@@ -144,13 +145,13 @@ async function startQueryWorker() {
             logger.debug(`QueryWorker: ✓ Подключено к базе данных: ${databaseName}`);
             
             // Отправляем подтверждение подключения
-            process.send({ type: 'READY' });
+            ipcSerializer.send(process, { type: 'READY' });
         } catch (error) {
             logger.error(`QueryWorker: ✗ Ошибка подключения к MongoDB: ${error.message}`);
             isConnected = false;
             
             // Отправляем ошибку подключения
-            process.send({ 
+            ipcSerializer.send(process, { 
                 type: 'ERROR', 
                 error: serializeError(error),
                 message: 'Failed to connect to MongoDB'
@@ -237,7 +238,7 @@ async function startQueryWorker() {
      * @param {Object} queryResult - Результат выполнения запроса {result, error, metrics}
      */
     function sendQueryResult(queryId, queryResult) {
-        process.send({
+        ipcSerializer.send(process, {
             type: 'RESULT',
             id: queryId,
             result: queryResult.result,
@@ -247,7 +248,7 @@ async function startQueryWorker() {
     }
     
     function sendBatchResult(batchId, batchResults) {
-        process.send({
+        ipcSerializer.send(process, {
             type: 'RESULT_BATCH',
             batchId,
             results: batchResults
@@ -364,8 +365,11 @@ async function startQueryWorker() {
      * Обработка INIT сообщения от родительского процесса
      * Должен быть установлен ПЕРВЫМ, до обработчика обычных сообщений
      */
-    process.once('message', async (msg) => {
+    process.once('message', async (rawMsg) => {
         try {
+            // Десериализуем INIT сообщение (JSON или MessagePack)
+            const msg = ipcSerializer.receive(rawMsg);
+            
             if (!msg || msg.type !== 'INIT') {
                 throw new Error('Invalid initialization message - expected INIT');
             }
@@ -387,7 +391,7 @@ async function startQueryWorker() {
             await connect();
         } catch (error) {
             logger.error(`QueryWorker: Критическая ошибка инициализации: ${error.message}`);
-            process.send({
+            ipcSerializer.send(process, {
                 type: 'ERROR',
                 error: serializeError(error),
                 message: 'Initialization failed'
@@ -400,8 +404,11 @@ async function startQueryWorker() {
      * Обработка IPC сообщений от родительского процесса (QUERY, SHUTDOWN)
      * Устанавливается после обработчика INIT
      */
-    process.on('message', async (message) => {
+    process.on('message', async (rawMessage) => {
         try {
+            // Десериализуем сообщение (JSON или MessagePack)
+            const message = ipcSerializer.receive(rawMessage);
+            
             // Игнорируем INIT сообщения - они обрабатываются отдельным обработчиком
             if (message && message.type === 'INIT') {
                 return;

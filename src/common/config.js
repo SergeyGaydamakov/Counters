@@ -94,6 +94,13 @@ const config = {
         timeoutMs: parseInt(process.env.QUERY_DISPATCHER_TIMEOUT_MS) || 60000,
     },
 
+    // Настройки IPC (Inter-Process Communication)
+    ipc: {
+        // Использовать MessagePack вместо JSON для сериализации IPC сообщений
+        // MessagePack быстрее и компактнее JSON (примерно +150% скорости, -20-30% размера)
+        useMessagePack: process.env.IPC_USE_MSGPACK === 'true' || true,
+    },
+
     // Настройки фактов
     facts: {
         fieldConfigPath: process.env.MESSAGE_CONFIG_PATH || null,

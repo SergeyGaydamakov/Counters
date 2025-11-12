@@ -8,6 +8,7 @@
 const { fork } = require('child_process');
 const path = require('path');
 const Logger = require('../common/logger');
+const ipcSerializer = require('../common/ipcSerializer');
 
 /**
  * Проверяет, является ли строка ISO 8601 датой
@@ -25,11 +26,17 @@ function isISODateString(str) {
 /**
  * Десериализует Date объекты из ISO строк в результатах запросов
  * Рекурсивно обходит объекты и массивы, преобразуя ISO строки обратно в Date объекты
+ * Если значение уже является Date объектом (например, после MessagePack десериализации), оставляет его как есть
  * @param {*} obj - Объект для десериализации
  * @returns {*} Объект с преобразованными Date объектами
  */
 function deserializeDates(obj) {
     if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+    
+    // Если это уже Date объект, возвращаем как есть
+    if (obj instanceof Date) {
         return obj;
     }
     
@@ -41,9 +48,12 @@ function deserializeDates(obj) {
     for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
             const value = obj[key];
-            if (typeof value === 'string' && isISODateString(value)) {
+            // Если значение уже Date объект (например, после MessagePack), оставляем как есть
+            if (value instanceof Date) {
+                result[key] = value;
+            } else if (typeof value === 'string' && isISODateString(value)) {
                 result[key] = new Date(value);
-            } else if (typeof value === 'object') {
+            } else if (typeof value === 'object' && value !== null) {
                 result[key] = deserializeDates(value);
             } else {
                 result[key] = value;
@@ -226,7 +236,8 @@ class ProcessPoolManager {
                         };
                         
                         worker.on('exit', workerExitHandler);
-                        worker.on('message', (msg) => {
+                        worker.on('message', (rawMsg) => {
+                            const msg = ipcSerializer.receive(rawMsg);
                             if (msg && msg.type === 'RESULT') {
                                 this._handleWorkerResult(msg);
                             } else if (msg && msg.type === 'RESULT_BATCH') {
@@ -268,7 +279,10 @@ class ProcessPoolManager {
                 }
             };
             
-            worker.on('message', messageHandler);
+            worker.on('message', (rawMsg) => {
+                const msg = ipcSerializer.receive(rawMsg);
+                messageHandler(msg);
+            });
             worker.on('error', errorHandler);
             worker.on('exit', exitHandler);
             
@@ -277,7 +291,7 @@ class ProcessPoolManager {
             setImmediate(() => {
                 try {
                     if (worker.connected && !worker.killed && !isResolved) {
-                        worker.send({
+                        ipcSerializer.send(worker, {
                             type: 'INIT',
                             connectionString: this.connectionString,
                             databaseName: this.databaseName,
@@ -527,7 +541,7 @@ class ProcessPoolManager {
                 
                 try {
                     if (worker.process.connected) {
-                        worker.process.send({ type: 'SHUTDOWN' });
+                        ipcSerializer.send(worker.process, { type: 'SHUTDOWN' });
                     } else {
                         clearTimeout(timeout);
                         resolve();
@@ -699,7 +713,7 @@ class ProcessPoolManager {
         }));
 
         try {
-            worker.process.send({
+            ipcSerializer.send(worker.process, {
                 type: 'QUERY_BATCH',
                 batchId,
                 requests: payload
