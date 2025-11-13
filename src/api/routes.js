@@ -710,6 +710,9 @@ function createRoutes(factService) {
                     MessageId: messageId
                 }
             };
+            // Удаляем не нужную информацию, чтобы не логировалось много
+            delete jsonResponse.IRIS.Debug;
+            delete jsonResponse.IRIS.Metrics;
 
             const formattedErrorResponse = formatDatesInObject(errorResponse, 'iso');
             const builder = new xml2js.Builder({

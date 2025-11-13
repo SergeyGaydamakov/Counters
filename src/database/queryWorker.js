@@ -43,6 +43,11 @@ function reviveIsoDates(value) {
     }
 
     if (typeof value === 'object') {
+        // Если это уже Date объект (например, после MessagePack десериализации), оставляем как есть
+        if (value instanceof Date) {
+            return value;
+        }
+        
         const result = {};
         for (const key in value) {
             if (Object.prototype.hasOwnProperty.call(value, key)) {
@@ -186,6 +191,8 @@ async function startQueryWorker() {
         
         const startTime = Date.now();
         const querySize = DEBUG_METRICS_ENABLED ? JSON.stringify(query).length : 0;
+        
+        // Восстанавливаем даты из ISO строк в Date объекты
         const normalizedQuery = reviveIsoDates(query);
         
         try {

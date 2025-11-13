@@ -177,6 +177,31 @@ class ProcessPoolManager {
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc']
             });
             
+            /* 
+            // Если потребуется отладка worker процесса, то раскомментировать следующий блок кода
+
+            // Подключаемся к stdout и stderr worker процесса для отладки
+            if (worker.stdout) {
+                worker.stdout.on('data', (data) => {
+                    const message = data.toString();
+                    // Выводим только отладочные сообщения из worker
+                    if (message.includes('[DEBUG]') || message.includes('QueryWorker:')) {
+                        this.logger.debug(`[Worker ${index} stdout] ${message.trim()}`);
+                    }
+                });
+            }
+            
+            if (worker.stderr) {
+                worker.stderr.on('data', (data) => {
+                    const message = data.toString();
+                    // Выводим все сообщения из stderr worker
+                    if (message.includes('[DEBUG]') || message.includes('QueryWorker:')) {
+                        this.logger.error(`[Worker ${index} stderr] ${message.trim()}`);
+                    }
+                });
+            }
+            */
+           
             const timeout = setTimeout(() => {
                 if (!isResolved) {
                     isResolved = true;

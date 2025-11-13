@@ -38,6 +38,7 @@ class QueryDispatcherTest {
             await this.testParallelExecutionWithErrors('4. Тест параллельного выполнения запросов с ошибками...');
             await this.testDispatcherStats('5. Тест получения статистики диспетчера...');
             await this.testConcurrentExecuteQueries('6. Тест параллельных вызовов executeQueries (race condition protection)...');
+            await this.testDateConditionsInQueries('7. Тест передачи дат в условиях запроса и обратно...');
         } catch (error) {
             this.logger.error(`Критическая ошибка выполнения тестов: ${error.message}`);
         } finally {
@@ -686,6 +687,180 @@ class QueryDispatcherTest {
             this.logger.error(`   ✗ Ошибка: ${error.message}`);
             this.testResults.failed++;
             this.testResults.errors.push(`testConcurrentExecuteQueries: ${error.message}`);
+        } finally {
+            if (dispatcher) {
+                await dispatcher.shutdown();
+            }
+        }
+    }
+
+    async testDateConditionsInQueries(title) {
+        this.logger.debug(title);
+
+        let dispatcher = null;
+        try {
+            const dataset = await this.prepareFactIndexData();
+
+            dispatcher = new QueryDispatcher({
+                workerCount: 2,
+                connectionString: this.connectionString,
+                databaseName: this.databaseName,
+                databaseOptions: this.databaseOptions,
+                defaultTimeoutMs: 30000,
+                logger: this.logger
+            });
+
+            await this.waitForPoolReady(dispatcher.processPoolManager, 2, 12000);
+
+            // Создаем даты для условий запроса
+            // Тестовые данные содержат даты:
+            // - 2024-02-01T08:00:00.000Z
+            // - 2024-02-02T09:30:00.000Z
+            // - 2024-02-03T11:15:00.000Z
+            const startDate = new Date('2024-02-01T07:00:00.000Z'); // До первой даты
+            const endDate = new Date('2024-02-02T10:00:00.000Z'); // После второй даты, до третьей
+
+            // Тест 1: Запрос с диапазоном дат ($gte и $lte)
+            const { results: results1 } = await dispatcher.executeQueries([{
+                id: 'date-range-query',
+                query: [
+                    {
+                        $match: {
+                            dt: {
+                                $gte: startDate,
+                                $lte: endDate
+                            }
+                        }
+                    },
+                    { $sort: { dt: 1 } }
+                ],
+                collectionName: 'factIndex',
+                options: {}
+            }]);
+
+            if (results1.length !== 1) {
+                throw new Error('Должен быть возвращен один результат');
+            }
+
+            const response1 = results1[0];
+            if (response1.error) {
+                throw new Error(`Запрос с диапазоном дат завершился с ошибкой: ${response1.error.message}`);
+            }
+
+            if (!Array.isArray(response1.result)) {
+                throw new Error('Результат должен быть массивом');
+            }
+
+            // Должны вернуться записи с датами 2024-02-01 и 2024-02-02 (в пределах диапазона)
+            if (response1.result.length < 2) {
+                throw new Error(`Ожидалось минимум 2 записи в диапазоне дат, получено: ${response1.result.length}`);
+            }
+
+            // Проверяем, что все даты в результатах десериализованы как Date объекты
+            response1.result.forEach((doc, index) => {
+                if (!(doc.dt instanceof Date)) {
+                    throw new Error(`Поле dt в результате ${index} должно быть десериализовано в Date, получен тип: ${typeof doc.dt}`);
+                }
+            });
+
+            // Проверяем, что даты в результатах соответствуют ожидаемому диапазону
+            const datesInResults = response1.result.map(doc => doc.dt);
+            datesInResults.forEach((date, index) => {
+                if (date < startDate || date > endDate) {
+                    throw new Error(`Дата в результате ${index} (${date.toISOString()}) выходит за пределы диапазона`);
+                }
+            });
+
+            // Тест 2: Запрос с точной датой ($eq)
+            const exactDate = new Date('2024-02-02T09:30:00.000Z');
+            const { results: results2 } = await dispatcher.executeQueries([{
+                id: 'date-exact-query',
+                query: [
+                    {
+                        $match: {
+                            dt: exactDate
+                        }
+                    },
+                    { $limit: 10 }
+                ],
+                collectionName: 'factIndex',
+                options: {}
+            }]);
+
+            if (results2.length !== 1) {
+                throw new Error('Должен быть возвращен один результат для точной даты');
+            }
+
+            const response2 = results2[0];
+            if (response2.error) {
+                throw new Error(`Запрос с точной датой завершился с ошибкой: ${response2.error.message}`);
+            }
+
+            if (!Array.isArray(response2.result) || response2.result.length === 0) {
+                throw new Error('Запрос с точной датой должен вернуть хотя бы одну запись');
+            }
+
+            // Проверяем, что дата в результате десериализована правильно
+            const resultDate = response2.result[0].dt;
+            if (!(resultDate instanceof Date)) {
+                throw new Error('Дата в результате должна быть десериализована в Date объект');
+            }
+
+            // Тест 3: Запрос с несколькими датами в $in
+            const datesIn = [
+                new Date('2024-02-01T08:00:00.000Z'),
+                new Date('2024-02-03T11:15:00.000Z')
+            ];
+
+            const { results: results3 } = await dispatcher.executeQueries([{
+                id: 'date-in-query',
+                query: [
+                    {
+                        $match: {
+                            dt: { $in: datesIn }
+                        }
+                    },
+                    { $sort: { dt: 1 } }
+                ],
+                collectionName: 'factIndex',
+                options: {}
+            }]);
+
+            if (results3.length !== 1) {
+                throw new Error('Должен быть возвращен один результат для $in с датами');
+            }
+
+            const response3 = results3[0];
+            if (response3.error) {
+                throw new Error(`Запрос с $in датами завершился с ошибкой: ${response3.error.message}`);
+            }
+
+            if (!Array.isArray(response3.result) || response3.result.length < 2) {
+                throw new Error('Запрос с $in датами должен вернуть минимум 2 записи');
+            }
+
+            // Проверяем, что все даты десериализованы
+            response3.result.forEach((doc, index) => {
+                if (!(doc.dt instanceof Date)) {
+                    throw new Error(`Поле dt в результате ${index} должно быть Date объектом`);
+                }
+            });
+
+            // Проверяем, что все даты соответствуют ожидаемым
+            const returnedDates = response3.result.map(doc => doc.dt.getTime());
+            const expectedDates = datesIn.map(d => d.getTime());
+            returnedDates.forEach((dateTime, index) => {
+                if (!expectedDates.includes(dateTime)) {
+                    throw new Error(`Дата в результате ${index} (${new Date(dateTime).toISOString()}) не соответствует ожидаемым датам`);
+                }
+            });
+
+            this.testResults.passed++;
+            this.logger.debug('   ✓ Успешно');
+        } catch (error) {
+            this.logger.error(`   ✗ Ошибка: ${error.message}`);
+            this.testResults.failed++;
+            this.testResults.errors.push(`testDateConditionsInQueries: ${error.message}`);
         } finally {
             if (dispatcher) {
                 await dispatcher.shutdown();
